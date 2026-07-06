@@ -1,0 +1,121 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: .
+  # ⚠️ Altere para o nome do seu projeto
+  PROJECT_NAME: ${PROJECT_NAME:-fabrica-template}  # Exemplo: "fabrica-template"
+  COMPOSE_FILE: docker-compose.prod.yml
+
+jobs:
+  deploy:
+    name: 🚀 Deploy ${{ github.event.repository.name }}
+    runs-on: self-hosted
+
+    steps:
+      - name: 📂 Checkout do Código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔄 Atualizar tags Git locais
+        working-directory: ${{ env.APP_DIR }}
+        run: git fetch --force --tags origin
+
+      - name: 🏷️ Definir versão
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            echo "🔁 Rollback para: ${IMAGE_TAG}"
+          else
+            IMAGE_TAG="$(git describe --tags --always 2>/dev/null || echo '')"
+            if [[ -z "${IMAGE_TAG}" ]]; then
+              IMAGE_TAG="v0.1.0-dev-$(git rev-parse --short HEAD)"
+            fi
+            if [[ ! "${IMAGE_TAG}" =~ ^v ]]; then
+              IMAGE_TAG="v0.1.0-dev-${IMAGE_TAG}"
+            fi
+          fi
+
+          echo "✅ APP_VERSION: ${IMAGE_TAG}"
+          echo "APP_VERSION=${IMAGE_TAG}" >> "$GITHUB_ENV"
+
+      - name: 📄 Criar arquivo .env
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          printf '%s\n' "${{ secrets.ENV_FILE }}" \
+            | grep -vE '^(APP_VERSION|APP_ENV)=' > .env
+          {
+            echo "APP_VERSION=${APP_VERSION}"
+            echo "APP_ENV=production"
+          } >> .env
+
+      - name: 🛠️ Validar ambiente e arquivos
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          test -f ${{ env.COMPOSE_FILE }} \
+            || (echo "ERRO: ${{ env.COMPOSE_FILE }} não encontrado" && exit 1)
+          docker compose -f ${{ env.COMPOSE_FILE }} config -q
+
+      - name: 🔁 Rollback — checar imagem local
+        if: ${{ github.event.inputs.image_tag != '' }}
+        run: |
+          IMAGE="${PROJECT_NAME}:${{ github.event.inputs.image_tag }}"
+          if docker image inspect "${IMAGE}" > /dev/null 2>&1; then
+            echo "✅ Imagem local encontrada: ${IMAGE}"
+            echo "SKIP_BUILD=true" >> "$GITHUB_ENV"
+          else
+            echo "⚠️ Imagem ${IMAGE} não encontrada localmente — será feito rebuild"
+            echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: 🏗️ Build da imagem
+        if: ${{ env.SKIP_BUILD != 'true' }}
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          echo "Building ${PROJECT_NAME}:${APP_VERSION}..."
+          docker compose -f ${{ env.COMPOSE_FILE }} build web
+
+      - name: 🐳 Atualizar e subir containers
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          echo "Parando containers existentes..."
+          docker compose -f ${{ env.COMPOSE_FILE }} down --timeout 30
+
+          echo "Iniciando serviços..."
+          # --no-build garante que usa a imagem já buildada no step anterior
+          docker compose -f ${{ env.COMPOSE_FILE }} up -d --remove-orphans --no-build
+
+      - name: 📊 Status final
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          echo "--- Containers Ativos ---"
+          docker compose -f ${{ env.COMPOSE_FILE }} ps
+
+          echo "--- Consumo de Recursos ---"
+          CONTAINER_IDS=$(docker ps -q --filter "label=com.docker.compose.project=${{ env.PROJECT_NAME }}")
+          if [ -n "$CONTAINER_IDS" ]; then
+            docker stats --no-stream $CONTAINER_IDS
+          else
+            echo "Nenhum container encontrado para o projeto ${{ env.PROJECT_NAME }}"
+          fi
+
+      - name: 🧹 Limpeza de imagens antigas
+        if: always()
+        run: |
+          # Mantém as 3 imagens mais recentes, remove o resto
+          docker images ${PROJECT_NAME} --format "{{.Tag}}" \
+            | tail -n +4 \
+            | xargs -r -I {} docker rmi ${PROJECT_NAME}:{} || true
+          docker image prune -f

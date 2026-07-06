@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Node API Template</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        body {
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
+
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+            opacity: 0.4;
+        }
+
+        .glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: var(--accent-glow);
+            filter: blur(120px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .card {
+            position: relative;
+            z-index: 1;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 48px 56px;
+            max-width: 560px;
+            width: 90%;
+            box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.1), 0 32px 64px rgba(0, 0, 0, 0.5);
+            animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--accent-glow);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            color: #a78bfa;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            margin-bottom: 24px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 42px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #e2e8f0 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.7;
+            margin-bottom: 32px;
+        }
+
+        .meta {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-top: 1px solid var(--border);
+            padding-top: 24px;
+        }
+
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .meta-val {
+            color: #a78bfa;
+            background: var(--accent-glow);
+            border: 1px solid rgba(124, 58, 237, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .meta-val.green {
+            color: var(--green);
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .links {
+            margin-top: 20px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .links a {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-grid"></div>
+    <div class="glow"></div>
+    <div class="card">
+        <div class="badge"><span class="dot"></span> online</div>
+        <h1>Olá,<br />Mundo.</h1>
+        <p>Node.js + Express + PostgreSQL rodando com sucesso.<br />
+            Substitua este template com sua aplicação.</p>
+        <div class="meta">
+            <div class="meta-row">
+                <span class="text-muted">versão</span>
+                <span class="meta-val" id="version">—</span>
+            </div>
+            <div class="meta-row">
+                <span class="text-muted">ambiente</span>
+                <span class="meta-val" id="env">—</span>
+            </div>
+            <div class="meta-row">
+                <span class="text-muted">banco</span>
+                <span class="meta-val green" id="db">—</span>
+            </div>
+        </div>
+        <div class="links">
+            <a href="/health">→ /health</a>
+            <a href="/api/hello">→ /api/hello</a>
+        </div>
+    </div>
+    <script src="/js/main.js"></script>
+    <script>
+        fetch('/health')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('version').textContent = data.version;
+                document.getElementById('env').textContent = data.env;
+                document.getElementById('db').textContent = data.db;
+                if (data.env === 'production') {
+                    document.getElementById('env').classList.add('green');
+                }
+            })
+            .catch(() => {
+                document.getElementById('db').textContent = 'erro';
+            });
+    </script>
+</body>
+
+</html>

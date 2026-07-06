@@ -1,0 +1,52 @@
+name: fabrica-template-dev
+
+services:
+  db:
+    container_name: fabrica-template-dev-db # MUDE O NOME DO CONTAINER PARA SEU PROJETO
+    image: postgres:18.3-alpine
+    env_file: .env
+    environment:
+      - PGDATA=/var/lib/postgresql/data
+    volumes:
+      - fabrica_template_dev_db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - node-api-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    container_name: fabrica-template-dev-web # MUDE O NOME DO CONTAINER PARA SEU PROJETO
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - APP_ENV=development
+      - APP_VERSION=dev
+      - POSTGRES_HOST=db
+    volumes:
+      # hot reload — monta o código local no container
+      - .:/app
+      - /app/node_modules
+    networks:
+      - fabrica-template-dev-network
+    restart: unless-stopped
+
+volumes:
+  fabrica_template_dev_db:
+
+
+networks:
+  fabrica-template-dev-network:
+    driver: bridge
