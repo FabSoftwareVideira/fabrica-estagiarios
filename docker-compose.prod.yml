@@ -1,43 +1,43 @@
-name: fabrica-template
+name: fabrica-estagiarios
 
 services:
   db:
-    container_name: fabrica-template-prod-db
+    container_name: fabrica-estagiarios-db
     image: postgres:16-alpine
     env_file: .env
     environment:
       - PGDATA=/var/lib/postgresql/data
     volumes:
-      - fabrica-template_prod_db:/var/lib/postgresql/data
+      - fabrica-estagiarios_prod_db:/var/lib/postgresql/data
     networks:
       - fabrica-network
     restart: always
     deploy:
       resources:
         limits:
-          cpus: '0.75'
+          cpus: "0.75"
           memory: 512M
         reservations:
-          cpus: '0.10'
+          cpus: "0.10"
           memory: 256M
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 3
 
   web:
-    container_name: fabrica-template-prod-web
+    container_name: fabrica-estagiarios-web
     build:
       context: .
       target: prod
       args:
         APP_VERSION: ${APP_VERSION:-latest}
         APP_ENV: production
-    image: fabrica-template:${APP_VERSION}
+    image: fabrica-estagiarios:${APP_VERSION}
     pull_policy: build
-    ports:
-      - "9091:3000" # Escolha uma porta disponível no host. Estou usando 9091 para evitar conflitos comuns.
+    # ports:
+    #   - "9091:3000" # Escolha uma porta disponível no host. Estou usando 9091 para evitar conflitos comuns.
     depends_on:
       db:
         condition: service_healthy
@@ -54,16 +54,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.75'
+          cpus: "0.75"
           memory: 512M
         reservations:
-          cpus: '0.10'
+          cpus: "0.10"
           memory: 128M
 
 volumes:
-  fabrica-template_prod_db:
-
+  fabrica-estagiarios_prod_db:
 
 networks:
   fabrica-network:
-    driver: bridge
+    external: true

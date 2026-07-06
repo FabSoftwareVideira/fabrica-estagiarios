@@ -2,8 +2,8 @@ name: Continuous Deployment
 
 on:
   push:
-    # branches:
-    #   - main
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
 env:
   APP_DIR: .
   # ⚠️ Altere para o nome do seu projeto
-  PROJECT_NAME: ${PROJECT_NAME:-fabrica-template} # Exemplo: "fabrica-template"
+  PROJECT_NAME: fabrica-estagiarios # Exemplo: "fabrica-template"
   COMPOSE_FILE: docker-compose.prod.yml
 
 jobs:
@@ -52,7 +52,7 @@ jobs:
           echo "APP_VERSION=${IMAGE_TAG}" >> "$GITHUB_ENV"
 
       - name: 📄 Criar arquivo .env
-        working-directory: ${{ env.APP_DIR }}
+      working-directory: ${{ env.APP_DIR }}
         run: |
           printf '%s\n' "${{ secrets.ENV_FILE }}" \
             | grep -vE '^(APP_VERSION|APP_ENV)=' > .env
