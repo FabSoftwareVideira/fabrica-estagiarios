@@ -1,27 +1,27 @@
-name: fabrica-template-dev
+name: fabrica-estagiarios-dev
 
 services:
   db:
-    container_name: fabrica-template-dev-db # MUDE O NOME DO CONTAINER PARA SEU PROJETO
+    container_name: fabrica-estagiarios-dev-db # MUDE O NOME DO CONTAINER PARA SEU PROJETO
     image: postgres:18.3-alpine
     env_file: .env
     environment:
       - PGDATA=/var/lib/postgresql/data
     volumes:
-      - fabrica_template_dev_db:/var/lib/postgresql/data
+      - fabrica-estagiarios-dev-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
-      - node-api-network
+      - fabrica-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   web:
-    container_name: fabrica-template-dev-web # MUDE O NOME DO CONTAINER PARA SEU PROJETO
+    container_name: fabrica-estagiarios-dev-web # MUDE O NOME DO CONTAINER PARA SEU PROJETO
     build:
       context: .
       target: dev
@@ -40,13 +40,12 @@ services:
       - .:/app
       - /app/node_modules
     networks:
-      - fabrica-template-dev-network
+      - fabrica-network
     restart: unless-stopped
 
 volumes:
-  fabrica_template_dev_db:
-
+  fabrica-estagiarios-dev-data:
 
 networks:
-  fabrica-template-dev-network:
+  fabrica-network:
     driver: bridge

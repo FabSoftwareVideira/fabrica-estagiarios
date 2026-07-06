@@ -2,10 +2,10 @@ name: Continuous Deployment
 
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
 env:
   APP_DIR: .
   # ⚠️ Altere para o nome do seu projeto
-  PROJECT_NAME: ${PROJECT_NAME:-fabrica-template}  # Exemplo: "fabrica-template"
+  PROJECT_NAME: ${PROJECT_NAME:-fabrica-template} # Exemplo: "fabrica-template"
   COMPOSE_FILE: docker-compose.prod.yml
 
 jobs:
