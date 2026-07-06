@@ -52,7 +52,7 @@ jobs:
           echo "APP_VERSION=${IMAGE_TAG}" >> "$GITHUB_ENV"
 
       - name: 📄 Criar arquivo .env
-      working-directory: ${{ env.APP_DIR }}
+        working-directory: ${{ env.APP_DIR }}
         run: |
           printf '%s\n' "${{ secrets.ENV_FILE }}" \
             | grep -vE '^(APP_VERSION|APP_ENV)=' > .env
