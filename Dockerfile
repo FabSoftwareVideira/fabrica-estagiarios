@@ -17,7 +17,7 @@ RUN npm ci --omit=dev
 
 # ─── prod ─────────────────────────────────────────────────────────────────────
 FROM node:25-alpine AS prod
-ARG APP_VERSION=dev
+ARG APP_VERSION=prod
 ARG APP_ENV=production
 ENV NODE_ENV=production \
     APP_VERSION=${APP_VERSION} \
