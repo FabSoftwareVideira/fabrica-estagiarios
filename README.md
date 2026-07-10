@@ -2,7 +2,7 @@
 
 Template padrão para aplicações Node.js + Express + PostgreSQL com CI/CD via GitHub Actions. Use esse repositório como base para seus projetos, adaptando as rotas, lógica e banco conforme necessário. Siga as instruções abaixo:
 
-> **Nota**: Este template está pronto para ser usado em produção no servidor da Fábrica de Software do IFC Campus Videira. 
+> **Nota**: Este template está pronto para ser usado em produção no servidor da Fábrica de Software do IFC Campus Videira.
 
 ## Stack
 
@@ -16,7 +16,7 @@ Template padrão para aplicações Node.js + Express + PostgreSQL com CI/CD via 
 
 ```bash
 # 1. Copiar variáveis de ambiente
-cp .env.example .env
+cp .env.sample .env
 # Edite .env com suas credenciais
 
 # 2. Subir em modo dev (com hot reload)
@@ -50,11 +50,11 @@ open http://localhost:3000
 
 ## Endpoints
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/` | Página inicial (HTML) |
-| GET | `/health` | Health check com status do banco |
-| GET | `/api/hello` | Exemplo de rota com query no banco |
+| Método | Rota         | Descrição                          |
+| ------ | ------------ | ---------------------------------- |
+| GET    | `/`          | Página inicial (HTML)              |
+| GET    | `/health`    | Health check com status do banco   |
+| GET    | `/api/hello` | Exemplo de rota com query no banco |
 
 ## Adaptar para novo projeto
 
@@ -72,6 +72,7 @@ open http://localhost:3000
 Via GitHub Actions → **Continuous Deployment** → **Run workflow** → informe a tag (ex: `v0.1.5`).
 
 Ou direto no servidor:
+
 ```bash
 sed -i 's/^APP_VERSION=.*/APP_VERSION=v0.1.5/' .env
 docker compose -f docker-compose.prod.yml down

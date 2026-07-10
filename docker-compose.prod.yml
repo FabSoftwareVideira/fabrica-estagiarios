@@ -1,7 +1,7 @@
 name: fabrica-estagiarios
 
 services:
-  db:
+  fabrica-estagiarios-db:
     container_name: fabrica-estagiarios-db
     image: postgres:16-alpine
     env_file: .env
@@ -26,7 +26,7 @@ services:
       timeout: 5s
       retries: 3
 
-  web:
+  fabrica-estagiarios-web:
     container_name: fabrica-estagiarios-web
     build:
       context: .
@@ -39,13 +39,13 @@ services:
     # ports:
     #   - "9091:3000" # Escolha uma porta disponível no host. Estou usando 9091 para evitar conflitos comuns.
     depends_on:
-      db:
+      fabrica-estagiarios-db:
         condition: service_healthy
     env_file: .env
     environment:
       - APP_ENV=production
       - APP_VERSION=${APP_VERSION:-latest}
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=fabrica-estagiarios-db
     labels:
       - org.opencontainers.image.version=${APP_VERSION:-latest}
     networks:
