@@ -41,10 +41,10 @@ jobs:
           else
             IMAGE_TAG="$(git describe --tags --always 2>/dev/null || echo '')"
             if [[ -z "${IMAGE_TAG}" ]]; then
-              IMAGE_TAG="v0.1.0-dev-$(git rev-parse --short HEAD)"
+              IMAGE_TAG="v0.0.1-prod-$(git rev-parse --short HEAD)"
             fi
             if [[ ! "${IMAGE_TAG}" =~ ^v ]]; then
-              IMAGE_TAG="v0.1.0-dev-${IMAGE_TAG}"
+              IMAGE_TAG="v0.0.1-prod-${IMAGE_TAG}"
             fi
           fi
 
