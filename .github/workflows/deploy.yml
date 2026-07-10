@@ -85,7 +85,7 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: |
           echo "Building ${PROJECT_NAME}:${APP_VERSION}..."
-          docker compose -f ${{ env.COMPOSE_FILE }} build web
+          docker compose -f ${{ env.COMPOSE_FILE }} build fabrica-estagiarios-web
 
       - name: 🐳 Atualizar e subir containers
         working-directory: ${{ env.APP_DIR }}
