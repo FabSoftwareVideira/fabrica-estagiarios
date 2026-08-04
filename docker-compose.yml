@@ -9,6 +9,7 @@ services:
       - PGDATA=/var/lib/postgresql/data
     volumes:
       - fabrica-estagiarios-dev-data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     networks:

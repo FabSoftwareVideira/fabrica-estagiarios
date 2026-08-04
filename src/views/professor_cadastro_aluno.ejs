@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aprovar Cadastro de Aluno</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <h2>Aprovar Cadastro de Aluno</h2>
+
+        <div class="card">
+            <h2>Dados da Solicitação</h2>
+            <table>
+                <tr><th>Campo</th><th>Informação</th></tr>
+                <tr><td>Nome</td><td><%= aluno.nome %></td></tr>
+                <tr><td>E-mail</td><td><%= aluno.email %></td></tr>
+                <tr><td>Matrícula</td><td><%= aluno.matricula %></td></tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Definir Estágio</h2>
+            <form action="/professor/cadastro-aluno/<%= aluno.usuario_id %>" method="POST">
+                <label for="supervisor">Supervisor</label>
+                <select id="supervisor" name="supervisor_id" required>
+                    <option value="">Selecione um professor</option>
+                    <% professores.forEach((p) => { %>
+                        <option value="<%= p.id %>"><%= p.nome %></option>
+                    <% }) %>
+                </select>
+
+                <label for="orientador">Orientador</label>
+                <select id="orientador" name="orientador_id" required>
+                    <option value="">Selecione um professor</option>
+                    <% professores.forEach((p) => { %>
+                        <option value="<%= p.id %>"><%= p.nome %></option>
+                    <% }) %>
+                </select>
+
+                <label for="carga">Carga Horária Total</label>
+                <input type="number" id="carga" name="carga_horaria" min="1" placeholder="Ex.: 60" value="60" required>
+
+                <div class="button-group">
+                    <button type="submit" class="btn-success">Aprovar Cadastro</button>
+                    <a href="/professor/dashboard" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

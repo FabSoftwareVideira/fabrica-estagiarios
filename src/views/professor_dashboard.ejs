@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard do Professor</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <h2>Painel do Professor</h2>
+
+        <div class="grid">
+            <div class="info-box"><h3>Lista de Espera</h3><p><%= contagem.lista_espera %></p></div>
+            <div class="info-box"><h3>Em Andamento</h3><p><%= contagem.em_andamento %></p></div>
+            <div class="info-box"><h3>Concluídos</h3><p><%= contagem.concluido %></p></div>
+            <div class="info-box"><h3>Total de Alunos</h3><p><%= contagem.total %></p></div>
+        </div>
+
+        <div class="card">
+            <h2>Lista de Espera</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nome</th><th>Matrícula</th><th>E-mail</th><th>Ações</th></tr></thead>
+                    <tbody>
+                        <% if (listaEspera.length === 0) { %>
+                            <tr><td colspan="4">Nenhuma solicitação pendente.</td></tr>
+                        <% } else { %>
+                            <% listaEspera.forEach((a) => { %>
+                                <tr>
+                                    <td><%= a.nome %></td>
+                                    <td><%= a.matricula %></td>
+                                    <td><%= a.email %></td>
+                                    <td>
+                                        <div class="button-group">
+                                            <a href="/professor/cadastro-aluno/<%= a.usuario_id %>" class="btn">Aprovar</a>
+                                            <form action="/professor/aluno/<%= a.usuario_id %>/arquivar" method="POST">
+                                                <button type="submit" class="btn-secondary">Arquivar</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Alunos em Andamento</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nome</th><th>Supervisor</th><th>Horas</th><th>Status</th><th>Ações</th></tr></thead>
+                    <tbody>
+                        <% if (emAndamento.length === 0) { %>
+                            <tr><td colspan="5">Nenhum aluno em andamento.</td></tr>
+                        <% } else { %>
+                            <% emAndamento.forEach((a) => { %>
+                                <tr>
+                                    <td><%= a.nome %></td>
+                                    <td><%= a.supervisor_nome || '—' %></td>
+                                    <td><%= a.horas_realizadas %> / <%= a.carga_horaria %>h</td>
+                                    <td><span class="status status-progress">Em andamento</span></td>
+                                    <td>
+                                        <div class="button-group">
+                                            <a href="/professor/aluno/<%= a.usuario_id %>" class="btn">Visualizar</a>
+                                            <form action="/professor/aluno/<%= a.usuario_id %>/arquivar" method="POST">
+                                                <button type="submit" class="btn-secondary">Arquivar</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Alunos Concluídos</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nome</th><th>Supervisor</th><th>Horas</th><th>Status</th><th>Ação</th></tr></thead>
+                    <tbody>
+                        <% if (concluidos.length === 0) { %>
+                            <tr><td colspan="5">Nenhum aluno concluído ainda.</td></tr>
+                        <% } else { %>
+                            <% concluidos.forEach((a) => { %>
+                                <tr>
+                                    <td><%= a.nome %></td>
+                                    <td><%= a.supervisor_nome || '—' %></td>
+                                    <td><%= a.horas_realizadas %> / <%= a.carga_horaria %>h</td>
+                                    <td><span class="status status-completed">Concluído</span></td>
+                                    <td><a href="/professor/aluno/<%= a.usuario_id %>" class="btn btn-secondary">Visualizar</a></td>
+                                </tr>
+                            <% }) %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Arquivados</h2>
+            <p>Alunos arquivados ficam fora das listas acima, mas continuam salvos.</p>
+            <br>
+            <a href="/professor/arquivados" class="btn btn-secondary">Ver Alunos Arquivados</a>
+        </div>
+
+        <% if (user.cargo === 'admin') { %>
+            <div class="card">
+                <h2>Administração</h2>
+                <p>Gerencie confirmações, cargos e exclusão de contas de professores.</p>
+                <br>
+                <a href="/professor/professores" class="btn">Lista de Professores</a>
+            </div>
+        <% } %>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

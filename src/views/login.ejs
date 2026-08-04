@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema de Controle de Estágio</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <div class="login-box">
+            <h1>Bem-vindo</h1>
+            <p>Faça login com seu e-mail institucional do IFC.</p>
+
+            <form action="/login" method="POST">
+                <input type="email" name="email" placeholder="seu.nome@ifc.edu.br" required>
+                <input type="password" name="senha" placeholder="Senha" required>
+                <button type="submit" class="btn">Entrar</button>
+            </form>
+
+            <br>
+            <p>Ainda não possui cadastro?</p>
+            <a href="/cadastro" class="btn btn-secondary">Solicitar Cadastro</a>
+        </div>
+
+        <div class="card">
+            <h2>Quem pode acessar?</h2>
+            <ul>
+                <li><strong>Alunos:</strong> contas <strong>@estudantes.ifc.edu.br</strong></li>
+                <li><strong>Professores:</strong> contas <strong>@ifc.edu.br</strong> — o cadastro precisa ser confirmado por um administrador antes do primeiro acesso.</li>
+            </ul>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alunos Arquivados</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <h2>Alunos Arquivados</h2>
+
+        <div class="card">
+            <form action="/professor/arquivados" method="GET" style="flex-direction: row; gap: 10px; flex-wrap: wrap;">
+                <input type="text" name="q" value="<%= busca %>" placeholder="Buscar por nome, matrícula ou e-mail..." style="flex: 1; min-width: 220px;">
+                <button type="submit">Buscar</button>
+                <% if (busca) { %>
+                    <a href="/professor/arquivados" class="btn btn-secondary">Limpar</a>
+                <% } %>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Matrícula</th>
+                            <th>E-mail</th>
+                            <th>Horas Registradas</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (arquivados.length === 0) { %>
+                            <tr><td colspan="5">Nenhum aluno arquivado encontrado.</td></tr>
+                        <% } else { %>
+                            <% arquivados.forEach((a) => { %>
+                                <tr>
+                                    <td><%= a.nome %></td>
+                                    <td><%= a.matricula %></td>
+                                    <td><%= a.email %></td>
+                                    <td><%= a.horas_realizadas %>h</td>
+                                    <td>
+                                        <div class="button-group">
+                                            <a href="/professor/aluno/<%= a.usuario_id %>" class="btn">Visualizar</a>
+
+                                            <form action="/professor/aluno/<%= a.usuario_id %>/desarquivar" method="POST">
+                                                <button type="submit" class="btn-secondary">Desarquivar</button>
+                                            </form>
+
+                                            <% if (user.cargo === 'admin') { %>
+                                                <form action="/professor/aluno/<%= a.usuario_id %>/excluir" method="POST" onsubmit="return confirm('Excluir este aluno definitivamente? Essa ação não pode ser desfeita.');">
+                                                    <button type="submit" class="btn-danger">Excluir Definitivamente</button>
+                                                </form>
+                                            <% } %>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <a href="/professor/dashboard" class="btn btn-secondary">Voltar ao Dashboard</a>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

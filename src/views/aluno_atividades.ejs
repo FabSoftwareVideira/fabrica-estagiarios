@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Atividades</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <h2>Minhas Atividades</h2>
+
+        <div class="grid">
+            <div class="info-box"><h3>Total de Horas</h3><p><%= horasRealizadas %>h</p></div>
+            <div class="info-box"><h3>Carga Horária</h3><p><%= cargaHoraria %>h</p></div>
+            <div class="info-box"><h3>Atividades</h3><p><%= atividades.length %></p></div>
+        </div>
+
+        <div class="card">
+            <h2>Histórico de Atividades</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Data</th><th>Descrição</th><th>Horas</th></tr>
+                    </thead>
+                    <tbody>
+                        <% if (atividades.length === 0) { %>
+                            <tr><td>—</td><td>Nenhuma atividade registrada ainda.</td><td>—</td></tr>
+                        <% } else { %>
+                            <% atividades.forEach((a) => { %>
+                                <tr>
+                                    <td><%= new Date(a.data).toLocaleDateString('pt-BR') %></td>
+                                    <td><%= a.descricao %></td>
+                                    <td><%= a.horas %>h</td>
+                                </tr>
+                            <% }) %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Resumo</h2>
+            <p>Total de atividades cadastradas: <strong><%= atividades.length %></strong></p>
+            <p>Horas registradas: <strong><%= horasRealizadas %>h</strong> de <strong><%= cargaHoraria %>h</strong>.</p>
+            <div class="progress">
+                <div class="progress-bar" data-percent="<%= percentual %>"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Ações</h2>
+            <div class="button-group">
+                <% if (status === 'em_andamento') { %>
+                    <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
+                <% } %>
+                <a href="/aluno/dashboard" class="btn btn-secondary">Voltar ao Dashboard</a>
+            </div>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

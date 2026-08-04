@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Aluno</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <div class="card">
+            <h2>Cadastro de Aluno</h2>
+            <p>
+                Após o envio, sua solicitação ficará na <strong>lista de espera</strong>
+                até ser analisada por um professor responsável.
+            </p>
+            <br>
+
+            <form action="/cadastro/aluno" method="POST">
+                <label for="nome">Nome Completo</label>
+                <input type="text" id="nome" name="nome" placeholder="Digite seu nome completo" required>
+
+                <label for="email">E-mail Institucional</label>
+                <input type="email" id="email" name="email" placeholder="nome@estudantes.ifc.edu.br" required>
+
+                <label for="matricula">Matrícula</label>
+                <input type="text" id="matricula" name="matricula" placeholder="Digite sua matrícula" required>
+
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" name="senha" minlength="6" placeholder="Mínimo de 6 caracteres" required>
+
+                <label for="confirmar_senha">Confirmar Senha</label>
+                <input type="password" id="confirmar_senha" name="confirmar_senha" minlength="6" placeholder="Repita a senha" required>
+
+                <div class="button-group">
+                    <button type="submit">Solicitar Cadastro</button>
+                    <a href="/cadastro" class="btn btn-secondary">Voltar</a>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

@@ -1,12 +1,10 @@
 const router = require('express').Router();
-const path = require('path');
 
 router.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../views/index.html'));
-});
-
-router.get('/about', (req, res) => {
-    res.sendFile(path.join(__dirname, '../views/about.html'));
+    if (req.session.user) {
+        return res.redirect(req.session.user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard');
+    }
+    res.redirect('/login');
 });
 
 module.exports = router;

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Professores</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <h2>Lista de Professores</h2>
+
+        <div class="card">
+            <p class="text-muted">
+                Sua própria conta não aparece nesta lista. Professores recém-cadastrados
+                ficam <strong>pendentes</strong> até serem confirmados por um administrador.
+            </p>
+        </div>
+
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>E-mail</th>
+                            <th>Cargo</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (professores.length === 0) { %>
+                            <tr><td colspan="5">Nenhum outro professor cadastrado.</td></tr>
+                        <% } else { %>
+                            <% professores.forEach((p) => { %>
+                                <tr>
+                                    <td><%= p.nome %></td>
+                                    <td><%= p.email %></td>
+                                    <td>
+                                        <span class="status <%= p.cargo === 'admin' ? 'status-progress' : 'status-waiting' %>">
+                                            <%= p.cargo === 'admin' ? 'Admin' : 'Comum' %>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <% if (p.confirmado) { %>
+                                            <span class="status status-completed">Confirmado</span>
+                                        <% } else { %>
+                                            <span class="status status-waiting">Pendente</span>
+                                        <% } %>
+                                    </td>
+                                    <td>
+                                        <div class="button-group">
+                                            <% if (!p.confirmado) { %>
+                                                <form action="/professor/professores/<%= p.usuario_id %>/confirmar" method="POST">
+                                                    <button type="submit" class="btn-success">Confirmar</button>
+                                                </form>
+                                            <% } %>
+
+                                            <form action="/professor/professores/<%= p.usuario_id %>/cargo" method="POST">
+                                                <input type="hidden" name="cargo" value="<%= p.cargo === 'admin' ? 'comum' : 'admin' %>">
+                                                <button type="submit" class="btn-secondary">
+                                                    <%= p.cargo === 'admin' ? 'Remover Admin' : 'Tornar Admin' %>
+                                                </button>
+                                            </form>
+
+                                            <form action="/professor/professores/<%= p.usuario_id %>/excluir" method="POST" onsubmit="return confirm('Excluir este professor? Essa ação não pode ser desfeita.');">
+                                                <button type="submit" class="btn-danger">Excluir</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <a href="/professor/dashboard" class="btn btn-secondary">Voltar ao Dashboard</a>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>
