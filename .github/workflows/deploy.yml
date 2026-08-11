@@ -61,6 +61,26 @@ jobs:
             echo "APP_ENV=production"
           } >> .env
 
+      - name: 🔎 Checar variáveis obrigatórias do .env
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          # Garante que POSTGRES_USER e POSTGRES_DB existem e não estão vazios.
+          # Sem isso, o healthcheck do Postgres quebra silenciosamente
+          # (pg_isready -U <vazio> -d <vazio> interpreta "-d" como o próprio usuário).
+          missing=0
+          for var in POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB SESSION_SECRET; do
+            value="$(grep -E "^${var}=" .env | cut -d '=' -f2-)"
+            if [[ -z "${value}" ]]; then
+              echo "❌ ${var} está ausente ou vazio no secret ENV_FILE"
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -eq 1 ]]; then
+            echo "Corrija o secret ENV_FILE no GitHub (Settings → Secrets → Actions) antes de continuar."
+            exit 1
+          fi
+          echo "✅ Variáveis obrigatórias presentes no .env"
+
       - name: 🛠️ Validar ambiente e arquivos
         working-directory: ${{ env.APP_DIR }}
         run: |
