@@ -1,7 +1,7 @@
 name: fabrica-estagiarios-dev
 
 services:
-  db:
+  estagiarios-db:
     container_name: fabrica-estagiarios-dev-db # MUDE O NOME DO CONTAINER PARA SEU PROJETO
     image: postgres:18.3-alpine
     env_file: .env
@@ -11,7 +11,7 @@ services:
       - fabrica-estagiarios-dev-data:/var/lib/postgresql/data
       - ./db:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5432:5432"
+      - "15432:5432"
     networks:
       - fabrica-network
     restart: unless-stopped
@@ -21,21 +21,21 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
+  estagiarios-web:
     container_name: fabrica-estagiarios-dev-web # MUDE O NOME DO CONTAINER PARA SEU PROJETO
     build:
       context: .
       target: dev
     ports:
-      - "3000:3000"
+      - "13000:13000"
     depends_on:
-      db:
+      estagiarios-db:
         condition: service_healthy
     env_file: .env
     environment:
       - APP_ENV=development
       - APP_VERSION=dev
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=estagiarios-db
     volumes:
       # hot reload — monta o código local no container
       - .:/app
