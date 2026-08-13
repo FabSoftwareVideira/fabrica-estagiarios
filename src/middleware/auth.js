@@ -73,8 +73,28 @@ async function requireEmAndamento(req, res, next) {
     next();
 }
 
+// bloqueia acesso às rotas de aluno até ele completar a matrícula
+// (o GitHub não fornece isso no OAuth, então pedimos numa telinha à parte
+// logo após o primeiro login)
+async function requireAlunoCompleto(req, res, next) {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
+    if (!aluno) {
+        return res.redirect('/aluno/completar-cadastro');
+    }
+    req.aluno = aluno;
+    next();
+}
+
 function setFlash(req, type, message) {
     req.session.flash = { type, message };
 }
 
-module.exports = { attachUser, requireAuth, requireRole, requireAdmin, requireEmAndamento, setFlash };
+module.exports = {
+    attachUser,
+    requireAuth,
+    requireRole,
+    requireAdmin,
+    requireEmAndamento,
+    requireAlunoCompleto,
+    setFlash,
+};

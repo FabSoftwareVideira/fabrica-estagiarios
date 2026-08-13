@@ -17,8 +17,9 @@
 
         <div class="card">
             <p class="text-muted">
-                Sua própria conta não aparece nesta lista. Professores recém-cadastrados
-                ficam <strong>pendentes</strong> até serem confirmados por um administrador.
+                Sua própria conta não aparece nesta lista. Professores com e-mail
+                @ifc.edu.br entram automaticamente — use os botões abaixo pra promover
+                a admin ou remover acesso.
             </p>
         </div>
 
@@ -30,13 +31,12 @@
                             <th>Nome</th>
                             <th>E-mail</th>
                             <th>Cargo</th>
-                            <th>Status</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% if (professores.length === 0) { %>
-                            <tr><td colspan="5">Nenhum outro professor cadastrado.</td></tr>
+                            <tr><td colspan="4">Nenhum outro professor cadastrado.</td></tr>
                         <% } else { %>
                             <% professores.forEach((p) => { %>
                                 <tr>
@@ -48,20 +48,7 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <% if (p.confirmado) { %>
-                                            <span class="status status-completed">Confirmado</span>
-                                        <% } else { %>
-                                            <span class="status status-waiting">Pendente</span>
-                                        <% } %>
-                                    </td>
-                                    <td>
                                         <div class="button-group">
-                                            <% if (!p.confirmado) { %>
-                                                <form action="/professor/professores/<%= p.usuario_id %>/confirmar" method="POST">
-                                                    <button type="submit" class="btn-success">Confirmar</button>
-                                                </form>
-                                            <% } %>
-
                                             <form action="/professor/professores/<%= p.usuario_id %>/cargo" method="POST">
                                                 <input type="hidden" name="cargo" value="<%= p.cargo === 'admin' ? 'comum' : 'admin' %>">
                                                 <button type="submit" class="btn-secondary">
@@ -69,9 +56,11 @@
                                                 </button>
                                             </form>
 
-                                            <form action="/professor/professores/<%= p.usuario_id %>/excluir" method="POST" onsubmit="return confirm('Excluir este professor? Essa ação não pode ser desfeita.');">
-                                                <button type="submit" class="btn-danger">Excluir</button>
-                                            </form>
+                                            <% if (p.email.toLowerCase() !== ADMIN_PRINCIPAL_EMAIL.toLowerCase()) { %>
+                                                <form action="/professor/professores/<%= p.usuario_id %>/excluir" method="POST" onsubmit="return confirm('Excluir este professor? Essa ação não pode ser desfeita.');">
+                                                    <button type="submit" class="btn-danger">Excluir</button>
+                                                </form>
+                                            <% } %>
                                         </div>
                                     </td>
                                 </tr>

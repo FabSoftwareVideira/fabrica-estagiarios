@@ -1,18 +1,17 @@
 const router = require('express').Router();
-const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const usuarios = require('../models/usuarios');
-const alunos = require('../models/alunos');
 const professores = require('../models/professores');
 const { setFlash } = require('../middleware/auth');
+const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 
-const DOMINIO_ALUNO = '@estudantes.ifc.edu.br';
-const DOMINIO_PROFESSOR = '@ifc.edu.br';
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
 
 function tipoPorEmail(email) {
     const lower = (email || '').toLowerCase();
-    if (lower.endsWith(DOMINIO_ALUNO)) return 'aluno';
-    if (lower.endsWith(DOMINIO_PROFESSOR)) return 'professor';
-    return null;
+    return lower.endsWith(DOMINIO_PROFESSOR) ? 'professor' : 'aluno';
 }
 
 router.get('/login', (req, res) => {
@@ -22,123 +21,116 @@ router.get('/login', (req, res) => {
     res.render('login');
 });
 
-router.post('/login', async (req, res) => {
-    const email = (req.body.email || '').trim().toLowerCase();
-    const senha = req.body.senha || '';
+// Passo 1: manda pro GitHub autorizar
+router.get('/auth/github', (req, res) => {
+    const state = crypto.randomBytes(16).toString('hex');
+    req.session.oauthState = state;
 
-    const usuario = await usuarios.buscarPorEmail(email);
+    const params = new URLSearchParams({
+        client_id: GITHUB_CLIENT_ID,
+        redirect_uri: GITHUB_CALLBACK_URL,
+        scope: 'read:user user:email',
+        state,
+    });
+    res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
+});
 
-    if (!usuario || !(await bcrypt.compare(senha, usuario.senha_hash))) {
-        setFlash(req, 'error', 'E-mail ou senha inválidos.');
+// Passo 2: callback do GitHub — troca o code, busca o perfil/e-mail e loga
+router.get('/auth/github/callback', async (req, res) => {
+    const { code, state } = req.query;
+
+    if (!code || !state || state !== req.session.oauthState) {
+        setFlash(req, 'error', 'Falha na autenticação com o GitHub. Tente novamente.');
         return res.redirect('/login');
     }
+    delete req.session.oauthState;
 
-    let cargo = null;
-    if (usuario.tipo === 'professor') {
-        const professor = await professores.buscarPorUsuarioId(usuario.id);
-        if (!professor || !professor.confirmado) {
-            setFlash(req, 'error', 'Seu cadastro ainda não foi confirmado por um administrador.');
+    try {
+        const tokenResp = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+                client_id: GITHUB_CLIENT_ID,
+                client_secret: GITHUB_CLIENT_SECRET,
+                code,
+                redirect_uri: GITHUB_CALLBACK_URL,
+            }),
+        });
+        const tokenData = await tokenResp.json();
+
+        if (!tokenData.access_token) {
+            console.error('[auth/github/callback] sem access_token:', tokenData);
+            setFlash(req, 'error', 'Não foi possível concluir o login com o GitHub.');
             return res.redirect('/login');
         }
-        cargo = professor.cargo;
-    }
 
-    req.session.user = { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo, cargo };
-    res.redirect(usuario.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard');
-});
+        const authHeaders = {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'fabrica-estagiarios',
+        };
 
-router.get('/cadastro', (req, res) => {
-    res.render('cadastro');
-});
+        const perfilResp = await fetch('https://api.github.com/user', { headers: authHeaders });
+        const perfil = await perfilResp.json();
 
-router.get('/cadastro/aluno', (req, res) => {
-    res.render('cadastro_aluno');
-});
+        // o /user só traz e-mail se for público, então busca a lista completa
+        const emailsResp = await fetch('https://api.github.com/user/emails', { headers: authHeaders });
+        const emails = await emailsResp.json();
+        const emailPrincipal = Array.isArray(emails)
+            ? (emails.find((e) => e.primary && e.verified) || emails.find((e) => e.verified) || emails[0])
+            : null;
 
-router.post('/cadastro/aluno', async (req, res) => {
-    const nome = (req.body.nome || '').trim();
-    const email = (req.body.email || '').trim().toLowerCase();
-    const matricula = (req.body.matricula || '').trim();
-    const { senha, confirmar_senha } = req.body;
-
-    if (!nome || !email || !matricula || !senha) {
-        setFlash(req, 'error', 'Preencha todos os campos.');
-        return res.redirect('/cadastro/aluno');
-    }
-    if (tipoPorEmail(email) !== 'aluno') {
-        setFlash(req, 'error', 'Use seu e-mail institucional de aluno (@estudantes.ifc.edu.br).');
-        return res.redirect('/cadastro/aluno');
-    }
-    if (senha.length < 6) {
-        setFlash(req, 'error', 'A senha deve ter pelo menos 6 caracteres.');
-        return res.redirect('/cadastro/aluno');
-    }
-    if (senha !== confirmar_senha) {
-        setFlash(req, 'error', 'As senhas não coincidem.');
-        return res.redirect('/cadastro/aluno');
-    }
-
-    try {
-        const senhaHash = await bcrypt.hash(senha, 10);
-        const usuario = await usuarios.criar({ nome, email, tipo: 'aluno', senhaHash });
-        await alunos.criar({ usuarioId: usuario.id, matricula });
-
-        setFlash(req, 'success', 'Cadastro enviado! Você entrará na lista de espera até a aprovação de um professor.');
-        res.redirect('/login');
-    } catch (err) {
-        if (err.code === '23505') {
-            setFlash(req, 'error', 'E-mail ou matrícula já cadastrados.');
-        } else {
-            console.error('[cadastro/aluno] erro:', err.message);
-            setFlash(req, 'error', 'Não foi possível concluir o cadastro. Tente novamente.');
+        if (!emailPrincipal || !emailPrincipal.email) {
+            setFlash(req, 'error', 'Sua conta do GitHub precisa ter um e-mail verificado e acessível.');
+            return res.redirect('/login');
         }
-        res.redirect('/cadastro/aluno');
-    }
-});
 
-router.get('/cadastro/professor', (req, res) => {
-    res.render('cadastro_professor');
-});
+        const email = emailPrincipal.email.toLowerCase();
+        const githubId = perfil.id;
+        const nome = perfil.name || perfil.login;
+        const avatarUrl = perfil.avatar_url;
 
-router.post('/cadastro/professor', async (req, res) => {
-    const nome = (req.body.nome || '').trim();
-    const email = (req.body.email || '').trim().toLowerCase();
-    const { senha, confirmar_senha } = req.body;
+        // 1) já existe conta vinculada a esse github_id?
+        let usuario = await usuarios.buscarPorGithubId(githubId);
 
-    if (!nome || !email || !senha) {
-        setFlash(req, 'error', 'Preencha todos os campos.');
-        return res.redirect('/cadastro/professor');
-    }
-    if (tipoPorEmail(email) !== 'professor') {
-        setFlash(req, 'error', 'Use seu e-mail institucional de professor (@ifc.edu.br).');
-        return res.redirect('/cadastro/professor');
-    }
-    if (senha.length < 6) {
-        setFlash(req, 'error', 'A senha deve ter pelo menos 6 caracteres.');
-        return res.redirect('/cadastro/professor');
-    }
-    if (senha !== confirmar_senha) {
-        setFlash(req, 'error', 'As senhas não coincidem.');
-        return res.redirect('/cadastro/professor');
-    }
-
-    try {
-        const senhaHash = await bcrypt.hash(senha, 10);
-        const usuario = await usuarios.criar({ nome, email, tipo: 'professor', senhaHash });
-        // cargo "comum" e não confirmado por padrão -> precisa de aprovação
-        // de um admin na Lista de Professores antes de conseguir logar
-        await professores.criar({ usuarioId: usuario.id, cargo: 'comum', confirmado: false });
-
-        setFlash(req, 'success', 'Cadastro enviado! Aguarde a confirmação de um administrador para poder acessar.');
-        res.redirect('/login');
-    } catch (err) {
-        if (err.code === '23505') {
-            setFlash(req, 'error', 'Já existe um cadastro com esse e-mail.');
-        } else {
-            console.error('[cadastro/professor] erro:', err.message);
-            setFlash(req, 'error', 'Não foi possível concluir o cadastro. Tente novamente.');
+        // 2) senão, existe conta com esse e-mail ainda sem github_id? (ex.: seed do admin)
+        if (!usuario) {
+            const porEmail = await usuarios.buscarPorEmail(email);
+            if (porEmail) {
+                usuario = await usuarios.vincularGithubId(porEmail.id, githubId, avatarUrl);
+            }
         }
-        res.redirect('/cadastro/professor');
+
+        // 3) senão, cria conta nova
+        if (!usuario) {
+            const tipo = tipoPorEmail(email);
+            usuario = await usuarios.criar({ nome, email, tipo, githubId, avatarUrl });
+
+            if (tipo === 'professor') {
+                const ehAdminPrincipal = email === ADMIN_PRINCIPAL_EMAIL.toLowerCase();
+                await professores.criar({ usuarioId: usuario.id, cargo: ehAdminPrincipal ? 'admin' : 'comum' });
+            }
+            // aluno: a linha em "alunos" só é criada em /aluno/completar-cadastro
+            // (precisa da matrícula, que o GitHub não fornece)
+        }
+
+        let cargo = null;
+        if (usuario.tipo === 'professor') {
+            const professor = await professores.buscarPorUsuarioId(usuario.id);
+            cargo = professor ? professor.cargo : 'comum';
+        }
+
+        req.session.user = { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo, cargo };
+
+        if (usuario.tipo === 'professor') {
+            return res.redirect('/professor/dashboard');
+        }
+        // requireAlunoCompleto cuida de redirecionar pra completar-cadastro se faltar matrícula
+        res.redirect('/aluno/dashboard');
+    } catch (err) {
+        console.error('[auth/github/callback] erro:', err.message);
+        setFlash(req, 'error', 'Erro ao autenticar com o GitHub. Tente novamente.');
+        res.redirect('/login');
     }
 });
 

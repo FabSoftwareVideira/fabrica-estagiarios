@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Completar Cadastro</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <div class="login-box">
+            <h1>Falta pouco!</h1>
+            <p>Confirme sua matrícula pra concluir o cadastro.</p>
+
+            <form action="/aluno/completar-cadastro" method="POST">
+                <input type="text" name="matricula" placeholder="Matrícula" required>
+                <button type="submit" class="btn">Concluir Cadastro</button>
+            </form>
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

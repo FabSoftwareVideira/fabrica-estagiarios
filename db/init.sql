@@ -1,10 +1,9 @@
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
 CREATE TABLE IF NOT EXISTS usuarios (
     id            SERIAL PRIMARY KEY,
     nome          VARCHAR(150) NOT NULL,
     email         VARCHAR(150) NOT NULL UNIQUE,
-    senha_hash    VARCHAR(255) NOT NULL,
+    github_id     BIGINT UNIQUE,
+    avatar_url    TEXT,
     tipo          VARCHAR(20)  NOT NULL CHECK (tipo IN ('aluno', 'professor')),
     criado_em     TIMESTAMP    NOT NULL DEFAULT NOW()
 );
@@ -12,7 +11,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE TABLE IF NOT EXISTS professores (
     usuario_id  INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
     cargo       VARCHAR(20) NOT NULL DEFAULT 'comum' CHECK (cargo IN ('comum', 'admin')),
-    confirmado  BOOLEAN NOT NULL DEFAULT false,
     criado_em   TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -41,12 +39,13 @@ CREATE INDEX IF NOT EXISTS idx_atividades_aluno ON atividades(aluno_id);
 CREATE INDEX IF NOT EXISTS idx_alunos_status ON alunos(status);
 CREATE INDEX IF NOT EXISTS idx_alunos_arquivado ON alunos(arquivado);
 
--- conta admin inicial (troque a senha assim que possível em produção)
--- login: admin@ifc.edu.br / senha: admin@#$%
-INSERT INTO usuarios (nome, email, tipo, senha_hash) VALUES
-    ('Administrador', 'admin@ifc.edu.br', 'professor', crypt('admin@#$%', gen_salt('bf')))
+-- Admin principal: cadastro é criado sem github_id (é preenchido
+-- automaticamente no primeiro login dele via GitHub, casando pelo e-mail).
+-- Essa conta nunca pode ser excluída pelo painel (ver src/routes/professor.js).
+INSERT INTO usuarios (nome, email, tipo) VALUES
+    ('Fabricio Bizotto', 'fabricio.bizotto@ifc.edu.br', 'professor')
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO professores (usuario_id, cargo, confirmado)
-SELECT id, 'admin', true FROM usuarios WHERE email = 'admin@ifc.edu.br'
+INSERT INTO professores (usuario_id, cargo)
+SELECT id, 'admin' FROM usuarios WHERE email = 'fabricio.bizotto@ifc.edu.br'
 ON CONFLICT (usuario_id) DO NOTHING;

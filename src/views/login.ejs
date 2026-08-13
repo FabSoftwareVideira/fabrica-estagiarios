@@ -15,24 +15,16 @@
 
         <div class="login-box">
             <h1>Bem-vindo</h1>
-            <p>Faça login com seu e-mail institucional do IFC.</p>
+            <p>Entre com sua conta do GitHub. Se for seu primeiro acesso, sua conta é criada automaticamente.</p>
 
-            <form action="/login" method="POST">
-                <input type="email" name="email" placeholder="seu.nome@ifc.edu.br" required>
-                <input type="password" name="senha" placeholder="Senha" required>
-                <button type="submit" class="btn">Entrar</button>
-            </form>
-
-            <br>
-            <p>Ainda não possui cadastro?</p>
-            <a href="/cadastro" class="btn btn-secondary">Solicitar Cadastro</a>
+            <a href="/auth/github" class="btn">Entrar com GitHub</a>
         </div>
 
         <div class="card">
-            <h2>Quem pode acessar?</h2>
+            <h2>Como funciona o acesso?</h2>
             <ul>
-                <li><strong>Alunos:</strong> contas <strong>@estudantes.ifc.edu.br</strong></li>
-                <li><strong>Professores:</strong> contas <strong>@ifc.edu.br</strong> — o cadastro precisa ser confirmado por um administrador antes do primeiro acesso.</li>
+                <li><strong>Professores:</strong> e-mail <strong>@ifc.edu.br</strong> associado à conta do GitHub — acesso imediato.</li>
+                <li><strong>Alunos:</strong> qualquer outro e-mail — após o primeiro login, você completa a matrícula e entra na lista de espera até a aprovação de um professor.</li>
             </ul>
         </div>
     </main>

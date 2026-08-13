@@ -1,9 +1,40 @@
 const router = require('express').Router();
-const { requireRole, requireEmAndamento, setFlash } = require('../middleware/auth');
+const { requireRole, requireEmAndamento, requireAlunoCompleto, setFlash } = require('../middleware/auth');
 const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 
 router.use(requireRole('aluno'));
+
+// completar-cadastro fica ANTES do requireAlunoCompleto de propósito:
+// é justamente a rota que resolve a pendência dele.
+router.get('/completar-cadastro', async (req, res) => {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
+    if (aluno) return res.redirect('/aluno/dashboard'); // já completou, não deixa preencher de novo
+    res.render('aluno_completar_cadastro');
+});
+
+router.post('/completar-cadastro', async (req, res) => {
+    const matricula = (req.body.matricula || '').trim();
+    if (!matricula) {
+        setFlash(req, 'error', 'Informe sua matrícula.');
+        return res.redirect('/aluno/completar-cadastro');
+    }
+    try {
+        await alunosModel.criar({ usuarioId: req.session.user.id, matricula });
+        setFlash(req, 'success', 'Cadastro concluído! Você entrará na lista de espera até a aprovação de um professor.');
+        res.redirect('/aluno/dashboard');
+    } catch (err) {
+        if (err.code === '23505') {
+            setFlash(req, 'error', 'Essa matrícula já está cadastrada.');
+        } else {
+            console.error('[aluno/completar-cadastro] erro:', err.message);
+            setFlash(req, 'error', 'Não foi possível concluir o cadastro. Tente novamente.');
+        }
+        res.redirect('/aluno/completar-cadastro');
+    }
+});
+
+router.use(requireAlunoCompleto);
 
 router.get('/dashboard', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);

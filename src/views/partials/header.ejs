@@ -10,7 +10,6 @@
         <nav class="main-nav">
             <% if (!user) { %>
                 <a href="/login">Login</a>
-                <a href="/cadastro">Cadastro</a>
             <% } else if (user.tipo === 'aluno') { %>
                 <a href="/aluno/dashboard">Dashboard</a>
                 <a href="/aluno/atividades">Atividades</a>

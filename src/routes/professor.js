@@ -4,6 +4,7 @@ const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
+const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 
 router.use(requireRole('professor'));
 
@@ -126,16 +127,7 @@ router.post('/aluno/:id/excluir', requireAdmin, async (req, res) => {
 
 router.get('/professores', requireAdmin, async (req, res) => {
     const lista = await professoresModel.listarExceto(req.session.user.id);
-    res.render('professor_lista', { professores: lista });
-});
-
-router.post('/professores/:id/confirmar', requireAdmin, async (req, res) => {
-    if (Number(req.params.id) === req.session.user.id) {
-        return res.redirect('/professor/professores');
-    }
-    await professoresModel.confirmar(req.params.id);
-    setFlash(req, 'success', 'Professor confirmado com sucesso.');
-    res.redirect('/professor/professores');
+    res.render('professor_lista', { professores: lista, ADMIN_PRINCIPAL_EMAIL });
 });
 
 router.post('/professores/:id/cargo', requireAdmin, async (req, res) => {
@@ -153,6 +145,13 @@ router.post('/professores/:id/excluir', requireAdmin, async (req, res) => {
         setFlash(req, 'error', 'Você não pode excluir a própria conta.');
         return res.redirect('/professor/professores');
     }
+
+    const alvo = await professoresModel.buscarPorUsuarioId(req.params.id);
+    if (alvo && alvo.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase()) {
+        setFlash(req, 'error', 'Esta conta é o administrador principal e não pode ser excluída.');
+        return res.redirect('/professor/professores');
+    }
+
     await professoresModel.excluir(req.params.id);
     setFlash(req, 'success', 'Professor excluído com sucesso.');
     res.redirect('/professor/professores');
