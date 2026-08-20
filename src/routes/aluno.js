@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { requireRole, requireEmAndamento, requireAlunoCompleto, setFlash } = require('../middleware/auth');
 const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
+const usuariosModel = require('../models/usuarios');
 
 router.use(requireRole('aluno'));
 
@@ -10,16 +11,22 @@ router.use(requireRole('aluno'));
 router.get('/completar-cadastro', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
     if (aluno) return res.redirect('/aluno/dashboard'); // já completou, não deixa preencher de novo
-    res.render('aluno_completar_cadastro');
+    res.render('aluno_completar_cadastro', { nomeAtual: req.session.user.nome });
 });
 
 router.post('/completar-cadastro', async (req, res) => {
     const matricula = (req.body.matricula || '').trim();
-    if (!matricula) {
-        setFlash(req, 'error', 'Informe sua matrícula.');
+    const nome = (req.body.nome || '').trim();
+    if (!matricula || !nome) {
+        setFlash(req, 'error', 'Informe seu nome completo e sua matrícula.');
         return res.redirect('/aluno/completar-cadastro');
     }
     try {
+        // o GitHub nem sempre devolve o nome completo (às vezes só o primeiro
+        // nome/login), então aproveitamos essa telinha pra confirmar/corrigir
+        await usuariosModel.confirmarNome(req.session.user.id, nome);
+        req.session.user.nome = nome;
+
         await alunosModel.criar({ usuarioId: req.session.user.id, matricula });
         setFlash(req, 'success', 'Cadastro concluído! Você entrará na lista de espera até a aprovação de um professor.');
         res.redirect('/aluno/dashboard');

@@ -27,6 +27,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // impede supervisor e orientador de serem o mesmo professor
+    // (checagem "de verdade" fica no servidor, isso aqui é só feedback rápido)
+    const supervisorSelect = document.getElementById('supervisor');
+    const orientadorSelect = document.getElementById('orientador');
+
+    if (supervisorSelect && orientadorSelect) {
+        const form = supervisorSelect.closest('form');
+
+        const validarMesmoProfessor = () => {
+            const mesmo = supervisorSelect.value && supervisorSelect.value === orientadorSelect.value;
+            orientadorSelect.setCustomValidity(mesmo ? 'Supervisor e orientador não podem ser o mesmo professor.' : '');
+            return !mesmo;
+        };
+
+        supervisorSelect.addEventListener('change', validarMesmoProfessor);
+        orientadorSelect.addEventListener('change', validarMesmoProfessor);
+
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                // botões secundários (ex.: "Arquivar") não devem ser bloqueados por essa checagem
+                const submitter = e.submitter;
+                if (submitter && submitter.formNoValidate) return;
+
+                if (!validarMesmoProfessor()) {
+                    e.preventDefault();
+                    orientadorSelect.reportValidity();
+                }
+            });
+        }
+    }
+
     // anima a barra de progresso (evita ela já nascer preenchida sem transição)
     document.querySelectorAll('.progress-bar[data-percent]').forEach((bar) => {
         const percent = bar.dataset.percent;

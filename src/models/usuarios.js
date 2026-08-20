@@ -10,6 +10,11 @@ async function buscarPorGithubId(githubId) {
     return rows[0] || null;
 }
 
+async function buscarPorId(id) {
+    const { rows } = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
+    return rows[0] || null;
+}
+
 async function criar({ nome, email, tipo, githubId, avatarUrl }) {
     const { rows } = await pool.query(
         `INSERT INTO usuarios (nome, email, tipo, github_id, avatar_url) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
@@ -35,4 +40,23 @@ async function listarProfessores() {
     return rows;
 }
 
-module.exports = { buscarPorEmail, buscarPorGithubId, criar, vincularGithubId, listarProfessores };
+// o GitHub às vezes só devolve o primeiro nome (ou o "login") no perfil,
+// então pedimos confirmação/edição do nome completo no primeiro acesso —
+// tanto pra aluno (junto da matrícula) quanto pra professor (tela própria)
+async function confirmarNome(usuarioId, nome) {
+    const { rows } = await pool.query(
+        `UPDATE usuarios SET nome = $2, nome_confirmado = true WHERE id = $1 RETURNING *`,
+        [usuarioId, nome]
+    );
+    return rows[0];
+}
+
+module.exports = {
+    buscarPorEmail,
+    buscarPorGithubId,
+    buscarPorId,
+    criar,
+    vincularGithubId,
+    listarProfessores,
+    confirmarNome,
+};

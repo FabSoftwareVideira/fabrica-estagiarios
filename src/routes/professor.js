@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { requireRole, requireAdmin, setFlash } = require('../middleware/auth');
+const { requireRole, requireAdmin, requireNomeConfirmado, setFlash } = require('../middleware/auth');
 const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
@@ -7,6 +7,28 @@ const professoresModel = require('../models/professores');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 
 router.use(requireRole('professor'));
+
+// completar-cadastro fica ANTES do requireNomeConfirmado de propósito:
+// é justamente a rota que resolve a pendência (nome incompleto vindo do GitHub).
+router.get('/completar-cadastro', async (req, res) => {
+    const usuario = await usuariosModel.buscarPorId(req.session.user.id);
+    if (usuario && usuario.nome_confirmado) return res.redirect('/professor/dashboard');
+    res.render('professor_completar_cadastro', { nomeAtual: usuario ? usuario.nome : '' });
+});
+
+router.post('/completar-cadastro', async (req, res) => {
+    const nome = (req.body.nome || '').trim();
+    if (!nome) {
+        setFlash(req, 'error', 'Informe seu nome completo.');
+        return res.redirect('/professor/completar-cadastro');
+    }
+    const usuario = await usuariosModel.confirmarNome(req.session.user.id, nome);
+    req.session.user.nome = usuario.nome;
+    setFlash(req, 'success', 'Nome confirmado com sucesso.');
+    res.redirect('/professor/dashboard');
+});
+
+router.use(requireNomeConfirmado);
 
 router.get('/dashboard', async (req, res) => {
     const [listaEspera, emAndamento, concluidos, contagem] = await Promise.all([
@@ -47,6 +69,11 @@ router.post('/aluno/:id', async (req, res) => {
 
     const { status, supervisor_id, orientador_id, carga_horaria } = req.body;
 
+    if (supervisor_id && orientador_id && supervisor_id === orientador_id) {
+        setFlash(req, 'error', 'Supervisor e orientador não podem ser o mesmo professor.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
     await alunosModel.atualizarEstagio(req.params.id, {
         status,
         supervisorId: supervisor_id || null,
@@ -74,6 +101,11 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
 
     if (!supervisor_id || !orientador_id || !carga_horaria) {
         setFlash(req, 'error', 'Preencha supervisor, orientador e carga horária.');
+        return res.redirect('/professor/cadastro-aluno/' + req.params.id);
+    }
+
+    if (supervisor_id === orientador_id) {
+        setFlash(req, 'error', 'Supervisor e orientador não podem ser o mesmo professor.');
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 

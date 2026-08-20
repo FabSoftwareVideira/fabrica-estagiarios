@@ -3,6 +3,7 @@
 // src/routes/auth.js após login local (e-mail + senha).
 
 const alunosModel = require('../models/alunos');
+const usuariosModel = require('../models/usuarios');
 
 async function attachUser(req, res, next) {
     res.locals.user = req.session.user || null;
@@ -85,6 +86,16 @@ async function requireAlunoCompleto(req, res, next) {
     next();
 }
 
+// bloqueia o professor até ele confirmar/editar o nome completo (o GitHub
+// pode ter devolvido só o primeiro nome/login no login inicial)
+async function requireNomeConfirmado(req, res, next) {
+    const usuario = await usuariosModel.buscarPorId(req.session.user.id);
+    if (!usuario || !usuario.nome_confirmado) {
+        return res.redirect('/professor/completar-cadastro');
+    }
+    next();
+}
+
 function setFlash(req, type, message) {
     req.session.flash = { type, message };
 }
@@ -96,5 +107,6 @@ module.exports = {
     requireAdmin,
     requireEmAndamento,
     requireAlunoCompleto,
+    requireNomeConfirmado,
     setFlash,
 };

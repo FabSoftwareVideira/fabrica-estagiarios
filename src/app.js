@@ -1,10 +1,19 @@
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const { pool } = require('./config/database');
 const { attachUser } = require('./middleware/auth');
 
 const app = express();
+
+const isProd = process.env.APP_ENV === 'production';
+
+// necessário pra cookie "secure" funcionar corretamente atrás de um reverse
+// proxy (nginx/traefik) que faz o TLS termination em produção
+if (isProd) {
+    app.set('trust proxy', 1);
+}
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -15,11 +24,24 @@ app.use(express.urlencoded({ extended: true }));
 // Arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Sessão persistida no Postgres (mesmo banco da aplicação) em vez do
+// MemoryStore padrão do express-session. O MemoryStore some a cada restart
+// do container/processo — e como o login com GitHub depende da sessão
+// sobreviver entre "/auth/github" (onde o "state" é salvo) e
+// "/auth/github/callback" (onde ele é conferido), qualquer restart/deploy
+// bem no meio desse intervalo derruba o "state" e a autenticação falha com
+// "tente novamente" — o que casa com o comportamento relatado (falha na
+// primeira tentativa, funciona ao tentar de novo).
 app.use(session({
+    store: new pgSession({ pool, tableName: 'session', createTableIfMissing: true }),
     secret: process.env.SESSION_SECRET || 'dev-secret-troque-em-producao',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 1000 * 60 * 60 * 8 }, // 8h
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 8, // 8h
+        sameSite: 'lax',
+        secure: isProd,
+    },
 }));
 
 app.use(attachUser);

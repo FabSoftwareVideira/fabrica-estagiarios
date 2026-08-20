@@ -32,7 +32,18 @@ router.get('/auth/github', (req, res) => {
         scope: 'read:user user:email',
         state,
     });
-    res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
+
+    // salva a sessão explicitamente ANTES do redirect pro GitHub — evita
+    // qualquer corrida entre o "state" ser gravado no store e o navegador
+    // já estar saindo do nosso domínio
+    req.session.save((err) => {
+        if (err) {
+            console.error('[auth/github] erro ao salvar sessão:', err.message);
+            setFlash(req, 'error', 'Não foi possível iniciar o login com o GitHub. Tente novamente.');
+            return res.redirect('/login');
+        }
+        res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
+    });
 });
 
 // Passo 2: callback do GitHub — troca o code, busca o perfil/e-mail e loga
@@ -40,6 +51,14 @@ router.get('/auth/github/callback', async (req, res) => {
     const { code, state } = req.query;
 
     if (!code || !state || state !== req.session.oauthState) {
+        // log com contexto pra diagnosticar caso volte a acontecer: se
+        // "temOauthState" vier false, a sessão da etapa 1 não sobreviveu
+        // até aqui (store/cookie); se vier true, o "state" veio divergente.
+        console.warn('[auth/github/callback] state inválido', {
+            temCode: Boolean(code),
+            temState: Boolean(state),
+            temOauthState: Boolean(req.session.oauthState),
+        });
         setFlash(req, 'error', 'Falha na autenticação com o GitHub. Tente novamente.');
         return res.redirect('/login');
     }
