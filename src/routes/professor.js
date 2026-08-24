@@ -99,20 +99,22 @@ router.get('/cadastro-aluno/:id', async (req, res) => {
 router.post('/cadastro-aluno/:id', async (req, res) => {
     const { supervisor_id, orientador_id, carga_horaria } = req.body;
 
-    if (!supervisor_id || !orientador_id || !carga_horaria) {
-        setFlash(req, 'error', 'Preencha supervisor, orientador e carga horária.');
+    if (!carga_horaria) {
+        setFlash(req, 'error', 'Preencha a carga horária.');
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
-    if (supervisor_id === orientador_id) {
+    // supervisor e orientador podem ficar em branco aqui e ser
+    // definidos/trocados depois na tela de editar aluno
+    if (supervisor_id && orientador_id && supervisor_id === orientador_id) {
         setFlash(req, 'error', 'Supervisor e orientador não podem ser o mesmo professor.');
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
     await alunosModel.atualizarEstagio(req.params.id, {
         status: 'em_andamento',
-        supervisorId: supervisor_id,
-        orientadorId: orientador_id,
+        supervisorId: supervisor_id || null,
+        orientadorId: orientador_id || null,
         cargaHoraria: Number(carga_horaria),
     });
 

@@ -28,16 +28,16 @@
         <div class="card">
             <h2>Definir Estágio</h2>
             <form action="/professor/cadastro-aluno/<%= aluno.usuario_id %>" method="POST">
-                <label for="supervisor">Supervisor</label>
-                <select id="supervisor" name="supervisor_id" required>
+                <label for="supervisor">Supervisor <span class="text-muted">(opcional — pode definir depois)</span></label>
+                <select id="supervisor" name="supervisor_id">
                     <option value="">Selecione um professor</option>
                     <% professores.forEach((p) => { %>
                         <option value="<%= p.id %>"><%= p.nome %></option>
                     <% }) %>
                 </select>
 
-                <label for="orientador">Orientador</label>
-                <select id="orientador" name="orientador_id" required>
+                <label for="orientador">Orientador <span class="text-muted">(opcional — pode definir depois)</span></label>
+                <select id="orientador" name="orientador_id">
                     <option value="">Selecione um professor</option>
                     <% professores.forEach((p) => { %>
                         <option value="<%= p.id %>"><%= p.nome %></option>
