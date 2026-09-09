@@ -9,6 +9,13 @@ const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
 
+// janela de "debounce" pro state: se já tem um oauthState recente na sessão,
+// reaproveita em vez de gerar outro — evita que um prefetch especulativo do
+// navegador (hover no link, <link rel="prefetch">, extensões) sobrescreva o
+// state entre a requisição fantasma e o clique real, causando "state !== req.session.oauthState"
+// no callback mesmo com a sessão intacta
+const OAUTH_STATE_DEBOUNCE_MS = 5000;
+
 function tipoPorEmail(email) {
     const lower = (email || '').toLowerCase();
     return lower.endsWith(DOMINIO_PROFESSOR) ? 'professor' : 'aluno';
@@ -23,8 +30,18 @@ router.get('/login', (req, res) => {
 
 // Passo 1: manda pro GitHub autorizar
 router.get('/auth/github', (req, res) => {
-    const state = crypto.randomBytes(16).toString('hex');
+    const agora = Date.now();
+    const temStateFresco = req.session.oauthState
+        && req.session.oauthStateTs
+        && (agora - req.session.oauthStateTs) < OAUTH_STATE_DEBOUNCE_MS;
+
+    // reaproveita o state existente em vez de gerar um novo — se essa
+    // requisição for um prefetch e o clique real vier logo em seguida (ou
+    // vice-versa), as duas vão concordar sobre qual state está valendo
+    const state = temStateFresco ? req.session.oauthState : crypto.randomBytes(16).toString('hex');
+
     req.session.oauthState = state;
+    req.session.oauthStateTs = agora;
 
     const params = new URLSearchParams({
         client_id: GITHUB_CLIENT_ID,
@@ -53,7 +70,11 @@ router.get('/auth/github/callback', async (req, res) => {
     if (!code || !state || state !== req.session.oauthState) {
         // log com contexto pra diagnosticar caso volte a acontecer: se
         // "temOauthState" vier false, a sessão da etapa 1 não sobreviveu
-        // até aqui (store/cookie); se vier true, o "state" veio divergente.
+        // até aqui (store/cookie — checar host/domínio do GITHUB_CALLBACK_URL
+        // vs. host onde a sessão foi criada, e trust proxy se houver TLS
+        // terminando antes do Node); se vier true, o "state" divergiu
+        // (deve ter sido corrigido pelo debounce acima, mas o log fica
+        // aqui como rede de segurança pra outros casos)
         console.warn('[auth/github/callback] state inválido', {
             temCode: Boolean(code),
             temState: Boolean(state),
@@ -63,6 +84,7 @@ router.get('/auth/github/callback', async (req, res) => {
         return res.redirect('/login');
     }
     delete req.session.oauthState;
+    delete req.session.oauthStateTs;
 
     try {
         const tokenResp = await fetch('https://github.com/login/oauth/access_token', {
