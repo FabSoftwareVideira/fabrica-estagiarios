@@ -297,6 +297,7 @@ button,
   border-radius: 10px;
   cursor: pointer;
   text-decoration: none;
+  margin-top: 8px;
   font-size: 15px;
   font-weight: 600;
   transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
