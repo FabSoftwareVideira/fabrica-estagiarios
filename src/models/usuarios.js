@@ -10,15 +10,20 @@ async function buscarPorGithubId(githubId) {
     return rows[0] || null;
 }
 
+async function buscarPorGoogleId(googleId) {
+    const { rows } = await pool.query('SELECT * FROM usuarios WHERE google_id = $1', [googleId]);
+    return rows[0] || null;
+}
+
 async function buscarPorId(id) {
     const { rows } = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
     return rows[0] || null;
 }
 
-async function criar({ nome, email, tipo, githubId, avatarUrl }) {
+async function criar({ nome, email, tipo, githubId, googleId, avatarUrl }) {
     const { rows } = await pool.query(
-        `INSERT INTO usuarios (nome, email, tipo, github_id, avatar_url) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [nome, email, tipo, githubId, avatarUrl]
+        `INSERT INTO usuarios (nome, email, tipo, github_id, google_id, avatar_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [nome, email, tipo, githubId, googleId, avatarUrl]
     );
     return rows[0];
 }
@@ -29,6 +34,14 @@ async function vincularGithubId(usuarioId, githubId, avatarUrl) {
     const { rows } = await pool.query(
         `UPDATE usuarios SET github_id = $2, avatar_url = $3 WHERE id = $1 RETURNING *`,
         [usuarioId, githubId, avatarUrl]
+    );
+    return rows[0];
+}
+
+async function vincularGoogleId(usuarioId, googleId, avatarUrl) {
+    const { rows } = await pool.query(
+        `UPDATE usuarios SET google_id = $2, avatar_url = $3 WHERE id = $1 RETURNING *`,
+        [usuarioId, googleId, avatarUrl]
     );
     return rows[0];
 }
@@ -54,9 +67,11 @@ async function confirmarNome(usuarioId, nome) {
 module.exports = {
     buscarPorEmail,
     buscarPorGithubId,
+    buscarPorGoogleId,
     buscarPorId,
     criar,
     vincularGithubId,
+    vincularGoogleId,
     listarProfessores,
     confirmarNome,
 };

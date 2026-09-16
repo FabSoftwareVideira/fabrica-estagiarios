@@ -26,6 +26,20 @@ docker compose up -d --build
 open http://localhost:3000
 ```
 
+## Login com Google
+
+1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto, configure a tela de consentimento OAuth e crie um cliente OAuth do tipo **Aplicativo da Web**.
+2. Adicione `http://localhost:3000/auth/google/callback` como URI de redirecionamento autorizado.
+3. Preencha no `.env`:
+
+```env
+GOOGLE_CLIENT_ID=seu-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=seu-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+```
+
+Em produção, use a URL HTTPS pública da aplicação em `GOOGLE_CALLBACK_URL` e cadastre exatamente essa mesma URL no Google Cloud Console. Em um banco já existente, aplique `db/migrations/002_google_id.sql` antes do primeiro login com Google.
+
 ## Estrutura
 
 ```

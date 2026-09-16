@@ -1,34 +1,41 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Sistema de Controle de Estágio</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
 
     <%- include('partials/header') %>
 
-    <main class="container">
-        <%- include('partials/flash') %>
+        <main class="container">
+            <%- include('partials/flash') %>
 
-        <div class="login-box">
-            <h1>Bem-vindo</h1>
-            <p>Entre com sua conta do GitHub. Se for seu primeiro acesso, sua conta é criada automaticamente.</p>
+                <div class="login-box">
+                    <h1>Bem-vindo</h1>
+                    <p>Entre com sua conta do GitHub ou Google. Se for seu primeiro acesso, sua conta é criada
+                        automaticamente.</p>
 
-            <a href="/auth/github" class="btn">Entrar com GitHub</a>
-        </div>
+                    <a href="/auth/github" class="btn">Entrar com GitHub</a>
+                    <a href="/auth/google" class="btn">Entrar com Google</a>
+                </div>
 
-        <div class="card">
-            <h2>Como funciona o acesso?</h2>
-            <ul>
-                <li><strong>Professores:</strong> e-mail <strong>@ifc.edu.br</strong> associado à conta do GitHub — acesso imediato.</li>
-                <li><strong>Alunos:</strong> qualquer outro e-mail — após o primeiro login, você completa a matrícula e entra na lista de espera até a aprovação de um professor.</li>
-            </ul>
-        </div>
-    </main>
+                <div class="card">
+                    <h2>Como funciona o acesso?</h2>
+                    <ul>
+                        <li><strong>Professores:</strong> e-mail <strong>@ifc.edu.br</strong> associado à conta do
+                            GitHub — acesso imediato.</li>
+                        <li><strong>Alunos:</strong> qualquer outro e-mail — após o primeiro login, você completa a
+                            matrícula e entra na lista de espera até a aprovação de um professor.</li>
+                    </ul>
+                </div>
+        </main>
 
-    <%- include('partials/footer') %>
+        <%- include('partials/footer') %>
 </body>
+
 </html>

@@ -8,6 +8,9 @@ const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constant
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const GITHUB_CALLBACK_URL = process.env.GITHUB_CALLBACK_URL;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL;
 
 // janela de "debounce" pro state: se já tem um oauthState recente na sessão,
 // reaproveita em vez de gerar outro — evita que um prefetch especulativo do
@@ -171,6 +174,116 @@ router.get('/auth/github/callback', async (req, res) => {
     } catch (err) {
         console.error('[auth/github/callback] erro:', err.message);
         setFlash(req, 'error', 'Erro ao autenticar com o GitHub. Tente novamente.');
+        res.redirect('/login');
+    }
+});
+
+router.get('/auth/google', (req, res) => {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
+        setFlash(req, 'error', 'Login com Google ainda não foi configurado.');
+        return res.redirect('/login');
+    }
+
+    const state = crypto.randomBytes(16).toString('hex');
+    req.session.googleOauthState = state;
+
+    const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: GOOGLE_CALLBACK_URL,
+        response_type: 'code',
+        scope: 'openid email profile',
+        state,
+        access_type: 'online',
+    });
+
+    req.session.save((err) => {
+        if (err) {
+            console.error('[auth/google] erro ao salvar sessão:', err.message);
+            setFlash(req, 'error', 'Não foi possível iniciar o login com o Google. Tente novamente.');
+            return res.redirect('/login');
+        }
+        res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+    });
+});
+
+router.get('/auth/google/callback', async (req, res) => {
+    const { code, state } = req.query;
+
+    if (!code || !state || state !== req.session.googleOauthState) {
+        delete req.session.googleOauthState;
+        setFlash(req, 'error', 'Falha na autenticação com o Google. Tente novamente.');
+        return res.redirect('/login');
+    }
+    delete req.session.googleOauthState;
+
+    try {
+        const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: GOOGLE_CLIENT_ID,
+                client_secret: GOOGLE_CLIENT_SECRET,
+                code,
+                grant_type: 'authorization_code',
+                redirect_uri: GOOGLE_CALLBACK_URL,
+            }),
+        });
+        const tokenData = await tokenResp.json();
+
+        if (!tokenResp.ok || !tokenData.access_token) {
+            console.error('[auth/google/callback] sem access_token:', tokenData);
+            setFlash(req, 'error', 'Não foi possível concluir o login com o Google.');
+            return res.redirect('/login');
+        }
+
+        const perfilResp = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const perfil = await perfilResp.json();
+
+        if (!perfilResp.ok || !perfil.sub || !perfil.email || !perfil.email_verified) {
+            setFlash(req, 'error', 'Sua conta do Google precisa ter um e-mail verificado e acessível.');
+            return res.redirect('/login');
+        }
+
+        const email = perfil.email.toLowerCase();
+        const googleId = perfil.sub;
+        const nome = perfil.name || email.split('@')[0];
+        const avatarUrl = perfil.picture || null;
+
+        let usuario = await usuarios.buscarPorGoogleId(googleId);
+        if (!usuario) {
+            const porEmail = await usuarios.buscarPorEmail(email);
+            if (porEmail) {
+                usuario = await usuarios.vincularGoogleId(porEmail.id, googleId, avatarUrl);
+            }
+        }
+
+        if (!usuario) {
+            const tipo = tipoPorEmail(email);
+            usuario = await usuarios.criar({ nome, email, tipo, googleId, avatarUrl });
+
+            if (tipo === 'professor') {
+                const ehAdminPrincipal = email === ADMIN_PRINCIPAL_EMAIL.toLowerCase();
+                await professores.criar({ usuarioId: usuario.id, cargo: ehAdminPrincipal ? 'admin' : 'comum' });
+            }
+        }
+
+        let cargo = null;
+        if (usuario.tipo === 'professor') {
+            const professor = await professores.buscarPorUsuarioId(usuario.id);
+            cargo = professor ? professor.cargo : 'comum';
+        }
+
+        req.session.user = { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo, cargo };
+
+        if (usuario.tipo === 'professor') {
+            return res.redirect('/professor/dashboard');
+        }
+        res.redirect('/aluno/dashboard');
+    } catch (err) {
+        console.error('[auth/google/callback] erro:', err.message);
+        setFlash(req, 'error', 'Erro ao autenticar com o Google. Tente novamente.');
         res.redirect('/login');
     }
 });
