@@ -1,6 +1,7 @@
 <header class="site-header">
     <div class="header-inner">
-        <a href="<%= user ? (user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard') : '/login' %>" class="brand">
+        <a href="<%= user ? (user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard') : '/login' %>"
+            class="brand">
             <span class="brand-mark">IFC</span>
             <span class="brand-text">Controle de Estágio</span>
         </a>
@@ -10,21 +11,23 @@
         <nav class="main-nav">
             <% if (!user) { %>
                 <a href="/login">Login</a>
-            <% } else if (user.tipo === 'aluno') { %>
-                <a href="/aluno/dashboard">Dashboard</a>
-                <a href="/aluno/atividades">Atividades</a>
-                <% if (typeof alunoStatus !== 'undefined' && alunoStatus === 'em_andamento') { %>
-                    <a href="/aluno/nova-atividade">Nova Atividade</a>
-                <% } %>
-                <a href="/logout">Sair (<%= user.nome %>)</a>
-            <% } else { %>
-                <a href="/professor/dashboard">Dashboard</a>
-                <a href="/professor/arquivados">Arquivados</a>
-                <% if (user.cargo === 'admin') { %>
-                    <a href="/professor/professores">Lista de Professores</a>
-                <% } %>
-                <a href="/logout">Sair (<%= user.nome %>)</a>
-            <% } %>
+                <% } else if (user.tipo==='aluno' ) { %>
+                    <a href="/aluno/dashboard">Dashboard</a>
+                    <a href="/aluno/atividades">Atividades</a>
+                    <% if (typeof alunoStatus !=='undefined' && alunoStatus==='em_andamento' ) { %>
+                        <a href="/aluno/nova-atividade">Nova Atividade</a>
+                        <% } %>
+                            <a href="/perfil">Meu Perfil</a>
+                            <a href="/logout">Sair (<%= user.nome %>)</a>
+                            <% } else { %>
+                                <a href="/professor/dashboard">Dashboard</a>
+                                <a href="/professor/arquivados">Arquivados</a>
+                                <% if (user.cargo==='admin' ) { %>
+                                    <a href="/professor/professores">Lista de Professores</a>
+                                    <% } %>
+                                        <a href="/perfil">Meu Perfil</a>
+                                        <a href="/logout">Sair (<%= user.nome %>)</a>
+                                        <% } %>
         </nav>
     </div>
 </header>

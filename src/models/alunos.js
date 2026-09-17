@@ -28,6 +28,14 @@ async function buscarPorMatricula(matricula) {
     return rows[0] || null;
 }
 
+async function atualizarMatricula(usuarioId, matricula) {
+    const { rows } = await pool.query(
+        `UPDATE alunos SET matricula = $2 WHERE usuario_id = $1 RETURNING *`,
+        [usuarioId, matricula]
+    );
+    return rows[0];
+}
+
 // listas do dashboard nunca mostram quem está arquivado
 async function listarPorStatus(status) {
     const { rows } = await pool.query(
@@ -102,6 +110,7 @@ module.exports = {
     buscarPorUsuarioId,
     criar,
     buscarPorMatricula,
+    atualizarMatricula,
     listarPorStatus,
     contarPorStatus,
     atualizarEstagio,

@@ -65,6 +65,14 @@ async function confirmarNome(usuarioId, nome) {
     return rows[0];
 }
 
+async function atualizarPerfil(usuarioId, nome) {
+    const { rows } = await pool.query(
+        `UPDATE usuarios SET nome = $2, nome_confirmado = true WHERE id = $1 RETURNING *`,
+        [usuarioId, nome]
+    );
+    return rows[0];
+}
+
 module.exports = {
     buscarPorEmail,
     buscarPorGithubId,
@@ -75,4 +83,5 @@ module.exports = {
     vincularGoogleId,
     listarProfessores,
     confirmarNome,
+    atualizarPerfil,
 };

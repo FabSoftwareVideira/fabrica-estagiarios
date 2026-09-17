@@ -1,8 +1,9 @@
 const router = require('express').Router();
 const crypto = require('crypto');
 const usuarios = require('../models/usuarios');
+const alunos = require('../models/alunos');
 const professores = require('../models/professores');
-const { setFlash } = require('../middleware/auth');
+const { requireAuth, setFlash } = require('../middleware/auth');
 const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
@@ -29,6 +30,54 @@ router.get('/login', (req, res) => {
         return res.redirect(req.session.user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard');
     }
     res.render('login');
+});
+
+router.get('/perfil', requireAuth, async (req, res) => {
+    const usuario = await usuarios.buscarPorId(req.session.user.id);
+    const aluno = usuario.tipo === 'aluno' ? await alunos.buscarPorUsuarioId(usuario.id) : null;
+    res.render('perfil', { usuario, aluno });
+});
+
+router.post('/perfil', requireAuth, async (req, res) => {
+    const nome = (req.body.nome || '').trim();
+    const matriculaInformada = (req.body.matricula || '').trim();
+    const matricula = matriculaInformada || null;
+
+    if (!nome) {
+        setFlash(req, 'error', 'Informe seu nome completo.');
+        return res.redirect('/perfil');
+    }
+
+    try {
+        if (req.session.user.tipo === 'aluno') {
+            const aluno = await alunos.buscarPorUsuarioId(req.session.user.id);
+            if (aluno && matricula) {
+                const matriculaExistente = await alunos.buscarPorMatricula(matricula);
+                if (matriculaExistente && matriculaExistente.usuario_id !== req.session.user.id) {
+                    setFlash(req, 'error', 'Essa matrícula já está cadastrada.');
+                    return res.redirect('/perfil');
+                }
+            }
+        }
+
+        const usuario = await usuarios.atualizarPerfil(req.session.user.id, nome);
+        req.session.user.nome = usuario.nome;
+
+        if (req.session.user.tipo === 'aluno') {
+            const aluno = await alunos.buscarPorUsuarioId(req.session.user.id);
+            if (aluno) await alunos.atualizarMatricula(req.session.user.id, matricula);
+        }
+
+        setFlash(req, 'success', 'Perfil atualizado com sucesso.');
+    } catch (err) {
+        if (err.code === '23505') {
+            setFlash(req, 'error', 'Essa matrícula já está cadastrada.');
+        } else {
+            console.error('[perfil] erro:', err.message);
+            setFlash(req, 'error', 'Não foi possível atualizar o perfil.');
+        }
+    }
+    res.redirect('/perfil');
 });
 
 // Passo 1: manda pro GitHub autorizar
