@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS professores (
 
 CREATE TABLE IF NOT EXISTS alunos (
     usuario_id      INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
-    matricula       VARCHAR(30) NOT NULL UNIQUE,
+    matricula       VARCHAR(30) UNIQUE,
     status          VARCHAR(20) NOT NULL DEFAULT 'lista_espera'
                         CHECK (status IN ('lista_espera', 'em_andamento', 'concluido')),
     supervisor_id   INTEGER REFERENCES usuarios(id),

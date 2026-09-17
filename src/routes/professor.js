@@ -172,9 +172,10 @@ router.post('/cadastros', requireAdmin, async (req, res) => {
     const tipo = req.body.tipo === 'professor' ? 'professor' : 'aluno';
     const nome = (req.body.nome || '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
-    const matricula = (req.body.matricula || '').trim();
+    const matriculaInformada = (req.body.matricula || '').trim();
+    const matricula = matriculaInformada || null;
 
-    if (!nome || !email || (tipo === 'aluno' && !matricula)) {
+    if (!nome || !email) {
         setFlash(req, 'error', 'Preencha todos os campos obrigatórios.');
         return res.redirect('/professor/cadastros');
     }
@@ -185,7 +186,7 @@ router.post('/cadastros', requireAdmin, async (req, res) => {
         return res.redirect('/professor/cadastros');
     }
 
-    if (tipo === 'aluno') {
+    if (tipo === 'aluno' && matricula) {
         const matriculaExistente = await alunosModel.buscarPorMatricula(matricula);
         if (matriculaExistente) {
             setFlash(req, 'error', 'Já existe um cadastro com esta matrícula.');
