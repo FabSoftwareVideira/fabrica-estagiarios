@@ -164,6 +164,57 @@ router.get('/professores', requireAdmin, async (req, res) => {
     res.render('professor_lista', { professores: lista, ADMIN_PRINCIPAL_EMAIL });
 });
 
+router.get('/cadastros', requireAdmin, (req, res) => {
+    res.render('professor_cadastros');
+});
+
+router.post('/cadastros', requireAdmin, async (req, res) => {
+    const tipo = req.body.tipo === 'professor' ? 'professor' : 'aluno';
+    const nome = (req.body.nome || '').trim();
+    const email = (req.body.email || '').trim().toLowerCase();
+    const matricula = (req.body.matricula || '').trim();
+
+    if (!nome || !email || (tipo === 'aluno' && !matricula)) {
+        setFlash(req, 'error', 'Preencha todos os campos obrigatórios.');
+        return res.redirect('/professor/cadastros');
+    }
+
+    const usuarioExistente = await usuariosModel.buscarPorEmail(email);
+    if (usuarioExistente) {
+        setFlash(req, 'error', 'Já existe um cadastro com este e-mail.');
+        return res.redirect('/professor/cadastros');
+    }
+
+    if (tipo === 'aluno') {
+        const matriculaExistente = await alunosModel.buscarPorMatricula(matricula);
+        if (matriculaExistente) {
+            setFlash(req, 'error', 'Já existe um cadastro com esta matrícula.');
+            return res.redirect('/professor/cadastros');
+        }
+    }
+
+    try {
+        const usuario = await usuariosModel.criar({
+            nome,
+            email,
+            tipo,
+            nomeConfirmado: true,
+        });
+
+        if (tipo === 'aluno') {
+            await alunosModel.criar({ usuarioId: usuario.id, matricula });
+        } else {
+            await professoresModel.criar({ usuarioId: usuario.id });
+        }
+
+        setFlash(req, 'success', `${tipo === 'aluno' ? 'Aluno' : 'Professor'} cadastrado com sucesso.`);
+    } catch (err) {
+        console.error('[professor/cadastros] erro:', err.message);
+        setFlash(req, 'error', 'Não foi possível concluir o cadastro. Verifique os dados e tente novamente.');
+    }
+    res.redirect('/professor/cadastros');
+});
+
 router.post('/professores/:id/cargo', requireAdmin, async (req, res) => {
     if (Number(req.params.id) === req.session.user.id) {
         return res.redirect('/professor/professores');

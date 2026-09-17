@@ -20,10 +20,11 @@ async function buscarPorId(id) {
     return rows[0] || null;
 }
 
-async function criar({ nome, email, tipo, githubId, googleId, avatarUrl }) {
+async function criar({ nome, email, tipo, githubId, googleId, avatarUrl, nomeConfirmado = false }) {
     const { rows } = await pool.query(
-        `INSERT INTO usuarios (nome, email, tipo, github_id, google_id, avatar_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [nome, email, tipo, githubId, googleId, avatarUrl]
+        `INSERT INTO usuarios (nome, email, tipo, github_id, google_id, avatar_url, nome_confirmado)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [nome, email, tipo, githubId, googleId, avatarUrl, nomeConfirmado]
     );
     return rows[0];
 }

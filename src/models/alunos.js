@@ -23,6 +23,11 @@ async function criar({ usuarioId, matricula }) {
     return rows[0];
 }
 
+async function buscarPorMatricula(matricula) {
+    const { rows } = await pool.query('SELECT * FROM alunos WHERE matricula = $1', [matricula]);
+    return rows[0] || null;
+}
+
 // listas do dashboard nunca mostram quem está arquivado
 async function listarPorStatus(status) {
     const { rows } = await pool.query(
@@ -96,6 +101,7 @@ async function excluir(usuarioId) {
 module.exports = {
     buscarPorUsuarioId,
     criar,
+    buscarPorMatricula,
     listarPorStatus,
     contarPorStatus,
     atualizarEstagio,
