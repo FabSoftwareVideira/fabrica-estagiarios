@@ -4,7 +4,8 @@ async function buscarPorUsuarioId(usuarioId) {
     const { rows } = await pool.query(
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome, ori.nome AS orientador_nome,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id), 0) AS horas_realizadas
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND validado), 0) AS horas_realizadas,
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND NOT validado), 0) AS horas_pendentes
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
@@ -37,7 +38,18 @@ async function atualizarMatricula(usuarioId, matricula) {
 }
 
 // tabela única do dashboard: todos os status, com busca, status e arquivados
-async function listar({ status, busca, arquivados, limite, offset }) {
+const ORDENACOES = {
+    nome: 'u.nome',
+    supervisor: "COALESCE(sup.nome, '')",
+    horas: 'horas_realizadas',
+    status: `CASE a.status
+                WHEN 'lista_espera' THEN 1
+                WHEN 'em_andamento' THEN 2
+                ELSE 3
+             END`,
+};
+
+async function listar({ status, busca, arquivados, limite, offset, ordenarPor, direcao }) {
     const valores = [Boolean(arquivados)];
     const filtros = ['a.arquivado = $1'];
 
@@ -63,23 +75,30 @@ async function listar({ status, busca, arquivados, limite, offset }) {
         valores
     );
 
+    const expressaoOrdenacao = ORDENACOES[ordenarPor];
+    const sentido = direcao === 'desc' ? 'DESC' : 'ASC';
+    const orderBy = expressaoOrdenacao
+        ? `${expressaoOrdenacao} ${sentido}, u.nome`
+        : `CASE a.status
+                WHEN 'lista_espera' THEN 1
+                WHEN 'em_andamento' THEN 2
+                ELSE 3
+           END,
+           u.nome`;
+
     const valoresPagina = [...valores, limite, offset];
     const { rows } = await pool.query(
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome,
                 ori.nome AS orientador_nome,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id), 0) AS horas_realizadas
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND validado), 0) AS horas_realizadas,
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND NOT validado), 0) AS horas_pendentes
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
          LEFT JOIN usuarios ori ON ori.id = a.orientador_id
          ${where}
-         ORDER BY CASE a.status
-                    WHEN 'lista_espera' THEN 1
-                    WHEN 'em_andamento' THEN 2
-                    ELSE 3
-                  END,
-                  u.nome
+         ORDER BY ${orderBy}
          LIMIT $${valoresPagina.length - 1} OFFSET $${valoresPagina.length}`,
         valoresPagina
     );
@@ -88,12 +107,26 @@ async function listar({ status, busca, arquivados, limite, offset }) {
 }
 
 async function atualizarEstagio(usuarioId, { status, supervisorId, orientadorId, cargaHoraria }) {
+    // "concluido" nunca é definido manualmente: só quando as horas validadas
+    // atingem a carga horária. Qualquer outro status é tratado como em andamento.
+    const statusSolicitado = status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
+
     const { rows } = await pool.query(
         `UPDATE alunos
-         SET status = $2, supervisor_id = $3, orientador_id = $4, carga_horaria = $5
+         SET status = CASE
+                 WHEN $2 = 'lista_espera' THEN 'lista_espera'
+                 WHEN COALESCE((
+                     SELECT SUM(horas) FROM atividades
+                     WHERE aluno_id = $1 AND validado
+                 ), 0) >= $5 THEN 'concluido'
+                 ELSE 'em_andamento'
+             END,
+             supervisor_id = $3,
+             orientador_id = $4,
+             carga_horaria = $5
          WHERE usuario_id = $1
          RETURNING *`,
-        [usuarioId, status, supervisorId || null, orientadorId || null, cargaHoraria]
+        [usuarioId, statusSolicitado, supervisorId || null, orientadorId || null, cargaHoraria]
     );
     return rows[0];
 }

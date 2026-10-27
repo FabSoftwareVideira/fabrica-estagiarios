@@ -1,5 +1,5 @@
 // ─── main.js ──────────────────────────────────────────────────────────────
-// Comportamento global do front-end (menu mobile, marcação de link ativo).
+// Comportamento global do front-end (menu mobile e interações das telas).
 
 document.addEventListener('DOMContentLoaded', () => {
     const toggle = document.querySelector('.nav-toggle');
@@ -19,13 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-
-    // marca o link ativo no menu com base na URL atual
-    document.querySelectorAll('.main-nav a').forEach((link) => {
-        if (link.getAttribute('href') === window.location.pathname) {
-            link.classList.add('active');
-        }
-    });
 
     // impede supervisor e orientador de serem o mesmo professor
     // (checagem "de verdade" fica no servidor, isso aqui é só feedback rápido)

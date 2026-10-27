@@ -24,4 +24,57 @@ async function criar({ alunoId, data, horas, descricao }) {
     return rows[0];
 }
 
-module.exports = { listarPorAluno, ultimaPorAluno, criar };
+// valida/desvalida uma atividade e recalcula o status do aluno na mesma
+// transação: se as horas validadas atingirem a carga horária, conclui o estágio;
+// se a validação for removida e as horas caírem, volta para "em_andamento".
+async function definirValidacao({ atividadeId, alunoId, validado, validadorId }) {
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        const { rows: atividades } = await client.query(
+            `UPDATE atividades
+             SET validado = $3,
+                 validado_por = CASE WHEN $3 THEN $4::integer ELSE NULL END,
+                 validado_em = CASE WHEN $3 THEN NOW() ELSE NULL END
+             WHERE id = $1 AND aluno_id = $2
+             RETURNING *`,
+            [atividadeId, alunoId, Boolean(validado), validadorId]
+        );
+
+        if (atividades.length === 0) {
+            await client.query('ROLLBACK');
+            return null;
+        }
+
+        const { rows: alunos } = await client.query(
+            `UPDATE alunos a
+             SET status = CASE
+                     WHEN a.status = 'lista_espera' THEN a.status
+                     WHEN COALESCE((
+                         SELECT SUM(horas) FROM atividades
+                         WHERE aluno_id = a.usuario_id AND validado
+                     ), 0) >= a.carga_horaria THEN 'concluido'
+                     ELSE 'em_andamento'
+                 END
+             WHERE a.usuario_id = $1
+             RETURNING a.status`,
+            [alunoId]
+        );
+
+        await client.query('COMMIT');
+
+        return {
+            atividade: atividades[0],
+            status: alunos[0] ? alunos[0].status : null,
+        };
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+module.exports = { listarPorAluno, ultimaPorAluno, criar, definirValidacao };

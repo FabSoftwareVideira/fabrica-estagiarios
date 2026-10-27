@@ -15,43 +15,75 @@
 
         <h2>Detalhes do Aluno</h2>
 
-        <% const statusLabel = { lista_espera: 'Lista de Espera', em_andamento: 'Em andamento', concluido: 'Concluído' }; %>
-        <% const statusClass = { lista_espera: 'status-waiting', em_andamento: 'status-progress', concluido: 'status-completed' }; %>
+        <%
+            const statusLabel = { lista_espera: 'Lista de Espera', em_andamento: 'Em andamento', concluido: 'Concluído' };
+            const statusClass = { lista_espera: 'status-waiting', em_andamento: 'status-progress', concluido: 'status-completed' };
+            const cargaHoraria = Number(aluno.carga_horaria) || 0;
+            const horasRealizadas = Number(aluno.horas_realizadas) || 0;
+            const horasPendentes = Number(aluno.horas_pendentes) || 0;
+            const horasRestantes = Math.max(0, cargaHoraria - horasRealizadas);
+            const percentual = cargaHoraria > 0
+                ? Math.min(100, Math.round((horasRealizadas / cargaHoraria) * 100))
+                : 0;
+            const totalAtividades = atividades.length;
+        %>
 
-        <div class="grid">
-            <div class="info-box">
-                <h3>Status</h3>
-                <span class="status <%= statusClass[aluno.status] %>"><%= statusLabel[aluno.status] %></span>
+        <section class="card student-summary">
+            <div class="student-summary-head">
+                <div class="student-identity">
+                    <h2><%= aluno.nome %></h2>
+                    <p class="student-meta">
+                        <% if (aluno.matricula) { %>
+                            <span>Matrícula: <%= aluno.matricula %></span>
+                        <% } %>
+                        <span><%= aluno.email %></span>
+                    </p>
+                </div>
+                <div class="student-badges">
+                    <span class="status <%= statusClass[aluno.status] %>"><%= statusLabel[aluno.status] %></span>
+                    <% if (aluno.arquivado) { %>
+                        <span class="status status-archived">Arquivado</span>
+                    <% } %>
+                </div>
             </div>
-            <div class="info-box"><h3>Horas Realizadas</h3><p><%= aluno.horas_realizadas %>h</p></div>
-            <div class="info-box"><h3>Carga Horária</h3><p><%= aluno.carga_horaria %>h</p></div>
-        </div>
 
-        <div class="card">
-            <h2>Informações Pessoais</h2>
-            <table>
-                <tr><th>Campo</th><th>Informação</th></tr>
-                <tr><td>Nome</td><td><%= aluno.nome %></td></tr>
-                <tr><td>E-mail</td><td><%= aluno.email %></td></tr>
-                <tr><td>Matrícula</td><td><%= aluno.matricula %></td></tr>
-            </table>
-        </div>
+            <div class="summary-progress">
+                <div class="summary-progress-label">
+                    <span><strong><%= horasRealizadas %>h</strong> validadas de <strong><%= cargaHoraria %>h</strong></span>
+                    <span><%= percentual %>%</span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar" data-percent="<%= percentual %>"></div>
+                </div>
+                <p class="progress-caption text-muted">
+                    Restam <%= horasRestantes %>h
+                    <% if (horasPendentes > 0) { %>
+                        · <strong><%= horasPendentes %>h</strong> aguardando validação
+                    <% } %>
+                </p>
+            </div>
+
+            <dl class="summary-details">
+                <div>
+                    <dt>Supervisor</dt>
+                    <dd><%= aluno.supervisor_nome || '—' %></dd>
+                </div>
+                <div>
+                    <dt>Orientador</dt>
+                    <dd><%= aluno.orientador_nome || '—' %></dd>
+                </div>
+            </dl>
+        </section>
 
         <% if (aluno.arquivado) { %>
-            <div class="card">
-                <h2>Estágio Arquivado</h2>
-                <p class="text-muted">
-                    Este aluno está arquivado — as informações abaixo são somente leitura.
-                    Desarquive para poder editar o estágio.
-                </p>
-                <br>
-                <table>
-                    <tr><th>Campo</th><th>Informação</th></tr>
-                    <tr><td>Supervisor</td><td><%= aluno.supervisor_nome || '—' %></td></tr>
-                    <tr><td>Orientador</td><td><%= aluno.orientador_nome || '—' %></td></tr>
-                    <tr><td>Carga Horária</td><td><%= aluno.carga_horaria %>h</td></tr>
-                </table>
-                <br>
+            <div class="card archived-banner">
+                <div>
+                    <h2>Estágio arquivado</h2>
+                    <p class="text-muted">
+                        A validação de horas está bloqueada enquanto o estágio estiver arquivado.
+                        Desarquive para voltar a editar e validar atividades.
+                    </p>
+                </div>
                 <div class="button-group">
                     <form action="/professor/aluno/<%= aluno.usuario_id %>/desarquivar" method="POST">
                         <button type="submit">Desarquivar</button>
@@ -60,60 +92,114 @@
                 </div>
             </div>
         <% } else { %>
-        <div class="card">
-            <h2>Editar Estágio</h2>
-            <form action="/professor/aluno/<%= aluno.usuario_id %>" method="POST">
-                <label for="status">Status do Estágio</label>
-                <select id="status" name="status">
-                    <option value="lista_espera" <%= aluno.status === 'lista_espera' ? 'selected' : '' %>>Lista de Espera</option>
-                    <option value="em_andamento" <%= aluno.status === 'em_andamento' ? 'selected' : '' %>>Em Andamento</option>
-                    <option value="concluido" <%= aluno.status === 'concluido' ? 'selected' : '' %>>Concluído</option>
-                </select>
+            <details class="card details-card">
+                <summary>
+                    <span class="details-title">
+                        <strong>Editar estágio</strong>
+                        <small>Status, supervisor, orientador e carga horária</small>
+                    </span>
+                    <span class="details-toggle" aria-hidden="true">+</span>
+                </summary>
 
-                <label for="supervisor">Supervisor</label>
-                <select id="supervisor" name="supervisor_id">
-                    <option value="">Selecione um professor</option>
-                    <% professores.forEach((p) => { %>
-                        <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
-                    <% }) %>
-                </select>
-
-                <label for="orientador">Orientador</label>
-                <select id="orientador" name="orientador_id">
-                    <option value="">Selecione um professor</option>
-                    <% professores.forEach((p) => { %>
-                        <option value="<%= p.id %>" <%= aluno.orientador_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
-                    <% }) %>
-                </select>
-
-                <label for="carga">Carga Horária Total</label>
-                <input type="number" id="carga" name="carga_horaria" min="1" value="<%= aluno.carga_horaria %>">
-
-                <div class="button-group">
-                    <button type="submit">Salvar Alterações</button>
-                    <% if (aluno.status !== 'concluido') { %>
-                        <button type="submit" formaction="/professor/aluno/<%= aluno.usuario_id %>/arquivar" formnovalidate class="btn-secondary">Arquivar</button>
+                <form action="/professor/aluno/<%= aluno.usuario_id %>" method="POST" class="details-body">
+                    <% if (aluno.status === 'concluido') { %>
+                        <label>Status do Estágio</label>
+                        <p><span class="status status-completed">Concluído</span></p>
+                        <p class="text-muted">
+                            A conclusão é automática. Remova a validação de alguma atividade para que o
+                            aluno volte para "Em andamento".
+                        </p>
+                        <input type="hidden" name="status" value="em_andamento">
+                    <% } else { %>
+                        <label for="status">Status do Estágio</label>
+                        <select id="status" name="status">
+                            <option value="lista_espera" <%= aluno.status === 'lista_espera' ? 'selected' : '' %>>Lista de Espera</option>
+                            <option value="em_andamento" <%= aluno.status === 'em_andamento' ? 'selected' : '' %>>Em Andamento</option>
+                        </select>
+                        <p class="text-muted">
+                            O status "Concluído" é definido automaticamente quando as horas validadas
+                            atingem a carga horária.
+                        </p>
                     <% } %>
-                    <a href="/professor/dashboard" class="btn btn-secondary">Voltar</a>
-                </div>
-            </form>
-        </div>
+
+                    <label for="supervisor">Supervisor</label>
+                    <select id="supervisor" name="supervisor_id">
+                        <option value="">Selecione um professor</option>
+                        <% professores.forEach((p) => { %>
+                            <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
+                        <% }) %>
+                    </select>
+
+                    <label for="orientador">Orientador</label>
+                    <select id="orientador" name="orientador_id">
+                        <option value="">Selecione um professor</option>
+                        <% professores.forEach((p) => { %>
+                            <option value="<%= p.id %>" <%= aluno.orientador_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
+                        <% }) %>
+                    </select>
+
+                    <label for="carga">Carga Horária Total</label>
+                    <input type="number" id="carga" name="carga_horaria" min="1" value="<%= aluno.carga_horaria %>">
+
+                    <div class="button-group form-actions">
+                        <button type="submit">Salvar Alterações</button>
+                        <button type="submit" formaction="/professor/aluno/<%= aluno.usuario_id %>/arquivar" formnovalidate class="btn-secondary">Arquivar</button>
+                    </div>
+                </form>
+            </details>
         <% } %>
 
         <div class="card">
-            <h2>Histórico de Atividades</h2>
+            <div class="card-header">
+                <div>
+                    <h2>Atividades</h2>
+                    <p class="text-muted">
+                        <%= totalAtividades %> atividade(s)
+                        <% if (horasPendentes > 0) { %> · <%= horasPendentes %>h pendentes de validação<% } %>
+                    </p>
+                </div>
+            </div>
+
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Data</th><th>Descrição</th><th>Horas</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrição</th>
+                            <th>Horas</th>
+                            <th>Validação</th>
+                            <% if (!aluno.arquivado) { %><th>Ações</th><% } %>
+                        </tr>
+                    </thead>
                     <tbody>
                         <% if (atividades.length === 0) { %>
-                            <tr><td>—</td><td>Nenhuma atividade registrada ainda.</td><td>—</td></tr>
+                            <tr>
+                                <td colspan="<%= aluno.arquivado ? 4 : 5 %>">Nenhuma atividade registrada ainda.</td>
+                            </tr>
                         <% } else { %>
                             <% atividades.forEach((a) => { %>
                                 <tr>
                                     <td><%= new Date(a.data).toLocaleDateString('pt-BR') %></td>
                                     <td><%= a.descricao %></td>
                                     <td><%= a.horas %>h</td>
+                                    <td>
+                                        <% if (a.validado) { %>
+                                            <span class="status status-completed">Validada</span>
+                                        <% } else { %>
+                                            <span class="status status-waiting">Pendente</span>
+                                        <% } %>
+                                    </td>
+                                    <% if (!aluno.arquivado) { %>
+                                        <td>
+                                            <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/<%= a.validado ? 'invalidar' : 'validar' %>"
+                                                method="POST">
+                                                <button type="submit"
+                                                    class="<%= a.validado ? 'btn-secondary' : 'btn-success' %>">
+                                                    <%= a.validado ? 'Remover validação' : 'Validar' %>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    <% } %>
                                 </tr>
                             <% }) %>
                         <% } %>

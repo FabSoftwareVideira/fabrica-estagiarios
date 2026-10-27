@@ -5,28 +5,46 @@
             <span class="brand-mark">IFC</span>
             <span class="brand-text">Controle de Estágio</span>
         </a>
+
         <button class="nav-toggle" aria-label="Abrir menu" aria-expanded="false">
             <span></span><span></span><span></span>
         </button>
-        <nav class="main-nav">
+
+        <% const navAtivo = (caminho) => (currentPath === caminho ? 'active' : ''); %>
+
+        <nav class="main-nav" aria-label="Navegação principal">
             <% if (!user) { %>
-                <a href="/login">Login</a>
-                <% } else if (user.tipo==='aluno' ) { %>
-                    <a href="/aluno/dashboard">Dashboard</a>
-                    <a href="/aluno/atividades">Atividades</a>
-                    <% if (typeof alunoStatus !=='undefined' && alunoStatus==='em_andamento' ) { %>
-                        <a href="/aluno/nova-atividade">Nova Atividade</a>
+                <div class="nav-links">
+                    <a href="/login" class="nav-link">Login</a>
+                </div>
+            <% } else { %>
+                <div class="nav-links">
+                    <% if (user.tipo === 'aluno') { %>
+                        <a href="/aluno/dashboard" class="nav-link <%= navAtivo('/aluno/dashboard') %>">Dashboard</a>
+                        <a href="/aluno/atividades" class="nav-link <%= navAtivo('/aluno/atividades') %>">Atividades</a>
+                        <% if (typeof alunoStatus !== 'undefined' && alunoStatus === 'em_andamento') { %>
+                            <a href="/aluno/nova-atividade"
+                                class="nav-link nav-link-cta <%= navAtivo('/aluno/nova-atividade') %>">Nova Atividade</a>
                         <% } %>
-                            <a href="/perfil">Meu Perfil</a>
-                            <a href="/logout">Sair (<%= user.nome %>)</a>
-                            <% } else { %>
-                                <a href="/professor/dashboard">Dashboard</a>
-                                <% if (user.cargo==='admin' ) { %>
-                                    <a href="/professor/dashboard?aba=administracao">Administração</a>
-                                    <% } %>
-                                        <a href="/perfil">Meu Perfil</a>
-                                        <a href="/logout">Sair (<%= user.nome %>)</a>
-                                        <% } %>
+                    <% } else { %>
+                        <% const adminAtivo = currentPath === '/professor/dashboard' && currentTab === 'administracao'; %>
+                        <a href="/professor/dashboard"
+                            class="nav-link <%= currentPath === '/professor/dashboard' && !adminAtivo ? 'active' : '' %>">Dashboard</a>
+                        <% if (user.cargo === 'admin') { %>
+                            <a href="/professor/dashboard?aba=administracao"
+                                class="nav-link <%= adminAtivo ? 'active' : '' %>">Administração</a>
+                        <% } %>
+                    <% } %>
+                </div>
+
+                <div class="nav-user">
+                    <a href="/perfil" class="nav-user-profile <%= navAtivo('/perfil') %>" title="Meu perfil">
+                        <span class="nav-avatar"><%= user.nome.charAt(0).toUpperCase() %></span>
+                        <span class="nav-user-name"><%= user.nome %></span>
+                    </a>
+                    <a href="/logout" class="nav-logout">Sair</a>
+                </div>
+            <% } %>
         </nav>
     </div>
 </header>

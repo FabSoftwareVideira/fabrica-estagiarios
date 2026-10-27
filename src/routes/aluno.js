@@ -48,6 +48,7 @@ router.get('/dashboard', async (req, res) => {
     const ultimaAtividade = await atividadesModel.ultimaPorAluno(req.session.user.id);
 
     const horasRealizadas = Number(aluno.horas_realizadas);
+    const horasPendentes = Number(aluno.horas_pendentes);
     const cargaHoraria = aluno.carga_horaria;
     const percentual = cargaHoraria > 0 ? Math.min(100, Math.round((horasRealizadas / cargaHoraria) * 100)) : 0;
 
@@ -55,6 +56,7 @@ router.get('/dashboard', async (req, res) => {
         aluno,
         ultimaAtividade,
         horasRealizadas,
+        horasPendentes,
         cargaHoraria,
         horasRestantes: Math.max(0, cargaHoraria - horasRealizadas),
         percentual,
@@ -66,13 +68,16 @@ router.get('/atividades', async (req, res) => {
     const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
 
     const horasRealizadas = Number(aluno.horas_realizadas);
+    const horasPendentes = Number(aluno.horas_pendentes);
     const cargaHoraria = aluno.carga_horaria;
     const percentual = cargaHoraria > 0 ? Math.min(100, Math.round((horasRealizadas / cargaHoraria) * 100)) : 0;
 
     res.render('aluno_atividades', {
         atividades,
         horasRealizadas,
+        horasPendentes,
         cargaHoraria,
+        horasRestantes: Math.max(0, cargaHoraria - horasRealizadas),
         percentual,
         status: aluno.status,
     });

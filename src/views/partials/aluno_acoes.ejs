@@ -1,0 +1,25 @@
+<div class="button-group">
+    <a href="/professor/aluno/<%= a.usuario_id %>" class="btn">Visualizar</a>
+
+    <% if (a.arquivado) { %>
+        <form action="/professor/aluno/<%= a.usuario_id %>/desarquivar" method="POST">
+            <button type="submit" class="btn-secondary">Desarquivar</button>
+        </form>
+
+        <% if (user.cargo === 'admin') { %>
+            <form action="/professor/aluno/<%= a.usuario_id %>/excluir" method="POST"
+                onsubmit="return confirm('Excluir este aluno definitivamente? Essa ação não pode ser desfeita.');">
+                <button type="submit" class="btn-danger">Excluir</button>
+            </form>
+        <% } %>
+    <% } else if (a.status === 'lista_espera') { %>
+        <a href="/professor/cadastro-aluno/<%= a.usuario_id %>" class="btn btn-success">Aprovar</a>
+        <form action="/professor/aluno/<%= a.usuario_id %>/arquivar" method="POST">
+            <button type="submit" class="btn-secondary">Arquivar</button>
+        </form>
+    <% } else if (a.status === 'em_andamento') { %>
+        <form action="/professor/aluno/<%= a.usuario_id %>/arquivar" method="POST">
+            <button type="submit" class="btn-secondary">Arquivar</button>
+        </form>
+    <% } %>
+</div>

@@ -46,11 +46,16 @@
                 <% } else { %>
                     <div class="card filters-card">
                         <form action="/professor/dashboard" method="GET" class="filters-form">
+                            <input type="hidden" name="f" value="1">
+                            <% if (ordenacao && ordenacao.campo) { %>
+                                <input type="hidden" name="ordenar" value="<%= ordenacao.campo %>">
+                                <input type="hidden" name="dir" value="<%= ordenacao.direcao %>">
+                            <% } %>
                             <div class="filters-top">
                                 <input type="search" name="q" value="<%= filtros.q %>"
-                                    placeholder="Buscar por nome, matrícula ou e-mail..." aria-label="Buscar alunos">
+                                    placeholder="Buscar por nome do aluno..." aria-label="Buscar alunos">
                                 <button type="submit">Filtrar</button>
-                                <% if (filtros.q || filtros.status.length > 0 || filtros.arquivados) { %>
+                                <% if (filtroPersonalizado) { %>
                                     <a href="/professor/dashboard" class="btn btn-secondary">Limpar</a>
                                 <% } %>
                             </div>
@@ -90,24 +95,77 @@
                         </form>
                     </div>
 
+                    <%
+                        const ordenacaoAtual = ordenacao || { campo: null, direcao: 'asc' };
+                        const parametrosBase = () => {
+                            const params = new URLSearchParams();
+                            params.set('f', '1');
+                            if (filtros.q) params.set('q', filtros.q);
+                            filtros.status.forEach((s) => params.append('status', s));
+                            if (filtros.arquivados) params.set('arquivados', '1');
+                            if (ordenacaoAtual.campo) {
+                                params.set('ordenar', ordenacaoAtual.campo);
+                                params.set('dir', ordenacaoAtual.direcao);
+                            }
+                            return params;
+                        };
+                        const montarPagina = (p) => {
+                            const params = parametrosBase();
+                            params.set('pagina', p);
+                            return '/professor/dashboard?' + params.toString();
+                        };
+                        const montarOrdenacao = (campo) => {
+                            const params = parametrosBase();
+                            const direcao = ordenacaoAtual.campo === campo && ordenacaoAtual.direcao === 'asc'
+                                ? 'desc'
+                                : 'asc';
+                            params.set('ordenar', campo);
+                            params.set('dir', direcao);
+                            params.set('pagina', '1');
+                            return '/professor/dashboard?' + params.toString();
+                        };
+                        const estadoOrdenacao = (campo) => {
+                            if (ordenacaoAtual.campo !== campo) return 'none';
+                            return ordenacaoAtual.direcao === 'asc' ? 'ascending' : 'descending';
+                        };
+                        const iconeOrdenacao = (campo) => {
+                            if (ordenacaoAtual.campo !== campo) return '↕';
+                            return ordenacaoAtual.direcao === 'asc' ? '↑' : '↓';
+                        };
+                    %>
+
                     <div class="card">
                         <div class="table-wrap">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Nome</th>
-                                        <th>Matrícula</th>
-                                        <th>E-mail</th>
-                                        <th>Supervisor</th>
-                                        <th>Horas</th>
-                                        <th>Status</th>
+                                        <th aria-sort="<%= estadoOrdenacao('nome') %>">
+                                            <a href="<%= montarOrdenacao('nome') %>" class="th-sort">
+                                                Nome <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('nome') %></span>
+                                            </a>
+                                        </th>
+                                        <th aria-sort="<%= estadoOrdenacao('supervisor') %>">
+                                            <a href="<%= montarOrdenacao('supervisor') %>" class="th-sort">
+                                                Supervisor <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('supervisor') %></span>
+                                            </a>
+                                        </th>
+                                        <th aria-sort="<%= estadoOrdenacao('horas') %>">
+                                            <a href="<%= montarOrdenacao('horas') %>" class="th-sort">
+                                                Horas <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('horas') %></span>
+                                            </a>
+                                        </th>
+                                        <th aria-sort="<%= estadoOrdenacao('status') %>">
+                                            <a href="<%= montarOrdenacao('status') %>" class="th-sort">
+                                                Status <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('status') %></span>
+                                            </a>
+                                        </th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <% if (alunos.length === 0) { %>
                                         <tr>
-                                            <td colspan="7">
+                                            <td colspan="5">
                                                 <%= filtros.arquivados
                                                     ? 'Nenhum aluno arquivado encontrado.'
                                                     : 'Nenhum aluno encontrado com os filtros atuais.' %>
@@ -117,10 +175,13 @@
                                         <% alunos.forEach((a) => { %>
                                             <tr>
                                                 <td><%= a.nome %></td>
-                                                <td><%= a.matricula || '—' %></td>
-                                                <td><%= a.email %></td>
                                                 <td><%= a.supervisor_nome || '—' %></td>
-                                                <td><%= a.horas_realizadas %> / <%= a.carga_horaria %>h</td>
+                                                <td>
+                                                    <%= a.horas_realizadas %> / <%= a.carga_horaria %>h
+                                                    <% if (Number(a.horas_pendentes) > 0) { %>
+                                                        <br><span class="text-muted hours-pending">+<%= a.horas_pendentes %>h pendentes</span>
+                                                    <% } %>
+                                                </td>
                                                 <td>
                                                     <% if (a.status === 'lista_espera') { %>
                                                         <span class="status status-waiting">Lista de espera</span>
@@ -134,40 +195,7 @@
                                                     <% } %>
                                                 </td>
                                                 <td>
-                                                    <div class="button-group">
-                                                        <a href="/professor/aluno/<%= a.usuario_id %>"
-                                                            class="btn">Visualizar</a>
-
-                                                        <% if (a.arquivado) { %>
-                                                            <form action="/professor/aluno/<%= a.usuario_id %>/desarquivar"
-                                                                method="POST">
-                                                                <button type="submit"
-                                                                    class="btn-secondary">Desarquivar</button>
-                                                            </form>
-
-                                                            <% if (user.cargo === 'admin') { %>
-                                                                <form action="/professor/aluno/<%= a.usuario_id %>/excluir"
-                                                                    method="POST"
-                                                                    onsubmit="return confirm('Excluir este aluno definitivamente? Essa ação não pode ser desfeita.');">
-                                                                    <button type="submit" class="btn-danger">Excluir</button>
-                                                                </form>
-                                                            <% } %>
-                                                        <% } else if (a.status === 'lista_espera') { %>
-                                                            <a href="/professor/cadastro-aluno/<%= a.usuario_id %>"
-                                                                class="btn btn-success">Aprovar</a>
-                                                            <form action="/professor/aluno/<%= a.usuario_id %>/arquivar"
-                                                                method="POST">
-                                                                <button type="submit"
-                                                                    class="btn-secondary">Arquivar</button>
-                                                            </form>
-                                                        <% } else if (a.status === 'em_andamento') { %>
-                                                            <form action="/professor/aluno/<%= a.usuario_id %>/arquivar"
-                                                                method="POST">
-                                                                <button type="submit"
-                                                                    class="btn-secondary">Arquivar</button>
-                                                            </form>
-                                                        <% } %>
-                                                    </div>
+                                                    <%- include('partials/aluno_acoes', { a, user }) %>
                                                 </td>
                                             </tr>
                                         <% }) %>
@@ -177,14 +205,6 @@
                         </div>
 
                         <%
-                            const montarPagina = (p) => {
-                                const params = new URLSearchParams();
-                                if (filtros.q) params.set('q', filtros.q);
-                                filtros.status.forEach((s) => params.append('status', s));
-                                if (filtros.arquivados) params.set('arquivados', '1');
-                                params.set('pagina', p);
-                                return '/professor/dashboard?' + params.toString();
-                            };
                             const inicioExibido = total === 0 ? 0 : (pagina - 1) * tamanhoPagina + 1;
                             const fimExibido = Math.min(total, pagina * tamanhoPagina);
                             const inicioJanela = Math.max(1, pagina - 2);

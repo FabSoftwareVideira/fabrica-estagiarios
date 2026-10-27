@@ -15,10 +15,23 @@
 
         <h2>Minhas Atividades</h2>
 
-        <div class="grid">
-            <div class="info-box"><h3>Total de Horas</h3><p><%= horasRealizadas %>h</p></div>
-            <div class="info-box"><h3>Carga Horária</h3><p><%= cargaHoraria %>h</p></div>
-            <div class="info-box"><h3>Atividades</h3><p><%= atividades.length %></p></div>
+        <div class="card">
+            <div class="card-header">
+                <h2>Horas</h2>
+                <span class="text-muted"><%= atividades.length %> atividade(s) registrada(s)</span>
+            </div>
+
+            <p>Você tem <strong><%= horasRealizadas %>h validadas</strong> de <strong><%= cargaHoraria %>h</strong>
+                (<%= percentual %>%).</p>
+            <div class="progress">
+                <div class="progress-bar" data-percent="<%= percentual %>"></div>
+            </div>
+            <p class="progress-caption text-muted">Restam <%= horasRestantes %>h</p>
+            <% if (horasPendentes > 0) { %>
+                <p class="progress-caption text-muted">
+                    <strong><%= horasPendentes %>h</strong> aguardando validação do professor.
+                </p>
+            <% } %>
         </div>
 
         <div class="card">
@@ -26,41 +39,38 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr><th>Data</th><th>Descrição</th><th>Horas</th></tr>
+                        <tr><th>Data</th><th>Descrição</th><th>Horas</th><th>Validação</th></tr>
                     </thead>
                     <tbody>
                         <% if (atividades.length === 0) { %>
-                            <tr><td>—</td><td>Nenhuma atividade registrada ainda.</td><td>—</td></tr>
+                            <tr><td colspan="4">Nenhuma atividade registrada ainda.</td></tr>
                         <% } else { %>
                             <% atividades.forEach((a) => { %>
                                 <tr>
                                     <td><%= new Date(a.data).toLocaleDateString('pt-BR') %></td>
                                     <td><%= a.descricao %></td>
                                     <td><%= a.horas %>h</td>
+                                    <td>
+                                        <% if (a.validado) { %>
+                                            <span class="status status-completed">Validada</span>
+                                        <% } else { %>
+                                            <span class="status status-waiting">Pendente</span>
+                                        <% } %>
+                                    </td>
                                 </tr>
                             <% }) %>
                         <% } %>
                     </tbody>
                 </table>
             </div>
-        </div>
 
-        <div class="card">
-            <h2>Resumo</h2>
-            <p>Total de atividades cadastradas: <strong><%= atividades.length %></strong></p>
-            <p>Horas registradas: <strong><%= horasRealizadas %>h</strong> de <strong><%= cargaHoraria %>h</strong>.</p>
-            <div class="progress">
-                <div class="progress-bar" data-percent="<%= percentual %>"></div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Ações</h2>
-            <div class="button-group">
-                <% if (status === 'em_andamento') { %>
-                    <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
-                <% } %>
-                <a href="/aluno/dashboard" class="btn btn-secondary">Voltar ao Dashboard</a>
+            <div class="card-actions">
+                <div class="button-group">
+                    <% if (status === 'em_andamento') { %>
+                        <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
+                    <% } %>
+                    <a href="/aluno/dashboard" class="btn btn-secondary">Voltar ao Dashboard</a>
+                </div>
             </div>
         </div>
     </main>

@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS atividades (
     data        DATE NOT NULL,
     horas       NUMERIC(5,2) NOT NULL CHECK (horas > 0),
     descricao   TEXT NOT NULL,
+    validado    BOOLEAN NOT NULL DEFAULT false,
+    validado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    validado_em TIMESTAMP,
     criado_em   TIMESTAMP NOT NULL DEFAULT NOW()
 );
 

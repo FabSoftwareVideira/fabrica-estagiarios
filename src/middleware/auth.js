@@ -8,6 +8,8 @@ const usuariosModel = require('../models/usuarios');
 async function attachUser(req, res, next) {
     res.locals.user = req.session.user || null;
     res.locals.flash = req.session.flash || null;
+    res.locals.currentPath = req.path;
+    res.locals.currentTab = req.query.aba || null;
     delete req.session.flash;
 
     // usado pelo header pra só mostrar "Nova Atividade" quando o estágio

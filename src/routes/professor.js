@@ -32,6 +32,7 @@ router.use(requireNomeConfirmado);
 
 const TAMANHO_PAGINA = 10;
 const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'concluido'];
+const CAMPOS_ORDENACAO = ['nome', 'supervisor', 'horas', 'status'];
 
 router.get('/dashboard', async (req, res) => {
     const aba = req.query.aba === 'administracao' && req.session.user.cargo === 'admin'
@@ -47,13 +48,31 @@ router.get('/dashboard', async (req, res) => {
             totalPaginas: 1,
             tamanhoPagina: TAMANHO_PAGINA,
             filtros: { q: '', status: [], arquivados: false },
+            filtroPersonalizado: false,
+            ordenacao: { campo: null, direcao: 'asc' },
         });
     }
 
     const busca = (req.query.q || '').trim();
-    const status = [...new Set([].concat(req.query.status || []))]
-        .filter((s) => STATUS_VALIDOS.includes(s));
     const arquivados = req.query.arquivados === '1';
+    const campoOrdenacao = CAMPOS_ORDENACAO.includes(req.query.ordenar) ? req.query.ordenar : null;
+    const direcao = req.query.dir === 'desc' ? 'desc' : 'asc';
+    const ordenacao = { campo: campoOrdenacao, direcao };
+
+    // o formulário envia "f=1" mesmo quando nenhum status está marcado,
+    // pra diferenciar "sem filtro" (todos) do primeiro acesso (padrão)
+    const filtroEnviado = req.query.f === '1'
+        || req.query.status !== undefined
+        || req.query.q
+        || arquivados
+        || req.query.pagina !== undefined;
+
+    let status = [...new Set([].concat(req.query.status || []))]
+        .filter((s) => STATUS_VALIDOS.includes(s));
+
+    if (!filtroEnviado && status.length === 0) {
+        status = ['lista_espera', 'em_andamento'];
+    }
 
     let pagina = parseInt(req.query.pagina, 10);
     if (!Number.isFinite(pagina) || pagina < 1) pagina = 1;
@@ -66,6 +85,8 @@ router.get('/dashboard', async (req, res) => {
         arquivados,
         limite: TAMANHO_PAGINA,
         offset: (pagina - 1) * TAMANHO_PAGINA,
+        ordenarPor: campoOrdenacao,
+        direcao,
     });
 
     let resultado = await consultar();
@@ -84,6 +105,8 @@ router.get('/dashboard', async (req, res) => {
         totalPaginas,
         tamanhoPagina: TAMANHO_PAGINA,
         filtros,
+        filtroPersonalizado: Boolean(filtroEnviado),
+        ordenacao,
     });
 });
 
@@ -113,7 +136,12 @@ router.post('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
-    const { status, supervisor_id, orientador_id, carga_horaria } = req.body;
+    const { supervisor_id, orientador_id, carga_horaria } = req.body;
+
+    // "concluido" só é atribuído automaticamente pelo modelo quando as horas
+    // validadas atingem a carga horária; aqui o professor só alterna entre
+    // lista de espera e em andamento.
+    const status = req.body.status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
 
     if (supervisor_id && orientador_id && supervisor_id === orientador_id) {
         setFlash(req, 'error', 'Supervisor e orientador não podem ser o mesmo professor.');
@@ -130,6 +158,46 @@ router.post('/aluno/:id', async (req, res) => {
     setFlash(req, 'success', 'Estágio atualizado com sucesso.');
     res.redirect('/professor/aluno/' + req.params.id);
 });
+
+// ── Validação das horas ───────────────────────────────────────────────────
+
+async function validarAtividade(req, res, validado) {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
+    if (!aluno) {
+        setFlash(req, 'error', 'Aluno não encontrado.');
+        return res.redirect('/professor/dashboard');
+    }
+
+    if (aluno.arquivado) {
+        setFlash(req, 'error', 'Não é possível validar horas de um estágio arquivado.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
+    const resultado = await atividadesModel.definirValidacao({
+        atividadeId: req.params.atividadeId,
+        alunoId: req.params.id,
+        validado,
+        validadorId: req.session.user.id,
+    });
+
+    if (!resultado) {
+        setFlash(req, 'error', 'Atividade não encontrada para este aluno.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
+    if (resultado.status === 'concluido' && aluno.status !== 'concluido') {
+        setFlash(req, 'success', 'Horas validadas! O aluno completou a carga horária e o estágio foi concluído.');
+    } else if (resultado.status === 'em_andamento' && aluno.status === 'concluido') {
+        setFlash(req, 'success', 'Validação removida. O aluno voltou para "Em andamento".');
+    } else {
+        setFlash(req, 'success', validado ? 'Atividade validada com sucesso.' : 'Validação removida com sucesso.');
+    }
+
+    res.redirect('/professor/aluno/' + req.params.id);
+}
+
+router.post('/aluno/:id/atividade/:atividadeId/validar', (req, res) => validarAtividade(req, res, true));
+router.post('/aluno/:id/atividade/:atividadeId/invalidar', (req, res) => validarAtividade(req, res, false));
 
 router.get('/cadastro-aluno/:id', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);

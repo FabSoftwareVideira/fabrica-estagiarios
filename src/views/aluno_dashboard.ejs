@@ -15,36 +15,26 @@
 
         <h2>Painel do Aluno</h2>
 
-        <div class="grid">
-            <div class="info-box">
-                <h3>Status</h3>
-                <% const statusLabel = { lista_espera: 'Lista de Espera', em_andamento: 'Em andamento', concluido: 'Concluído' }; %>
-                <% const statusClass = { lista_espera: 'status-waiting', em_andamento: 'status-progress', concluido: 'status-completed' }; %>
+        <% const statusLabel = { lista_espera: 'Lista de Espera', em_andamento: 'Em andamento', concluido: 'Concluído' }; %>
+        <% const statusClass = { lista_espera: 'status-waiting', em_andamento: 'status-progress', concluido: 'status-completed' }; %>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Horas</h2>
                 <span class="status <%= statusClass[aluno.status] %>"><%= statusLabel[aluno.status] %></span>
             </div>
 
-            <div class="info-box">
-                <h3>Horas Realizadas</h3>
-                <p><%= horasRealizadas %>h</p>
-            </div>
-
-            <div class="info-box">
-                <h3>Carga Horária</h3>
-                <p><%= cargaHoraria %>h</p>
-            </div>
-
-            <div class="info-box">
-                <h3>Horas Restantes</h3>
-                <p><%= horasRestantes %>h</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Progresso</h2>
-            <p>Você concluiu <strong><%= horasRealizadas %>h</strong> de <strong><%= cargaHoraria %>h</strong>.</p>
+            <p>Você tem <strong><%= horasRealizadas %>h validadas</strong> de <strong><%= cargaHoraria %>h</strong>
+                (<%= percentual %>%).</p>
             <div class="progress">
                 <div class="progress-bar" data-percent="<%= percentual %>"></div>
             </div>
+            <p class="progress-caption text-muted">Restam <%= horasRestantes %>h</p>
+            <% if (horasPendentes > 0) { %>
+                <p class="progress-caption text-muted">
+                    <strong><%= horasPendentes %>h</strong> aguardando validação do professor.
+                </p>
+            <% } %>
         </div>
 
         <div class="grid">
@@ -65,19 +55,26 @@
                     <p><strong>Data:</strong> <%= new Date(ultimaAtividade.data).toLocaleDateString('pt-BR') %></p>
                     <p><strong>Descrição:</strong><br><%= ultimaAtividade.descricao %></p>
                     <p><strong>Horas:</strong> <%= ultimaAtividade.horas %>h</p>
+                    <p>
+                        <strong>Validação:</strong>
+                        <% if (ultimaAtividade.validado) { %>
+                            <span class="status status-completed">Validada</span>
+                        <% } else { %>
+                            <span class="status status-waiting">Pendente</span>
+                        <% } %>
+                    </p>
                 <% } else { %>
                     <p>Nenhuma atividade registrada ainda.</p>
                 <% } %>
-            </div>
-        </div>
 
-        <div class="card">
-            <h2>Ações</h2>
-            <div class="button-group">
-                <% if (aluno.status === 'em_andamento') { %>
-                    <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
-                <% } %>
-                <a href="/aluno/atividades" class="btn btn-secondary">Ver Todas as Atividades</a>
+                <div class="card-actions">
+                    <div class="button-group">
+                        <% if (aluno.status === 'em_andamento') { %>
+                            <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
+                        <% } %>
+                        <a href="/aluno/atividades" class="btn btn-secondary">Ver Todas as Atividades</a>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
