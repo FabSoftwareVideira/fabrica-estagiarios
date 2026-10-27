@@ -27,7 +27,12 @@ async function criar({ alunoId, data, horas, descricao }) {
 // valida/desvalida uma atividade e recalcula o status do aluno na mesma
 // transação: se as horas validadas atingirem a carga horária, conclui o estágio;
 // se a validação for removida e as horas caírem, volta para "em_andamento".
-async function definirValidacao({ atividadeId, alunoId, validado, validadorId }) {
+async function definirValidacao({ atividadeId, alunoId, status, validadorId }) {
+    const statusValidos = ['pendente', 'validada', 'invalidada'];
+    if (!statusValidos.includes(status)) {
+        throw new Error('Status de validação inválido.');
+    }
+
     const client = await pool.connect();
 
     try {
@@ -35,12 +40,12 @@ async function definirValidacao({ atividadeId, alunoId, validado, validadorId })
 
         const { rows: atividades } = await client.query(
             `UPDATE atividades
-             SET validado = $3,
-                 validado_por = CASE WHEN $3 THEN $4::integer ELSE NULL END,
-                 validado_em = CASE WHEN $3 THEN NOW() ELSE NULL END
+             SET status_validacao = $3::varchar,
+                 avaliado_por = CASE WHEN $3::varchar = 'pendente' THEN NULL ELSE $4::integer END,
+                 avaliado_em = CASE WHEN $3::varchar = 'pendente' THEN NULL ELSE NOW() END
              WHERE id = $1 AND aluno_id = $2
              RETURNING *`,
-            [atividadeId, alunoId, Boolean(validado), validadorId]
+            [atividadeId, alunoId, status, validadorId]
         );
 
         if (atividades.length === 0) {
@@ -54,7 +59,7 @@ async function definirValidacao({ atividadeId, alunoId, validado, validadorId })
                      WHEN a.status = 'lista_espera' THEN a.status
                      WHEN COALESCE((
                          SELECT SUM(horas) FROM atividades
-                         WHERE aluno_id = a.usuario_id AND validado
+                         WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'
                      ), 0) >= a.carga_horaria THEN 'concluido'
                      ELSE 'em_andamento'
                  END

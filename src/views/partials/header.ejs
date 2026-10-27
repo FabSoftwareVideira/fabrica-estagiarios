@@ -26,6 +26,10 @@
                             <a href="/aluno/nova-atividade"
                                 class="nav-link nav-link-cta <%= navAtivo('/aluno/nova-atividade') %>">Nova Atividade</a>
                         <% } %>
+                        <% if (typeof alunoStatus !== 'undefined' && alunoStatus === 'concluido') { %>
+                            <a href="/aluno/faa"
+                                class="nav-link nav-link-cta <%= navAtivo('/aluno/faa') %>">Gerar FAA</a>
+                        <% } %>
                     <% } else { %>
                         <% const adminAtivo = currentPath === '/professor/dashboard' && currentTab === 'administracao'; %>
                         <a href="/professor/dashboard"

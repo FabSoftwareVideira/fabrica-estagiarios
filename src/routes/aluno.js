@@ -3,6 +3,8 @@ const { requireRole, requireEmAndamento, requireAlunoCompleto, setFlash } = requ
 const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
+const faasModel = require('../models/faas');
+const { gerarFaaPdf, formatarDataBr } = require('../services/faaPdf');
 
 router.use(requireRole('aluno'));
 
@@ -43,6 +45,56 @@ router.post('/completar-cadastro', async (req, res) => {
 
 router.use(requireAlunoCompleto);
 
+function dataLocalIso(data = new Date()) {
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const dia = String(data.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+}
+
+function dataIsoValida(valor) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+
+    const [ano, mes, dia] = valor.split('-').map(Number);
+    const data = new Date(ano, mes - 1, dia);
+
+    return data.getFullYear() === ano
+        && data.getMonth() === mes - 1
+        && data.getDate() === dia;
+}
+
+function dataParaInput(valor) {
+    if (!valor) return '';
+    if (typeof valor === 'string') return valor.slice(0, 10);
+
+    const data = valor instanceof Date ? valor : new Date(valor);
+    return Number.isNaN(data.getTime()) ? '' : dataLocalIso(data);
+}
+
+function enviarPdf(res, alunoNome, pdfBytes) {
+    const nomeBase = String(alunoNome)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aluno';
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="FAA-${nomeBase}.pdf"`);
+    return res.send(Buffer.from(pdfBytes));
+}
+
+async function requireEstagioConcluido(req, res, next) {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
+
+    if (!aluno || aluno.status !== 'concluido') {
+        setFlash(req, 'error', 'A FAA só pode ser gerada após a conclusão do estágio.');
+        return res.redirect('/aluno/dashboard');
+    }
+
+    req.aluno = aluno;
+    next();
+}
+
 router.get('/dashboard', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
     const ultimaAtividade = await atividadesModel.ultimaPorAluno(req.session.user.id);
@@ -61,6 +113,134 @@ router.get('/dashboard', async (req, res) => {
         horasRestantes: Math.max(0, cargaHoraria - horasRealizadas),
         percentual,
     });
+});
+
+router.get('/faa', requireEstagioConcluido, async (req, res) => {
+    const faaSalva = await faasModel.buscarPorAluno(req.session.user.id);
+    const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
+    const validadas = atividades
+        .filter((a) => a.status_validacao === 'validada')
+        .sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    const datas = validadas
+        .map((a) => new Date(a.data))
+        .filter((data) => !Number.isNaN(data.getTime()));
+
+    const periodoSugerido = datas.length > 0
+        ? `${formatarDataBr(datas[0])} a ${formatarDataBr(datas[datas.length - 1])}`
+        : '';
+
+    const atividadesSugeridas = validadas
+        .map((a) => `${formatarDataBr(a.data)} - ${a.descricao} (${Number(a.horas)}h)`)
+        .join('\n');
+
+    res.render('aluno_faa', {
+        aluno: req.aluno,
+        faaSalva,
+        empresa: faaSalva ? faaSalva.empresa : '',
+        periodo: faaSalva ? faaSalva.periodo : periodoSugerido,
+        atividadesTexto: faaSalva ? faaSalva.atividades : atividadesSugeridas,
+        comentarios: faaSalva ? faaSalva.comentarios : '',
+        dataAssinatura: faaSalva ? dataParaInput(faaSalva.data_assinatura) : dataLocalIso(),
+        notasSalvas: faaSalva ? faaSalva.notas : [],
+        respostasSalvas: faaSalva ? faaSalva.respostas : [],
+    });
+});
+
+router.post('/faa', requireEstagioConcluido, async (req, res) => {
+    const acao = req.body.acao === 'salvar' ? 'salvar' : 'salvar_pdf';
+    const empresa = (req.body.empresa || '').trim();
+    const periodo = (req.body.periodo || '').trim();
+    const atividades = (req.body.atividades || '').trim();
+    const comentarios = (req.body.comentarios || '').trim();
+    const notasBrutas = Array.from({ length: 10 }, (_, i) => req.body[`nota_${i + 1}`]);
+    const notas = notasBrutas.map((nota) => Number(nota));
+    const respostas = Array.from({ length: 7 }, (_, i) => req.body[`q_${i + 1}`]);
+    const respostasValidas = ['sim', 'nao', 'mais_menos'];
+
+    const dataAssinatura = req.body.data_assinatura || '';
+
+    const dadosInvalidos = !empresa
+        || !periodo
+        || !atividades
+        || !dataIsoValida(dataAssinatura)
+        || notasBrutas.some((nota) => String(nota ?? '').trim() === '')
+        || notas.some((nota) => !Number.isFinite(nota) || nota < 0 || nota > 10)
+        || respostas.some((resposta) => !respostasValidas.includes(resposta));
+
+    if (dadosInvalidos) {
+        setFlash(req, 'error', 'Preencha todos os campos obrigatórios com notas entre 0 e 10.');
+        return res.redirect('/aluno/faa');
+    }
+
+    try {
+        await faasModel.salvar({
+            alunoId: req.session.user.id,
+            empresa,
+            periodo,
+            notas,
+            atividades,
+            respostas,
+            comentarios,
+            dataAssinatura,
+        });
+    } catch (err) {
+        console.error('[aluno/faa] erro ao salvar ficha:', err.message);
+        setFlash(req, 'error', 'Não foi possível salvar a ficha da FAA. Tente novamente.');
+        return res.redirect('/aluno/faa');
+    }
+
+    if (acao === 'salvar') {
+        setFlash(req, 'success', 'Ficha salva. Você pode alterá-la e gerar o PDF quando quiser.');
+        return res.redirect('/aluno/faa');
+    }
+
+    try {
+        const pdfBytes = await gerarFaaPdf({
+            aluno: req.aluno,
+            empresa,
+            periodo,
+            notas,
+            atividades,
+            respostas,
+            comentarios,
+            dataAssinatura,
+        });
+
+        return enviarPdf(res, req.aluno.nome, pdfBytes);
+    } catch (err) {
+        console.error('[aluno/faa] erro ao gerar PDF:', err.message);
+        setFlash(req, 'error', 'A ficha foi salva, mas não foi possível gerar o PDF. Tente novamente.');
+        return res.redirect('/aluno/faa');
+    }
+});
+
+router.get('/faa/pdf', requireEstagioConcluido, async (req, res) => {
+    const faa = await faasModel.buscarPorAluno(req.session.user.id);
+
+    if (!faa) {
+        setFlash(req, 'error', 'Salve a ficha da FAA antes de gerar o PDF.');
+        return res.redirect('/aluno/faa');
+    }
+
+    try {
+        const pdfBytes = await gerarFaaPdf({
+            aluno: req.aluno,
+            empresa: faa.empresa,
+            periodo: faa.periodo,
+            notas: faa.notas,
+            atividades: faa.atividades,
+            respostas: faa.respostas,
+            comentarios: faa.comentarios,
+            dataAssinatura: dataParaInput(faa.data_assinatura),
+        });
+
+        return enviarPdf(res, req.aluno.nome, pdfBytes);
+    } catch (err) {
+        console.error('[aluno/faa/pdf] erro ao gerar PDF:', err.message);
+        setFlash(req, 'error', 'Não foi possível gerar o PDF da FAA. Tente novamente.');
+        return res.redirect('/aluno/faa');
+    }
 });
 
 router.get('/atividades', async (req, res) => {

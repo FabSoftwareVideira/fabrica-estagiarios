@@ -4,8 +4,8 @@ async function buscarPorUsuarioId(usuarioId) {
     const { rows } = await pool.query(
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome, ori.nome AS orientador_nome,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND validado), 0) AS horas_realizadas,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND NOT validado), 0) AS horas_pendentes
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas,
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente'), 0) AS horas_pendentes
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
@@ -91,8 +91,8 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome,
                 ori.nome AS orientador_nome,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND validado), 0) AS horas_realizadas,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND NOT validado), 0) AS horas_pendentes
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas,
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente'), 0) AS horas_pendentes
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
@@ -117,7 +117,7 @@ async function atualizarEstagio(usuarioId, { status, supervisorId, orientadorId,
                  WHEN $2 = 'lista_espera' THEN 'lista_espera'
                  WHEN COALESCE((
                      SELECT SUM(horas) FROM atividades
-                     WHERE aluno_id = $1 AND validado
+                     WHERE aluno_id = $1 AND status_validacao = 'validada'
                  ), 0) >= $5 THEN 'concluido'
                  ELSE 'em_andamento'
              END,

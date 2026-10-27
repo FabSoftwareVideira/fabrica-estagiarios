@@ -1,0 +1,7 @@
+<% if (atividade.status_validacao === 'validada') { %>
+    <span class="status status-completed">Validada</span>
+<% } else if (atividade.status_validacao === 'invalidada') { %>
+    <span class="status status-invalidated">Invalidada</span>
+<% } else { %>
+    <span class="status status-waiting">Pendente</span>
+<% } %>

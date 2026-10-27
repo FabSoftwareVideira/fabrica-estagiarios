@@ -173,9 +173,9 @@ async function gerarFaaPdf({ aluno, empresa, periodo, notas, atividades, respost
     });
 
     desenharLinha(pagina1, empresa, {
-        x: 261.1,
+        x: 266.6,
         y: alturaPagina - 228,
-        larguraMaxima: 265,
+        larguraMaxima: 260,
         font,
         tamanho: 10.5,
     });
@@ -282,4 +282,4 @@ async function gerarFaaPdf({ aluno, empresa, periodo, notas, atividades, respost
     return pdfDoc.save();
 }
 
-module.exports = { gerarFaaPdf };
+module.exports = { gerarFaaPdf, formatarDataBr };

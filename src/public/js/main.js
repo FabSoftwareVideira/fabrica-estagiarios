@@ -62,4 +62,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.progress-bar[data-percent]').forEach((bar) => {
         bar.style.width = `${bar.dataset.percent}%`;
     });
+
+    // calcula a nota final da FAA enquanto o aluno preenche as notas
+    const notasFaa = document.querySelectorAll('[data-faa-nota]');
+    const mediaFaa = document.getElementById('faa-media');
+
+    if (notasFaa.length > 0 && mediaFaa) {
+        const atualizarMedia = () => {
+            const soma = Array.from(notasFaa).reduce((total, input) => {
+                const nota = Number(input.value);
+                return total + (Number.isFinite(nota) ? nota : 0);
+            }, 0);
+            mediaFaa.textContent = (soma / notasFaa.length).toFixed(2).replace('.', ',');
+        };
+
+        notasFaa.forEach((input) => input.addEventListener('input', atualizarMedia));
+        atualizarMedia();
+    }
 });

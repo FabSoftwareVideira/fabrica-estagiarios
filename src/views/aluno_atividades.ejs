@@ -36,6 +36,20 @@
 
         <div class="card">
             <h2>Histórico de Atividades</h2>
+
+            <%
+                const atividadesInvalidadas = atividades.filter((a) => a.status_validacao === 'invalidada');
+            %>
+            <% if (atividadesInvalidadas.length > 0) { %>
+                <p class="text-muted">
+                    Você tem <strong><%= atividadesInvalidadas.length %></strong> atividade(s) invalidada(s).
+                    Essas horas não contam para a conclusão.
+                    <% if (status === 'em_andamento') { %>
+                        Registre uma nova atividade para substituí-las.
+                    <% } %>
+                </p>
+            <% } %>
+
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -51,11 +65,7 @@
                                     <td><%= a.descricao %></td>
                                     <td><%= a.horas %>h</td>
                                     <td>
-                                        <% if (a.validado) { %>
-                                            <span class="status status-completed">Validada</span>
-                                        <% } else { %>
-                                            <span class="status status-waiting">Pendente</span>
-                                        <% } %>
+                                        <%- include('partials/status_atividade', { atividade: a }) %>
                                     </td>
                                 </tr>
                             <% }) %>

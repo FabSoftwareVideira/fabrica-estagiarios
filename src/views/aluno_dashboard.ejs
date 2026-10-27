@@ -57,12 +57,16 @@
                     <p><strong>Horas:</strong> <%= ultimaAtividade.horas %>h</p>
                     <p>
                         <strong>Validação:</strong>
-                        <% if (ultimaAtividade.validado) { %>
-                            <span class="status status-completed">Validada</span>
-                        <% } else { %>
-                            <span class="status status-waiting">Pendente</span>
-                        <% } %>
+                        <%- include('partials/status_atividade', { atividade: ultimaAtividade }) %>
                     </p>
+                    <% if (ultimaAtividade.status_validacao === 'invalidada') { %>
+                        <p class="text-muted">
+                            Esse registro não conta horas.
+                            <% if (aluno.status === 'em_andamento') { %>
+                                Faça um novo registro para substituí-lo.
+                            <% } %>
+                        </p>
+                    <% } %>
                 <% } else { %>
                     <p>Nenhuma atividade registrada ainda.</p>
                 <% } %>
@@ -71,6 +75,9 @@
                     <div class="button-group">
                         <% if (aluno.status === 'em_andamento') { %>
                             <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
+                        <% } %>
+                        <% if (aluno.status === 'concluido') { %>
+                            <a href="/aluno/faa" class="btn btn-success">Gerar PDF FAA</a>
                         <% } %>
                         <a href="/aluno/atividades" class="btn btn-secondary">Ver Todas as Atividades</a>
                     </div>

@@ -160,6 +160,10 @@
                 </div>
             </div>
 
+            <p class="text-muted">
+                Ao invalidar uma atividade, as horas deixam de contar e o aluno precisará registrar outra.
+            </p>
+
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -183,21 +187,29 @@
                                     <td><%= a.descricao %></td>
                                     <td><%= a.horas %>h</td>
                                     <td>
-                                        <% if (a.validado) { %>
-                                            <span class="status status-completed">Validada</span>
-                                        <% } else { %>
-                                            <span class="status status-waiting">Pendente</span>
-                                        <% } %>
+                                        <%- include('partials/status_atividade', { atividade: a }) %>
                                     </td>
                                     <% if (!aluno.arquivado) { %>
                                         <td>
-                                            <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/<%= a.validado ? 'invalidar' : 'validar' %>"
-                                                method="POST">
-                                                <button type="submit"
-                                                    class="<%= a.validado ? 'btn-secondary' : 'btn-success' %>">
-                                                    <%= a.validado ? 'Remover validação' : 'Validar' %>
-                                                </button>
-                                            </form>
+                                            <% if (a.status_validacao === 'invalidada') { %>
+                                                <span class="text-muted">Aguardando novo registro do aluno</span>
+                                            <% } else if (a.status_validacao === 'validada') { %>
+                                                <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
+                                                    method="POST">
+                                                    <button type="submit" class="btn-secondary">Invalidar</button>
+                                                </form>
+                                            <% } else { %>
+                                                <div class="table-actions">
+                                                    <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/validar"
+                                                        method="POST">
+                                                        <button type="submit" class="btn-success">Validar</button>
+                                                    </form>
+                                                    <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
+                                                        method="POST">
+                                                        <button type="submit" class="btn-secondary">Invalidar</button>
+                                                    </form>
+                                                </div>
+                                            <% } %>
                                         </td>
                                     <% } %>
                                 </tr>

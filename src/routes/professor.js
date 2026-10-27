@@ -161,7 +161,7 @@ router.post('/aluno/:id', async (req, res) => {
 
 // ── Validação das horas ───────────────────────────────────────────────────
 
-async function validarAtividade(req, res, validado) {
+async function alterarValidacao(req, res, status) {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
         setFlash(req, 'error', 'Aluno não encontrado.');
@@ -176,7 +176,7 @@ async function validarAtividade(req, res, validado) {
     const resultado = await atividadesModel.definirValidacao({
         atividadeId: req.params.atividadeId,
         alunoId: req.params.id,
-        validado,
+        status,
         validadorId: req.session.user.id,
     });
 
@@ -185,19 +185,23 @@ async function validarAtividade(req, res, validado) {
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
-    if (resultado.status === 'concluido' && aluno.status !== 'concluido') {
-        setFlash(req, 'success', 'Horas validadas! O aluno completou a carga horária e o estágio foi concluído.');
+    if (status === 'validada') {
+        if (resultado.status === 'concluido' && aluno.status !== 'concluido') {
+            setFlash(req, 'success', 'Horas validadas! O aluno completou a carga horária e o estágio foi concluído.');
+        } else {
+            setFlash(req, 'success', 'Atividade validada com sucesso.');
+        }
     } else if (resultado.status === 'em_andamento' && aluno.status === 'concluido') {
-        setFlash(req, 'success', 'Validação removida. O aluno voltou para "Em andamento".');
+        setFlash(req, 'success', 'Atividade invalidada. O aluno voltou para "Em andamento" e deverá registrar outra atividade.');
     } else {
-        setFlash(req, 'success', validado ? 'Atividade validada com sucesso.' : 'Validação removida com sucesso.');
+        setFlash(req, 'success', 'Atividade invalidada. Essas horas não contam mais para a conclusão.');
     }
 
     res.redirect('/professor/aluno/' + req.params.id);
 }
 
-router.post('/aluno/:id/atividade/:atividadeId/validar', (req, res) => validarAtividade(req, res, true));
-router.post('/aluno/:id/atividade/:atividadeId/invalidar', (req, res) => validarAtividade(req, res, false));
+router.post('/aluno/:id/atividade/:atividadeId/validar', (req, res) => alterarValidacao(req, res, 'validada'));
+router.post('/aluno/:id/atividade/:atividadeId/invalidar', (req, res) => alterarValidacao(req, res, 'invalidada'));
 
 router.get('/cadastro-aluno/:id', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
