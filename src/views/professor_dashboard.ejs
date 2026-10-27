@@ -15,8 +15,6 @@
         <main class="container">
             <%- include('partials/flash') %>
 
-                <h2>Painel do Professor</h2>
-
                 <div class="tabs">
                     <a href="/professor/dashboard" class="tab <%= aba === 'alunos' ? 'active' : '' %>">Alunos</a>
                     <% if (user.cargo === 'admin') { %>

@@ -601,18 +601,32 @@ td form {
   margin: 0;
 }
 
-td form button {
+td form button,
+td .btn {
   margin: 0;
 }
 
 .table-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
 .table-actions form {
   margin: 0;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 9px;
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* ===========================
