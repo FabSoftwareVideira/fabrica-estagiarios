@@ -66,12 +66,6 @@
                 <h2>Dados do estágio</h2>
                 <div class="form-grid">
                     <div class="form-field">
-                        <label for="empresa">Empresa/Entidade concedente</label>
-                        <input type="text" id="empresa" name="empresa" required
-                            value="<%= empresa %>" placeholder="Nome da empresa ou entidade">
-                    </div>
-
-                    <div class="form-field">
                         <label for="periodo">Período do estágio</label>
                         <input type="text" id="periodo" name="periodo" required
                             value="<%= periodo %>" placeholder="Ex.: 01/03/2026 a 30/09/2026">
@@ -81,6 +75,14 @@
                         <label for="data_assinatura">Data da assinatura</label>
                         <input type="date" id="data_assinatura" name="data_assinatura" required value="<%= dataAssinatura %>">
                     </div>
+                </div>
+                <div class="form-note">
+                    <strong>Empresa/Entidade concedente:</strong>
+                    <% if (empresa) { %>
+                        <%= empresa %> (cadastrada pelo professor do estágio)
+                    <% } else { %>
+                        ainda não cadastrada pelo professor.
+                    <% } %>
                 </div>
             </section>
 

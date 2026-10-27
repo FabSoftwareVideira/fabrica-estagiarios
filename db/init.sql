@@ -60,6 +60,15 @@ CREATE TABLE IF NOT EXISTS faas (
     atualizado_em   TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS fapos (
+    aluno_id        INTEGER PRIMARY KEY REFERENCES alunos(usuario_id) ON DELETE CASCADE,
+    nota            NUMERIC(4,1) NOT NULL CHECK (nota >= 0 AND nota <= 10),
+    comentarios     TEXT NOT NULL DEFAULT '',
+    data_assinatura DATE NOT NULL,
+    criado_em       TIMESTAMP NOT NULL DEFAULT NOW(),
+    atualizado_em   TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_atividades_aluno ON atividades(aluno_id);
 CREATE INDEX IF NOT EXISTS idx_alunos_status ON alunos(status);
 CREATE INDEX IF NOT EXISTS idx_alunos_arquivado ON alunos(arquivado);

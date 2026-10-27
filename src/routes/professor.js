@@ -5,6 +5,7 @@ const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
 const faasModel = require('../models/faas');
+const faposModel = require('../models/fapos');
 const { gerarFapoPdf } = require('../services/fapoPdf');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 
@@ -119,6 +120,14 @@ function dataLocalIso(data = new Date()) {
     return `${ano}-${mes}-${dia}`;
 }
 
+function dataParaInput(valor) {
+    if (!valor) return '';
+    if (typeof valor === 'string') return valor.slice(0, 10);
+
+    const data = valor instanceof Date ? valor : new Date(valor);
+    return Number.isNaN(data.getTime()) ? '' : dataLocalIso(data);
+}
+
 function dataIsoValida(valor) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
 
@@ -170,24 +179,26 @@ router.get('/aluno/:id', async (req, res) => {
 });
 
 router.get('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
-    const faa = await faasModel.buscarPorAluno(req.params.id);
+    const fapoSalva = await faposModel.buscarPorAluno(req.params.id);
 
     res.render('professor_fapo', {
         aluno: req.aluno,
-        empresa: faa ? faa.empresa : '',
+        fapoSalva,
+        nota: fapoSalva ? Number(fapoSalva.nota) : '',
+        comentarios: fapoSalva ? fapoSalva.comentarios : '',
+        dataAssinatura: fapoSalva ? dataParaInput(fapoSalva.data_assinatura) : dataLocalIso(),
         hoje: dataLocalIso(),
     });
 });
 
 router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
-    const empresa = (req.body.empresa || '').trim();
+    const acao = req.body.acao === 'salvar' ? 'salvar' : 'salvar_pdf';
     const notaBruta = req.body.nota;
     const nota = Number(notaBruta);
     const comentarios = (req.body.comentarios || '').trim();
     const dataAssinatura = req.body.data_assinatura || '';
 
-    const dadosInvalidos = !empresa
-        || String(notaBruta ?? '').trim() === ''
+    const dadosInvalidos = String(notaBruta ?? '').trim() === ''
         || !Number.isFinite(nota)
         || nota < 0
         || nota > 10
@@ -199,9 +210,27 @@ router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
     }
 
     try {
+        await faposModel.salvar({
+            alunoId: req.params.id,
+            nota,
+            comentarios,
+            dataAssinatura,
+        });
+    } catch (err) {
+        console.error('[professor/fapo] erro ao salvar ficha:', err.message);
+        setFlash(req, 'error', 'Não foi possível salvar a FAPO. Tente novamente.');
+        return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
+    }
+
+    if (acao === 'salvar') {
+        setFlash(req, 'success', 'FAPO salva. O aluno poderá gerar o PDF na área de fichas.');
+        return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
+    }
+
+    try {
         const pdfBytes = await gerarFapoPdf({
             aluno: req.aluno,
-            empresa,
+            empresa: req.aluno.empresa || '',
             nota,
             comentarios,
             dataAssinatura,
@@ -218,6 +247,39 @@ router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
         return res.send(Buffer.from(pdfBytes));
     } catch (err) {
         console.error('[professor/fapo] erro ao gerar PDF:', err.message);
+        setFlash(req, 'error', 'A FAPO foi salva, mas não foi possível gerar o PDF. Tente novamente.');
+        return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
+    }
+});
+
+router.get('/aluno/:id/fapo/pdf', requireOrientadorFapo, async (req, res) => {
+    const fapo = await faposModel.buscarPorAluno(req.params.id);
+
+    if (!fapo) {
+        setFlash(req, 'error', 'Salve a FAPO antes de gerar o PDF.');
+        return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
+    }
+
+    try {
+        const pdfBytes = await gerarFapoPdf({
+            aluno: req.aluno,
+            empresa: req.aluno.empresa || '',
+            nota: Number(fapo.nota),
+            comentarios: fapo.comentarios,
+            dataAssinatura: dataParaInput(fapo.data_assinatura),
+        });
+
+        const nomeBase = String(req.aluno.nome)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aluno';
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="FAPO-${nomeBase}.pdf"`);
+        return res.send(Buffer.from(pdfBytes));
+    } catch (err) {
+        console.error('[professor/fapo/pdf] erro ao gerar PDF:', err.message);
         setFlash(req, 'error', 'Não foi possível gerar o PDF da FAPO. Tente novamente.');
         return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
     }

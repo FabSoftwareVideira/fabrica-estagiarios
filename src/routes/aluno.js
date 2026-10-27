@@ -4,8 +4,10 @@ const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const faasModel = require('../models/faas');
+const faposModel = require('../models/fapos');
 const { gerarFaaPdf, formatarDataBr } = require('../services/faaPdf');
 const { gerarFichaAcompanhamentoPdf } = require('../services/fichaAcompanhamentoPdf');
+const { gerarFapoPdf } = require('../services/fapoPdf');
 
 router.use(requireRole('aluno'));
 
@@ -99,6 +101,7 @@ async function requireEstagioConcluido(req, res, next) {
 router.get('/dashboard', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
     const ultimaAtividade = await atividadesModel.ultimaPorAluno(req.session.user.id);
+    const fapoSalva = await faposModel.buscarPorAluno(req.session.user.id);
 
     const horasRealizadas = Number(aluno.horas_realizadas);
     const horasPendentes = Number(aluno.horas_pendentes);
@@ -108,6 +111,7 @@ router.get('/dashboard', async (req, res) => {
     res.render('aluno_dashboard', {
         aluno,
         ultimaAtividade,
+        fapoSalva,
         horasRealizadas,
         horasPendentes,
         cargaHoraria,
@@ -138,7 +142,7 @@ router.get('/faa', requireEstagioConcluido, async (req, res) => {
     res.render('aluno_faa', {
         aluno: req.aluno,
         faaSalva,
-        empresa: faaSalva ? faaSalva.empresa : '',
+        empresa: req.aluno.empresa || (faaSalva ? faaSalva.empresa : ''),
         periodo: faaSalva ? faaSalva.periodo : periodoSugerido,
         atividadesTexto: faaSalva ? faaSalva.atividades : atividadesSugeridas,
         comentarios: faaSalva ? faaSalva.comentarios : '',
@@ -150,7 +154,14 @@ router.get('/faa', requireEstagioConcluido, async (req, res) => {
 
 router.post('/faa', requireEstagioConcluido, async (req, res) => {
     const acao = req.body.acao === 'salvar' ? 'salvar' : 'salvar_pdf';
-    const empresa = (req.body.empresa || '').trim();
+    // a empresa é a cadastrada no estágio pelo professor, nunca digitada pelo aluno
+    const empresa = (req.aluno.empresa || '').trim();
+
+    if (!empresa) {
+        setFlash(req, 'error', 'A empresa/concedente não foi cadastrada pelo professor do estágio.');
+        return res.redirect('/aluno/faa');
+    }
+
     const periodo = (req.body.periodo || '').trim();
     const atividades = (req.body.atividades || '').trim();
     const comentarios = (req.body.comentarios || '').trim();
@@ -161,8 +172,7 @@ router.post('/faa', requireEstagioConcluido, async (req, res) => {
 
     const dataAssinatura = req.body.data_assinatura || '';
 
-    const dadosInvalidos = !empresa
-        || !periodo
+    const dadosInvalidos = !periodo
         || !atividades
         || !dataIsoValida(dataAssinatura)
         || notasBrutas.some((nota) => String(nota ?? '').trim() === '')
@@ -227,7 +237,7 @@ router.get('/faa/pdf', requireEstagioConcluido, async (req, res) => {
     try {
         const pdfBytes = await gerarFaaPdf({
             aluno: req.aluno,
-            empresa: faa.empresa,
+            empresa: req.aluno.empresa || faa.empresa,
             periodo: faa.periodo,
             notas: faa.notas,
             atividades: faa.atividades,
@@ -241,6 +251,31 @@ router.get('/faa/pdf', requireEstagioConcluido, async (req, res) => {
         console.error('[aluno/faa/pdf] erro ao gerar PDF:', err.message);
         setFlash(req, 'error', 'Não foi possível gerar o PDF da FAA. Tente novamente.');
         return res.redirect('/aluno/faa');
+    }
+});
+
+router.get('/fapo/pdf', requireEstagioConcluido, async (req, res) => {
+    const fapo = await faposModel.buscarPorAluno(req.session.user.id);
+
+    if (!fapo) {
+        setFlash(req, 'error', 'A FAPO ainda não foi avaliada pelo seu orientador.');
+        return res.redirect('/aluno/dashboard');
+    }
+
+    try {
+        const pdfBytes = await gerarFapoPdf({
+            aluno: req.aluno,
+            empresa: req.aluno.empresa || '',
+            nota: Number(fapo.nota),
+            comentarios: fapo.comentarios,
+            dataAssinatura: dataParaInput(fapo.data_assinatura),
+        });
+
+        return enviarPdf(res, req.aluno.nome, pdfBytes);
+    } catch (err) {
+        console.error('[aluno/fapo/pdf] erro ao gerar PDF:', err.message);
+        setFlash(req, 'error', 'Não foi possível gerar o PDF da FAPO. Tente novamente.');
+        return res.redirect('/aluno/dashboard');
     }
 });
 

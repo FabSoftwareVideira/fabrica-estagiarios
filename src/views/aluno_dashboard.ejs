@@ -35,6 +35,80 @@
             <% } %>
         </div>
 
+        <div class="card fichas-center">
+            <div class="card-header">
+                <h2>Fichas do Estágio</h2>
+            </div>
+            <p class="text-muted">Central com todos os documentos gerados a partir dos dados do seu estágio.</p>
+
+            <div class="fichas-grid">
+                <article class="ficha-item">
+                    <div class="ficha-item-head">
+                        <span class="ficha-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="8" y1="13" x2="16" y2="13"></line>
+                                <line x1="8" y1="17" x2="13" y2="17"></line>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3>Ficha de Acompanhamento</h3>
+                            <p>Datas, horários, atividades e horas cumpridas no estágio.</p>
+                        </div>
+                    </div>
+                    <% if (aluno.status !== 'lista_espera') { %>
+                        <a href="/aluno/ficha-acompanhamento" class="btn btn-success">Gerar PDF</a>
+                    <% } else { %>
+                        <span class="ficha-status text-muted">Disponível quando o estágio começar</span>
+                    <% } %>
+                </article>
+
+                <article class="ficha-item">
+                    <div class="ficha-item-head">
+                        <span class="ficha-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3>FAA — Autoavaliação</h3>
+                            <p>Ficha de autoavaliação do estagiário, com notas e comentários.</p>
+                        </div>
+                    </div>
+                    <% if (aluno.status === 'concluido') { %>
+                        <a href="/aluno/faa" class="btn btn-success">Abrir FAA</a>
+                    <% } else { %>
+                        <span class="ficha-status text-muted">Disponível ao concluir o estágio</span>
+                    <% } %>
+                </article>
+
+                <article class="ficha-item">
+                    <div class="ficha-item-head">
+                        <span class="ficha-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3>FAPO — Avaliação do Orientador</h3>
+                            <p>Avaliação do orientador do estágio, preenchida pelo professor.</p>
+                        </div>
+                    </div>
+                    <% if (aluno.status === 'concluido') { %>
+                        <% if (fapoSalva) { %>
+                            <a href="/aluno/fapo/pdf" class="btn btn-success">Gerar PDF</a>
+                        <% } else { %>
+                            <span class="ficha-status text-muted">Aguardando avaliação do orientador</span>
+                        <% } %>
+                    <% } else { %>
+                        <span class="ficha-status text-muted">Disponível ao concluir o estágio</span>
+                    <% } %>
+                </article>
+            </div>
+        </div>
+
         <div class="grid">
             <div class="card">
                 <h2>Informações do Estágio</h2>
@@ -46,18 +120,6 @@
                     <tr><td>Orientador</td><td><%= aluno.orientador_nome || '—' %></td></tr>
                     <tr><td>Empresa</td><td><%= aluno.empresa || '—' %></td></tr>
                 </table>
-            </div>
-
-            <div class="card">
-                <h2>Fichas</h2>
-                <p class="text-muted">Gere os documentos necessários para o acompanhamento e conclusão do estágio.</p>
-                <div class="button-group form-actions">
-                    <% if (aluno.status === 'concluido') { %>
-                        <a href="/aluno/faa" class="btn btn-success">Gerar PDF FAA</a>
-                    <% } else { %>
-                        <a href="/aluno/ficha-acompanhamento" class="btn btn-success">Gerar Ficha Acompanhamento</a>
-                    <% } %>
-                </div>
             </div>
 
             <div class="card">

@@ -15,37 +15,45 @@
 
         <h2>Ficha de Avaliação pelo Professor Orientador (FAPO)</h2>
         <p class="text-muted page-subtitle">
-            Estagiário(a): <strong><%= aluno.nome %></strong>
+            Estagiário(a): <strong><%= aluno.nome %></strong> ·
+            Empresa/Entidade concedente: <strong><%= aluno.empresa || '—' %></strong>
         </p>
+
+        <% if (fapoSalva) { %>
+            <div class="faa-saved">
+                <div>
+                    <strong>FAPO salva.</strong>
+                    <span class="text-muted">
+                        Última atualização em <%= new Date(fapoSalva.atualizado_em).toLocaleString('pt-BR') %>.
+                    </span>
+                </div>
+                <a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary">Gerar PDF novamente</a>
+            </div>
+        <% } %>
 
         <form action="/professor/aluno/<%= aluno.usuario_id %>/fapo" method="POST">
             <section class="card">
                 <div class="form-grid">
                     <div class="form-field">
-                        <label for="empresa">Entidade concedente</label>
-                        <input type="text" id="empresa" name="empresa" required
-                            value="<%= empresa %>" placeholder="Nome da empresa ou entidade">
-                    </div>
-
-                    <div class="form-field">
                         <label for="nota">Nota do estágio (0 a 10)</label>
                         <input type="number" id="nota" name="nota" min="0" max="10" step="0.1" required
-                            placeholder="Ex.: 9,5">
+                            value="<%= nota %>" placeholder="Ex.: 9,5">
                     </div>
 
                     <div class="form-field">
                         <label for="data_assinatura">Data da assinatura</label>
-                        <input type="date" id="data_assinatura" name="data_assinatura" required value="<%= hoje %>">
+                        <input type="date" id="data_assinatura" name="data_assinatura" required value="<%= dataAssinatura %>">
                     </div>
                 </div>
 
                 <label for="comentarios">Comentários/observações</label>
                 <textarea id="comentarios" name="comentarios"
-                    placeholder="Opcional"></textarea>
+                    placeholder="Opcional"><%= comentarios %></textarea>
             </section>
 
             <div class="button-group form-actions">
-                <button type="submit">Gerar PDF da FAPO</button>
+                <button type="submit" name="acao" value="salvar_pdf">Salvar e gerar PDF da FAPO</button>
+                <button type="submit" name="acao" value="salvar" class="btn-secondary">Salvar sem gerar PDF</button>
                 <a href="/professor/aluno/<%= aluno.usuario_id %>" class="btn btn-secondary">Voltar</a>
             </div>
         </form>
