@@ -49,7 +49,7 @@
                         </div>
                     </div>
 
-                    <% if (process.env.APP_ENV === 'development') { %>
+                    <% if ((process.env.APP_ENV || 'development') === 'development') { %>
                     <div class="auth-buttons" style="margin-top: 1rem;">
                         <a href="/auth/dev/professor"
                         class="btn"

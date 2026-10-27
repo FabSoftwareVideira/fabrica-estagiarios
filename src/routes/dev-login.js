@@ -9,7 +9,8 @@ const router = express.Router();
 // Só funciona em desenvolvimento. Em qualquer outro ambiente, a rota
 // responde 404 e NÃO autentica ninguém.
 function apenasDev(req, res, next) {
-    if (process.env.APP_ENV !== 'development') {
+    // APP_ENV ausente conta como desenvolvimento (mesmo default de src/app.js)
+    if (process.env.APP_ENV && process.env.APP_ENV !== 'development') {
         return res.status(404).send('Not Found');
     }
     next();

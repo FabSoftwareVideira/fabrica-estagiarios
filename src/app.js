@@ -49,6 +49,7 @@ app.use(attachUser);
 // Routes
 app.use('/', require('./routes/index'));
 app.use('/', require('./routes/auth'));
+app.use('/auth/dev', require('./routes/dev-login'));
 app.use('/aluno', require('./routes/aluno'));
 app.use('/professor', require('./routes/professor'));
 

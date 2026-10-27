@@ -2,8 +2,8 @@ name: Continuous Deployment
 
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
     tags:
       - "v*"
   workflow_dispatch:
