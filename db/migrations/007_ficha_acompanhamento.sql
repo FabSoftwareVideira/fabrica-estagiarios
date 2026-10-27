@@ -1,0 +1,3 @@
+ALTER TABLE atividades
+    ADD COLUMN IF NOT EXISTS hora_inicio TIME,
+    ADD COLUMN IF NOT EXISTS hora_fim TIME;

@@ -4,6 +4,8 @@ const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
+const faasModel = require('../models/faas');
+const { gerarFapoPdf } = require('../services/fapoPdf');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 
 router.use(requireRole('professor'));
@@ -110,6 +112,45 @@ router.get('/dashboard', async (req, res) => {
     });
 });
 
+function dataLocalIso(data = new Date()) {
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const dia = String(data.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+}
+
+function dataIsoValida(valor) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+
+    const [ano, mes, dia] = valor.split('-').map(Number);
+    const data = new Date(ano, mes - 1, dia);
+
+    return data.getFullYear() === ano
+        && data.getMonth() === mes - 1
+        && data.getDate() === dia;
+}
+
+async function requireOrientadorFapo(req, res, next) {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
+    if (!aluno) {
+        setFlash(req, 'error', 'Aluno não encontrado.');
+        return res.redirect('/professor/dashboard');
+    }
+
+    if (aluno.status !== 'concluido') {
+        setFlash(req, 'error', 'A FAPO só pode ser gerada após a conclusão do estágio.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
+    if (Number(aluno.orientador_id) !== Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Apenas o professor orientador do aluno pode gerar a FAPO.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
+    req.aluno = aluno;
+    next();
+}
+
 router.get('/aluno/:id', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
@@ -122,7 +163,64 @@ router.get('/aluno/:id', async (req, res) => {
         usuariosModel.listarProfessores(),
     ]);
 
-    res.render('professor_aluno', { aluno, atividades, professores });
+    const podeGerarFapo = aluno.status === 'concluido'
+        && Number(aluno.orientador_id) === Number(req.session.user.id);
+
+    res.render('professor_aluno', { aluno, atividades, professores, podeGerarFapo });
+});
+
+router.get('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
+    const faa = await faasModel.buscarPorAluno(req.params.id);
+
+    res.render('professor_fapo', {
+        aluno: req.aluno,
+        empresa: faa ? faa.empresa : '',
+        hoje: dataLocalIso(),
+    });
+});
+
+router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
+    const empresa = (req.body.empresa || '').trim();
+    const notaBruta = req.body.nota;
+    const nota = Number(notaBruta);
+    const comentarios = (req.body.comentarios || '').trim();
+    const dataAssinatura = req.body.data_assinatura || '';
+
+    const dadosInvalidos = !empresa
+        || String(notaBruta ?? '').trim() === ''
+        || !Number.isFinite(nota)
+        || nota < 0
+        || nota > 10
+        || !dataIsoValida(dataAssinatura);
+
+    if (dadosInvalidos) {
+        setFlash(req, 'error', 'Preencha todos os campos obrigatórios com nota entre 0 e 10.');
+        return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
+    }
+
+    try {
+        const pdfBytes = await gerarFapoPdf({
+            aluno: req.aluno,
+            empresa,
+            nota,
+            comentarios,
+            dataAssinatura,
+        });
+
+        const nomeBase = String(req.aluno.nome)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aluno';
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="FAPO-${nomeBase}.pdf"`);
+        return res.send(Buffer.from(pdfBytes));
+    } catch (err) {
+        console.error('[professor/fapo] erro ao gerar PDF:', err.message);
+        setFlash(req, 'error', 'Não foi possível gerar o PDF da FAPO. Tente novamente.');
+        return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
+    }
 });
 
 router.post('/aluno/:id', async (req, res) => {
@@ -136,7 +234,12 @@ router.post('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
-    const { supervisor_id, orientador_id, carga_horaria } = req.body;
+    const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
+
+    if (!empresa || !empresa.trim()) {
+        setFlash(req, 'error', 'Informe a empresa onde o aluno está realizando o estágio.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
 
     // "concluido" só é atribuído automaticamente pelo modelo quando as horas
     // validadas atingem a carga horária; aqui o professor só alterna entre
@@ -150,6 +253,7 @@ router.post('/aluno/:id', async (req, res) => {
 
     await alunosModel.atualizarEstagio(req.params.id, {
         status,
+        empresa,
         supervisorId: supervisor_id || null,
         orientadorId: orientador_id || null,
         cargaHoraria: Number(carga_horaria),
@@ -215,7 +319,12 @@ router.get('/cadastro-aluno/:id', async (req, res) => {
 });
 
 router.post('/cadastro-aluno/:id', async (req, res) => {
-    const { supervisor_id, orientador_id, carga_horaria } = req.body;
+    const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
+
+    if (!empresa || !empresa.trim()) {
+        setFlash(req, 'error', 'Informe a empresa onde o aluno está realizando o estágio.');
+        return res.redirect('/professor/cadastro-aluno/' + req.params.id);
+    }
 
     if (!carga_horaria) {
         setFlash(req, 'error', 'Preencha a carga horária.');
@@ -231,6 +340,7 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
 
     await alunosModel.atualizarEstagio(req.params.id, {
         status: 'em_andamento',
+        empresa,
         supervisorId: supervisor_id || null,
         orientadorId: orientador_id || null,
         cargaHoraria: Number(carga_horaria),

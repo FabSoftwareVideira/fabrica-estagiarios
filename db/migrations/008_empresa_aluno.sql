@@ -1,0 +1,2 @@
+ALTER TABLE alunos
+    ADD COLUMN IF NOT EXISTS empresa TEXT;

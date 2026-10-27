@@ -5,6 +5,7 @@ const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const faasModel = require('../models/faas');
 const { gerarFaaPdf, formatarDataBr } = require('../services/faaPdf');
+const { gerarFichaAcompanhamentoPdf } = require('../services/fichaAcompanhamentoPdf');
 
 router.use(requireRole('aluno'));
 
@@ -243,6 +244,32 @@ router.get('/faa/pdf', requireEstagioConcluido, async (req, res) => {
     }
 });
 
+router.get('/ficha-acompanhamento', async (req, res) => {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
+    const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
+
+    try {
+        const pdfBytes = await gerarFichaAcompanhamentoPdf({
+            aluno,
+            atividades,
+        });
+
+        const nomeBase = String(aluno.nome)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'aluno';
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Ficha-Acompanhamento-${nomeBase}.pdf"`);
+        return res.send(Buffer.from(pdfBytes));
+    } catch (err) {
+        console.error('[aluno/ficha-acompanhamento] erro ao gerar PDF:', err.message);
+        setFlash(req, 'error', 'Não foi possível gerar o PDF da ficha de acompanhamento. Tente novamente.');
+        return res.redirect('/aluno/atividades');
+    }
+});
+
 router.get('/atividades', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
     const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
@@ -269,9 +296,9 @@ router.get('/nova-atividade', requireEmAndamento, (req, res) => {
 });
 
 router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
-    const { data, horas, descricao } = req.body;
+    const { data, hora_inicio, hora_fim, horas, descricao } = req.body;
 
-    if (!data || !horas || !descricao) {
+    if (!data || !hora_inicio || !hora_fim || !horas || !descricao) {
         setFlash(req, 'error', 'Preencha todos os campos da atividade.');
         return res.redirect('/aluno/nova-atividade');
     }
@@ -279,6 +306,8 @@ router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
     await atividadesModel.criar({
         alunoId: req.session.user.id,
         data,
+        horaInicio: hora_inicio,
+        horaFim: hora_fim,
         horas: Number(horas),
         descricao: descricao.trim(),
     });

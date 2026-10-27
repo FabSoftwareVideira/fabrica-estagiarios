@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha de Avaliação do Orientador (FAPO)</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <h2>Ficha de Avaliação pelo Professor Orientador (FAPO)</h2>
+        <p class="text-muted page-subtitle">
+            Estagiário(a): <strong><%= aluno.nome %></strong>
+        </p>
+
+        <form action="/professor/aluno/<%= aluno.usuario_id %>/fapo" method="POST">
+            <section class="card">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="empresa">Entidade concedente</label>
+                        <input type="text" id="empresa" name="empresa" required
+                            value="<%= empresa %>" placeholder="Nome da empresa ou entidade">
+                    </div>
+
+                    <div class="form-field">
+                        <label for="nota">Nota do estágio (0 a 10)</label>
+                        <input type="number" id="nota" name="nota" min="0" max="10" step="0.1" required
+                            placeholder="Ex.: 9,5">
+                    </div>
+
+                    <div class="form-field">
+                        <label for="data_assinatura">Data da assinatura</label>
+                        <input type="date" id="data_assinatura" name="data_assinatura" required value="<%= hoje %>">
+                    </div>
+                </div>
+
+                <label for="comentarios">Comentários/observações</label>
+                <textarea id="comentarios" name="comentarios"
+                    placeholder="Opcional"></textarea>
+            </section>
+
+            <div class="button-group form-actions">
+                <button type="submit">Gerar PDF da FAPO</button>
+                <a href="/professor/aluno/<%= aluno.usuario_id %>" class="btn btn-secondary">Voltar</a>
+            </div>
+        </form>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

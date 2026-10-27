@@ -74,9 +74,11 @@
                         <% if (aluno.status === 'em_andamento') { %>
                             <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
                         <% } %>
-                        <% if (aluno.status === 'concluido') { %>
-                            <a href="/aluno/faa" class="btn btn-success">Gerar PDF FAA</a>
-                        <% } %>
+                    <% if (aluno.status === 'concluido') { %>
+                        <a href="/aluno/faa" class="btn btn-success">Gerar PDF FAA</a>
+                    <% } else { %>
+                        <a href="/aluno/ficha-acompanhamento" class="btn btn-success">Gerar Ficha Acompanhamento</a>
+                    <% } %>
                         <a href="/aluno/atividades" class="btn btn-secondary">Ver Todas as Atividades</a>
                     </div>
                 </div>

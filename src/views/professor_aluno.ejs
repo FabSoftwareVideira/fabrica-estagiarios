@@ -73,6 +73,14 @@
                     <dd><%= aluno.orientador_nome || '—' %></dd>
                 </div>
             </dl>
+
+            <% if (podeGerarFapo) { %>
+                <div class="card-actions">
+                    <a href="/professor/aluno/<%= aluno.usuario_id %>/fapo" class="btn btn-success">
+                        Gerar PDF FAPO
+                    </a>
+                </div>
+            <% } %>
         </section>
 
         <% if (aluno.arquivado) { %>

@@ -16,10 +16,10 @@ async function ultimaPorAluno(alunoId) {
     return rows[0] || null;
 }
 
-async function criar({ alunoId, data, horas, descricao }) {
+async function criar({ alunoId, data, horaInicio, horaFim, horas, descricao }) {
     const { rows } = await pool.query(
-        `INSERT INTO atividades (aluno_id, data, horas, descricao) VALUES ($1, $2, $3, $4) RETURNING *`,
-        [alunoId, data, horas, descricao]
+        `INSERT INTO atividades (aluno_id, data, hora_inicio, hora_fim, horas, descricao) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [alunoId, data, horaInicio, horaFim, horas, descricao]
     );
     return rows[0];
 }

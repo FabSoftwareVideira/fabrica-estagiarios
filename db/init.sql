@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS professores (
 CREATE TABLE IF NOT EXISTS alunos (
     usuario_id      INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
     matricula       VARCHAR(30) UNIQUE,
+    empresa         TEXT,
     status          VARCHAR(20) NOT NULL DEFAULT 'lista_espera'
                         CHECK (status IN ('lista_espera', 'em_andamento', 'concluido')),
     supervisor_id   INTEGER REFERENCES usuarios(id),
@@ -35,6 +36,8 @@ CREATE TABLE IF NOT EXISTS atividades (
     id          SERIAL PRIMARY KEY,
     aluno_id    INTEGER NOT NULL REFERENCES alunos(usuario_id) ON DELETE CASCADE,
     data        DATE NOT NULL,
+    hora_inicio TIME,
+    hora_fim    TIME,
     horas       NUMERIC(5,2) NOT NULL CHECK (horas > 0),
     descricao   TEXT NOT NULL,
     status_validacao VARCHAR(20) NOT NULL DEFAULT 'pendente'

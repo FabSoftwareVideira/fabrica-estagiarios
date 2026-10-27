@@ -106,10 +106,11 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
     return { alunos: rows, total: contagemRows[0].total };
 }
 
-async function atualizarEstagio(usuarioId, { status, supervisorId, orientadorId, cargaHoraria }) {
+async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orientadorId, cargaHoraria }) {
     // "concluido" nunca é definido manualmente: só quando as horas validadas
     // atingem a carga horária. Qualquer outro status é tratado como em andamento.
     const statusSolicitado = status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
+    const empresaNormalizada = (empresa || '').trim() || null;
 
     const { rows } = await pool.query(
         `UPDATE alunos
@@ -121,12 +122,13 @@ async function atualizarEstagio(usuarioId, { status, supervisorId, orientadorId,
                  ), 0) >= $5 THEN 'concluido'
                  ELSE 'em_andamento'
              END,
+             empresa = $6,
              supervisor_id = $3,
              orientador_id = $4,
              carga_horaria = $5
          WHERE usuario_id = $1
          RETURNING *`,
-        [usuarioId, statusSolicitado, supervisorId || null, orientadorId || null, cargaHoraria]
+        [usuarioId, statusSolicitado, supervisorId || null, orientadorId || null, cargaHoraria, empresaNormalizada]
     );
     return rows[0];
 }
