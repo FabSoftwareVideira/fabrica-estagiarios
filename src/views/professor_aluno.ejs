@@ -146,6 +146,9 @@
                         <% }) %>
                     </select>
 
+                    <label for="empresa">Empresa/Entidade concedente</label>
+                    <input type="text" id="empresa" name="empresa" required value="<%= aluno.empresa || '' %>" placeholder="Nome da empresa ou entidade">
+
                     <label for="carga">Carga Horária Total</label>
                     <input type="number" id="carga" name="carga_horaria" min="1" value="<%= aluno.carga_horaria %>">
 

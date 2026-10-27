@@ -33,8 +33,7 @@ async function gerarFichaAcompanhamentoPdf({ aluno, atividades }) {
 
     // Preencher dados do aluno
     const empresaField = form.getTextField('empresa');
-    // TODO: Obter empresa de algum lugar (FAA, FAPRO, ou solicitar no formulário)
-    empresaField.setText(''); // Deixar em branco por enquanto conforme solicitado
+    empresaField.setText(aluno.empresa || '');
     
     const nomeEstagiarioField = form.getTextField('nome_estagiario');
     nomeEstagiarioField.setText(aluno.nome || '');
