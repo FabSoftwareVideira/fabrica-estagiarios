@@ -27,7 +27,7 @@ services:
       context: .
       target: dev
     ports:
-      - "13000:13000"
+      - "13000:3000"
     depends_on:
       estagiarios-db:
         condition: service_healthy
