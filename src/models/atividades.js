@@ -24,6 +24,15 @@ async function criar({ alunoId, data, horaInicio, horaFim, horas, descricao }) {
     return rows[0];
 }
 
+// total de horas já registradas pelo aluno em um mesmo dia
+async function somarHorasDoDia(alunoId, data) {
+    const { rows } = await pool.query(
+        `SELECT COALESCE(SUM(horas), 0) AS total FROM atividades WHERE aluno_id = $1 AND data = $2`,
+        [alunoId, data]
+    );
+    return Number(rows[0].total);
+}
+
 // valida/desvalida uma atividade e recalcula o status do aluno na mesma
 // transação: se as horas validadas atingirem a carga horária, conclui o estágio;
 // se a validação for removida e as horas caírem, volta para "em_andamento".
@@ -82,4 +91,4 @@ async function definirValidacao({ atividadeId, alunoId, status, validadorId }) {
     }
 }
 
-module.exports = { listarPorAluno, ultimaPorAluno, criar, definirValidacao };
+module.exports = { listarPorAluno, ultimaPorAluno, criar, definirValidacao, somarHorasDoDia };

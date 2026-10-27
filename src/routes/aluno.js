@@ -100,7 +100,7 @@ async function requireEstagioConcluido(req, res, next) {
 
 router.get('/dashboard', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
-    const ultimaAtividade = await atividadesModel.ultimaPorAluno(req.session.user.id);
+    const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
     const fapoSalva = await faposModel.buscarPorAluno(req.session.user.id);
 
     const horasRealizadas = Number(aluno.horas_realizadas);
@@ -110,7 +110,8 @@ router.get('/dashboard', async (req, res) => {
 
     res.render('aluno_dashboard', {
         aluno,
-        ultimaAtividade,
+        atividades,
+        abaInicial: req.query.aba === 'atividades' ? 'atividades' : 'resumo',
         fapoSalva,
         horasRealizadas,
         horasPendentes,
@@ -281,7 +282,16 @@ router.get('/fapo/pdf', requireEstagioConcluido, async (req, res) => {
 
 router.get('/ficha-acompanhamento', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
-    const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
+    if (aluno.supervisor_id) {
+        const supervisor = await usuariosModel.buscarPorId(aluno.supervisor_id);
+        aluno.supervisor_nome = supervisor ? supervisor.nome : (aluno.supervisor_nome || '');
+    }
+    const atividadesRegistradas = await atividadesModel.listarPorAluno(req.session.user.id);
+    const atividades = atividadesRegistradas.filter((atividade) =>
+        atividade.status_validacao === 'validada'
+        && aluno.orientador_id != null
+        && Number(atividade.avaliado_por) === Number(aluno.orientador_id)
+    );
 
     try {
         const pdfBytes = await gerarFichaAcompanhamentoPdf({
@@ -297,6 +307,7 @@ router.get('/ficha-acompanhamento', async (req, res) => {
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="Ficha-Acompanhamento-${nomeBase}.pdf"`);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         return res.send(Buffer.from(pdfBytes));
     } catch (err) {
         console.error('[aluno/ficha-acompanhamento] erro ao gerar PDF:', err.message);
@@ -305,25 +316,7 @@ router.get('/ficha-acompanhamento', async (req, res) => {
     }
 });
 
-router.get('/atividades', async (req, res) => {
-    const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
-    const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
-
-    const horasRealizadas = Number(aluno.horas_realizadas);
-    const horasPendentes = Number(aluno.horas_pendentes);
-    const cargaHoraria = aluno.carga_horaria;
-    const percentual = cargaHoraria > 0 ? Math.min(100, Math.round((horasRealizadas / cargaHoraria) * 100)) : 0;
-
-    res.render('aluno_atividades', {
-        atividades,
-        horasRealizadas,
-        horasPendentes,
-        cargaHoraria,
-        horasRestantes: Math.max(0, cargaHoraria - horasRealizadas),
-        percentual,
-        status: aluno.status,
-    });
-});
+router.get('/atividades', (req, res) => res.redirect('/aluno/dashboard?aba=atividades'));
 
 // só acessível com o estágio em andamento (lista de espera / concluído são bloqueados)
 router.get('/nova-atividade', requireEmAndamento, (req, res) => {
@@ -335,6 +328,26 @@ router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
 
     if (!data || !hora_inicio || !hora_fim || !horas || !descricao) {
         setFlash(req, 'error', 'Preencha todos os campos da atividade.');
+        return res.redirect('/aluno/nova-atividade');
+    }
+
+    // não é permitido registrar horas em finais de semana
+    const diaSemana = new Date(data + 'T12:00:00').getDay();
+    if (diaSemana === 0 || diaSemana === 6) {
+        setFlash(req, 'error', 'Não é possível registrar horas em fins de semana (sábado e domingo).');
+        return res.redirect('/aluno/nova-atividade');
+    }
+
+    // limite de 6 horas registradas por dia, somando as atividades já existentes
+    const totalDia = await atividadesModel.somarHorasDoDia(req.session.user.id, data);
+    const horasInformadas = Number(horas);
+    if (totalDia + horasInformadas > 6) {
+        const disponivel = Math.max(0, 6 - totalDia);
+        setFlash(req, 'error',
+            'Limite de 6 horas por dia. ' +
+            (disponivel > 0
+                ? `Você já registrou ${totalDia}h nesta data; restam ${disponivel}h disponíveis.`
+                : `Você já registrou o máximo de 6h nesta data.`));
         return res.redirect('/aluno/nova-atividade');
     }
 

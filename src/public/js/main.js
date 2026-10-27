@@ -20,6 +20,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    document.querySelectorAll('[data-dashboard-tabs]').forEach((tabContainer) => {
+        const tabs = Array.from(tabContainer.querySelectorAll('[role="tab"]'));
+
+        const ativarAba = (abaAtiva, moverFoco = false) => {
+            tabs.forEach((tab) => {
+                const ativa = tab === abaAtiva;
+                tab.setAttribute('aria-selected', String(ativa));
+                tab.tabIndex = ativa ? 0 : -1;
+                tab.classList.toggle('is-active', ativa);
+
+                const painel = document.getElementById(tab.getAttribute('aria-controls'));
+                if (painel) painel.hidden = !ativa;
+            });
+
+            if (moverFoco) abaAtiva.focus();
+        };
+
+        tabs.forEach((tab, index) => {
+            tab.addEventListener('click', () => ativarAba(tab));
+            tab.addEventListener('keydown', (event) => {
+                let proximoIndice;
+                if (event.key === 'ArrowRight') proximoIndice = (index + 1) % tabs.length;
+                else if (event.key === 'ArrowLeft') proximoIndice = (index - 1 + tabs.length) % tabs.length;
+                else if (event.key === 'Home') proximoIndice = 0;
+                else if (event.key === 'End') proximoIndice = tabs.length - 1;
+                else return;
+
+                event.preventDefault();
+                ativarAba(tabs[proximoIndice], true);
+            });
+        });
+
+        const selecionada = tabs.find((tab) => tab.getAttribute('aria-selected') === 'true');
+        if (selecionada) ativarAba(selecionada);
+    });
+
     // impede supervisor e orientador de serem o mesmo professor
     // (checagem "de verdade" fica no servidor, isso aqui é só feedback rápido)
     const supervisorSelect = document.getElementById('supervisor');

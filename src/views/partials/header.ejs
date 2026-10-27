@@ -20,15 +20,11 @@
             <% } else { %>
                 <div class="nav-links">
                     <% if (user.tipo === 'aluno') { %>
-                        <a href="/aluno/dashboard" class="nav-link <%= navAtivo('/aluno/dashboard') %>">Dashboard</a>
-                        <a href="/aluno/atividades" class="nav-link <%= navAtivo('/aluno/atividades') %>">Atividades</a>
+                        <a href="/aluno/dashboard" class="nav-link <%= currentPath === '/aluno/dashboard' && currentTab !== 'atividades' ? 'active' : '' %>">Dashboard</a>
+                        <a href="/aluno/dashboard?aba=atividades" class="nav-link <%= (currentPath === '/aluno/atividades') || (currentPath === '/aluno/dashboard' && currentTab === 'atividades') ? 'active' : '' %>">Atividades</a>
                         <% if (typeof alunoStatus !== 'undefined' && alunoStatus === 'em_andamento') { %>
                             <a href="/aluno/nova-atividade"
                                 class="nav-link nav-link-cta <%= navAtivo('/aluno/nova-atividade') %>">Nova Atividade</a>
-                        <% } %>
-                        <% if (typeof alunoStatus !== 'undefined' && alunoStatus === 'concluido') { %>
-                            <a href="/aluno/faa"
-                                class="nav-link nav-link-cta <%= navAtivo('/aluno/faa') %>">Gerar FAA</a>
                         <% } %>
                     <% } else { %>
                         <% const adminAtivo = currentPath === '/professor/dashboard' && currentTab === 'administracao'; %>

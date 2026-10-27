@@ -180,6 +180,7 @@
                     <thead>
                         <tr>
                             <th>Data</th>
+                            <th>Horário</th>
                             <th>Descrição</th>
                             <th>Horas</th>
                             <th>Validação</th>
@@ -189,12 +190,25 @@
                     <tbody>
                         <% if (atividades.length === 0) { %>
                             <tr>
-                                <td colspan="<%= aluno.arquivado ? 4 : 5 %>">Nenhuma atividade registrada ainda.</td>
+                                <td colspan="<%= aluno.arquivado ? 5 : 6 %>">Nenhuma atividade registrada ainda.</td>
                             </tr>
                         <% } else { %>
                             <% atividades.forEach((a) => { %>
                                 <tr>
                                     <td><%= new Date(a.data).toLocaleDateString('pt-BR') %></td>
+                                    <td>
+                                        <% if (a.hora_inicio && a.hora_fim) { %>
+                                            <span class="atividade-horario">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                                </svg>
+                                                <%= a.hora_inicio.slice(0, 5) %> – <%= a.hora_fim.slice(0, 5) %>
+                                            </span>
+                                        <% } else { %>
+                                            <span class="text-muted">—</span>
+                                        <% } %>
+                                    </td>
                                     <td><%= a.descricao %></td>
                                     <td><%= a.horas %>h</td>
                                     <td>
@@ -203,21 +217,43 @@
                                     <% if (!aluno.arquivado) { %>
                                         <td>
                                             <% if (a.status_validacao === 'invalidada') { %>
-                                                <span class="text-muted">Aguardando novo registro do aluno</span>
+                                                <form
+                                                    action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/validar"
+                                                    method="POST">
+                                                    <button type="submit" class="btn-success btn-icon" title="Validar novamente" aria-label="Validar novamente">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                                        </svg>
+                                                    </button>
+                                                </form>
                                             <% } else if (a.status_validacao === 'validada') { %>
                                                 <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
                                                     method="POST">
-                                                    <button type="submit" class="btn-secondary">Invalidar</button>
+                                                    <button type="submit" class="btn-danger btn-icon" title="Invalidar (desfazer validação)" aria-label="Invalidar">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                        </svg>
+                                                    </button>
                                                 </form>
                                             <% } else { %>
                                                 <div class="table-actions">
                                                     <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/validar"
                                                         method="POST">
-                                                        <button type="submit" class="btn-success">Validar</button>
+                                                        <button type="submit" class="btn-success btn-icon" title="Aprovar horas" aria-label="Aprovar horas">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                                            </svg>
+                                                        </button>
                                                     </form>
                                                     <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
                                                         method="POST">
-                                                        <button type="submit" class="btn-secondary">Invalidar</button>
+                                                        <button type="submit" class="btn-danger btn-icon" title="Não aprovar horas" aria-label="Não aprovar horas">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                            </svg>
+                                                        </button>
                                                     </form>
                                                 </div>
                                             <% } %>

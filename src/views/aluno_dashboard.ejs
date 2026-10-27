@@ -15,13 +15,15 @@
 
         <% const statusLabel = { lista_espera: 'Lista de Espera', em_andamento: 'Em andamento', concluido: 'Concluído' }; %>
         <% const statusClass = { lista_espera: 'status-waiting', em_andamento: 'status-progress', concluido: 'status-completed' }; %>
+        <% const abaSelecionada = abaInicial === 'atividades' ? 'atividades' : 'resumo'; %>
 
-        <div class="card">
+        <h2 class="dashboard-heading">Dashboard do aluno</h2>
+
+        <div class="card dashboard-progress">
             <div class="card-header">
-                <h2>Horas</h2>
+                <h2>Horas do estágio</h2>
                 <span class="status <%= statusClass[aluno.status] %>"><%= statusLabel[aluno.status] %></span>
             </div>
-
             <p>Você tem <strong><%= horasRealizadas %>h validadas</strong> de <strong><%= cargaHoraria %>h</strong>
                 (<%= percentual %>%).</p>
             <div class="progress">
@@ -35,125 +37,152 @@
             <% } %>
         </div>
 
-        <div class="card fichas-center">
-            <div class="card-header">
-                <h2>Fichas do Estágio</h2>
-            </div>
-            <p class="text-muted">Central com todos os documentos gerados a partir dos dados do seu estágio.</p>
-
-            <div class="fichas-grid">
-                <article class="ficha-item">
-                    <div class="ficha-item-head">
-                        <span class="ficha-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="8" y1="13" x2="16" y2="13"></line>
-                                <line x1="8" y1="17" x2="13" y2="17"></line>
-                            </svg>
-                        </span>
-                        <div>
-                            <h3>Ficha de Acompanhamento</h3>
-                            <p>Datas, horários, atividades e horas cumpridas no estágio.</p>
-                        </div>
-                    </div>
-                    <% if (aluno.status !== 'lista_espera') { %>
-                        <a href="/aluno/ficha-acompanhamento" class="btn btn-success">Gerar PDF</a>
-                    <% } else { %>
-                        <span class="ficha-status text-muted">Disponível quando o estágio começar</span>
-                    <% } %>
-                </article>
-
-                <article class="ficha-item">
-                    <div class="ficha-item-head">
-                        <span class="ficha-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                        </span>
-                        <div>
-                            <h3>FAA — Autoavaliação</h3>
-                            <p>Ficha de autoavaliação do estagiário, com notas e comentários.</p>
-                        </div>
-                    </div>
-                    <% if (aluno.status === 'concluido') { %>
-                        <a href="/aluno/faa" class="btn btn-success">Abrir FAA</a>
-                    <% } else { %>
-                        <span class="ficha-status text-muted">Disponível ao concluir o estágio</span>
-                    <% } %>
-                </article>
-
-                <article class="ficha-item">
-                    <div class="ficha-item-head">
-                        <span class="ficha-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="9" cy="7" r="4"></circle>
-                            </svg>
-                        </span>
-                        <div>
-                            <h3>FAPO — Avaliação do Orientador</h3>
-                            <p>Avaliação do orientador do estágio, preenchida pelo professor.</p>
-                        </div>
-                    </div>
-                    <% if (aluno.status === 'concluido') { %>
-                        <% if (fapoSalva) { %>
-                            <a href="/aluno/fapo/pdf" class="btn btn-success">Gerar PDF</a>
-                        <% } else { %>
-                            <span class="ficha-status text-muted">Aguardando avaliação do orientador</span>
-                        <% } %>
-                    <% } else { %>
-                        <span class="ficha-status text-muted">Disponível ao concluir o estágio</span>
-                    <% } %>
-                </article>
-            </div>
-        </div>
-
-        <div class="grid">
-            <div class="card">
-                <h2>Informações do Estágio</h2>
-                <table>
-                    <tr><th>Campo</th><th>Informação</th></tr>
-                    <tr><td>Aluno</td><td><%= aluno.nome %></td></tr>
-                    <tr><td>Matrícula</td><td><%= aluno.matricula %></td></tr>
-                    <tr><td>Supervisor</td><td><%= aluno.supervisor_nome || '—' %></td></tr>
-                    <tr><td>Orientador</td><td><%= aluno.orientador_nome || '—' %></td></tr>
-                    <tr><td>Empresa</td><td><%= aluno.empresa || '—' %></td></tr>
-                </table>
+        <section class="student-dashboard-tabs" data-dashboard-tabs>
+            <div class="dashboard-tab-list" role="tablist" aria-label="Seções do dashboard">
+                <button type="button" class="dashboard-tab <%= abaSelecionada === 'resumo' ? 'is-active' : '' %>" id="tab-resumo" role="tab"
+                    aria-selected="<%= abaSelecionada === 'resumo' %>" aria-controls="panel-resumo" tabindex="<%= abaSelecionada === 'resumo' ? '0' : '-1' %>">Resumo</button>
+                <button type="button" class="dashboard-tab <%= abaSelecionada === 'atividades' ? 'is-active' : '' %>" id="tab-atividades" role="tab"
+                    aria-selected="<%= abaSelecionada === 'atividades' %>" aria-controls="panel-atividades" tabindex="<%= abaSelecionada === 'atividades' ? '0' : '-1' %>">Atividades</button>
+                <button type="button" class="dashboard-tab" id="tab-fichas" role="tab"
+                    aria-selected="false" aria-controls="panel-fichas" tabindex="-1">Fichas</button>
             </div>
 
-            <div class="card">
-                <h2>Última Atividade</h2>
-                <% if (ultimaAtividade) { %>
-                    <p><strong>Data:</strong> <%= new Date(ultimaAtividade.data).toLocaleDateString('pt-BR') %></p>
-                    <p><strong>Descrição:</strong><br><%= ultimaAtividade.descricao %></p>
-                    <p><strong>Horas:</strong> <%= ultimaAtividade.horas %>h</p>
-                    <p>
-                        <strong>Validação:</strong>
-                        <%- include('partials/status_atividade', { atividade: ultimaAtividade }) %>
-                    </p>
-                    <% if (ultimaAtividade.status_validacao === 'invalidada') { %>
-                        <p class="text-muted">
-                            Esse registro não conta horas.
-                            <% if (aluno.status === 'em_andamento') { %>
-                                Faça um novo registro para substituí-lo.
-                            <% } %>
-                        </p>
-                    <% } %>
-                <% } else { %>
-                    <p>Nenhuma atividade registrada ainda.</p>
-                <% } %>
+            <section class="dashboard-tab-panel" id="panel-resumo" role="tabpanel"
+                aria-labelledby="tab-resumo" tabindex="0" <%= abaSelecionada === 'resumo' ? '' : 'hidden' %>>
+                <div class="card">
+                    <h2>Informações do Estágio</h2>
+                    <table>
+                        <tr><th>Campo</th><th>Informação</th></tr>
+                        <tr><td>Aluno</td><td><%= aluno.nome %></td></tr>
+                        <tr><td>Matrícula</td><td><%= aluno.matricula %></td></tr>
+                        <tr><td>Supervisor</td><td><%= aluno.supervisor_nome || '—' %></td></tr>
+                        <tr><td>Orientador</td><td><%= aluno.orientador_nome || '—' %></td></tr>
+                        <tr><td>Empresa</td><td><%= aluno.empresa || '—' %></td></tr>
+                    </table>
+                </div>
+            </section>
 
-                <div class="card-actions">
-                    <div class="button-group">
-                        <% if (aluno.status === 'em_andamento') { %>
-                            <a href="/aluno/nova-atividade" class="btn">Nova Atividade</a>
-                        <% } %>
-                        <a href="/aluno/atividades" class="btn btn-secondary">Ver Todas as Atividades</a>
+            <section class="dashboard-tab-panel" id="panel-atividades" role="tabpanel"
+                aria-labelledby="tab-atividades" tabindex="0" <%= abaSelecionada === 'atividades' ? '' : 'hidden' %>>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Histórico de Atividades</h2>
+                        <span class="text-muted"><%= atividades.length %> atividade(s)</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Horário</th>
+                                    <th>Descrição</th>
+                                    <th>Horas</th>
+                                    <th>Validação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (atividades.length === 0) { %>
+                                    <tr><td colspan="5">Nenhuma atividade registrada ainda.</td></tr>
+                                <% } else { %>
+                                    <% atividades.forEach((atividade) => { %>
+                                        <tr>
+                                            <td><%= new Date(atividade.data).toLocaleDateString('pt-BR') %></td>
+                                            <td>
+                                                <% if (atividade.hora_inicio && atividade.hora_fim) { %>
+                                                    <%= atividade.hora_inicio.slice(0, 5) %> – <%= atividade.hora_fim.slice(0, 5) %>
+                                                <% } else { %>
+                                                    —
+                                                <% } %>
+                                            </td>
+                                            <td><%= atividade.descricao %></td>
+                                            <td><%= atividade.horas %>h</td>
+                                            <td><%- include('partials/status_atividade', { atividade }) %></td>
+                                        </tr>
+                                    <% }) %>
+                                <% } %>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
+
+            <section class="dashboard-tab-panel" id="panel-fichas" role="tabpanel"
+                aria-labelledby="tab-fichas" tabindex="0" hidden>
+                <div class="card fichas-center">
+                    <div class="card-header">
+                        <h2>Fichas do Estágio</h2>
+                    </div>
+                    <p class="text-muted">Central com todos os documentos gerados a partir dos dados do seu estágio.</p>
+
+                    <div class="fichas-grid">
+                        <article class="ficha-item">
+                            <div class="ficha-item-head">
+                                <span class="ficha-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="8" y1="13" x2="16" y2="13"></line>
+                                        <line x1="8" y1="17" x2="13" y2="17"></line>
+                                    </svg>
+                                </span>
+                                <div>
+                                    <h3>Ficha de Acompanhamento</h3>
+                                    <p>Datas, horários, atividades e horas cumpridas no estágio.</p>
+                                </div>
+                            </div>
+                            <% if (aluno.status !== 'lista_espera') { %>
+                                <a href="/aluno/ficha-acompanhamento" class="btn btn-success">Gerar PDF</a>
+                            <% } else { %>
+                                <span class="ficha-status text-muted">Disponível quando o estágio começar</span>
+                            <% } %>
+                        </article>
+
+                        <article class="ficha-item">
+                            <div class="ficha-item-head">
+                                <span class="ficha-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </span>
+                                <div>
+                                    <h3>FAA — Autoavaliação</h3>
+                                    <p>Ficha de autoavaliação do estagiário, com notas e comentários.</p>
+                                </div>
+                            </div>
+                            <% if (aluno.status === 'concluido') { %>
+                                <a href="/aluno/faa" class="btn btn-success">Abrir FAA</a>
+                            <% } else { %>
+                                <span class="ficha-status text-muted">Disponível ao concluir o estágio</span>
+                            <% } %>
+                        </article>
+
+                        <article class="ficha-item">
+                            <div class="ficha-item-head">
+                                <span class="ficha-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                    </svg>
+                                </span>
+                                <div>
+                                    <h3>FAPO — Avaliação do Orientador</h3>
+                                    <p>Avaliação do orientador do estágio, preenchida pelo professor.</p>
+                                </div>
+                            </div>
+                            <% if (aluno.status === 'concluido') { %>
+                                <% if (fapoSalva) { %>
+                                    <a href="/aluno/fapo/pdf" class="btn btn-success">Gerar PDF</a>
+                                <% } else { %>
+                                    <span class="ficha-status text-muted">Aguardando avaliação do orientador</span>
+                                <% } %>
+                            <% } else { %>
+                                <span class="ficha-status text-muted">Disponível ao concluir o estágio</span>
+                            <% } %>
+                        </article>
+                    </div>
+                </div>
+            </section>
+        </section>
     </main>
 
     <%- include('partials/footer') %>
