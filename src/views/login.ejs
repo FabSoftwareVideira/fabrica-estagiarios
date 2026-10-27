@@ -48,6 +48,21 @@
 
                         </div>
                     </div>
+
+                    <% if (process.env.APP_ENV === 'development') { %>
+                    <div class="auth-buttons" style="margin-top: 1rem;">
+                        <a href="/auth/dev/professor"
+                        class="btn"
+                        style="background-color: #f0ad4e; color: #1f1f1f; border: 1px solid #f0ad4e;">
+                            Entrar como Professor (dev)
+                        </a>
+                        <a href="/auth/dev/aluno"
+                        class="btn"
+                        style="background-color: #5bc0de; color: #1f1f1f; border: 1px solid #5bc0de;">
+                            Entrar como Aluno (dev)
+                        </a>
+                    </div>
+                    <% } %>
                 </div>
 
                 <div class="card">
