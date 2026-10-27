@@ -41,9 +41,10 @@ async function listar({ status, busca, arquivados, limite, offset }) {
     const valores = [Boolean(arquivados)];
     const filtros = ['a.arquivado = $1'];
 
-    if (status && status !== 'todos') {
-        valores.push(status);
-        filtros.push(`a.status = $${valores.length}`);
+    const statusSelecionados = Array.isArray(status) ? status : (status ? [status] : []);
+    if (statusSelecionados.length > 0) {
+        valores.push(statusSelecionados);
+        filtros.push(`a.status = ANY($${valores.length})`);
     }
 
     const termo = (busca || '').trim();
@@ -86,22 +87,6 @@ async function listar({ status, busca, arquivados, limite, offset }) {
     return { alunos: rows, total: contagemRows[0].total };
 }
 
-async function contarPorStatus() {
-    const { rows } = await pool.query(
-        `SELECT status, arquivado, COUNT(*)::int AS total FROM alunos GROUP BY status, arquivado`
-    );
-    const contagem = { lista_espera: 0, em_andamento: 0, concluido: 0, arquivados: 0, total: 0 };
-    rows.forEach((r) => {
-        if (r.arquivado) {
-            contagem.arquivados += r.total;
-        } else {
-            contagem[r.status] = r.total;
-            contagem.total += r.total;
-        }
-    });
-    return contagem;
-}
-
 async function atualizarEstagio(usuarioId, { status, supervisorId, orientadorId, cargaHoraria }) {
     const { rows } = await pool.query(
         `UPDATE alunos
@@ -137,7 +122,6 @@ module.exports = {
     buscarPorMatricula,
     atualizarMatricula,
     listar,
-    contarPorStatus,
     atualizarEstagio,
     arquivar,
     desarquivar,

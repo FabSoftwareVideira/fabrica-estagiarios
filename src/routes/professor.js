@@ -34,15 +34,31 @@ const TAMANHO_PAGINA = 10;
 const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'concluido'];
 
 router.get('/dashboard', async (req, res) => {
+    const aba = req.query.aba === 'administracao' && req.session.user.cargo === 'admin'
+        ? 'administracao'
+        : 'alunos';
+
+    if (aba === 'administracao') {
+        return res.render('professor_dashboard', {
+            aba,
+            alunos: [],
+            total: 0,
+            pagina: 1,
+            totalPaginas: 1,
+            tamanhoPagina: TAMANHO_PAGINA,
+            filtros: { q: '', status: [], arquivados: false },
+        });
+    }
+
     const busca = (req.query.q || '').trim();
-    const status = STATUS_VALIDOS.includes(req.query.status) ? req.query.status : 'todos';
+    const status = [...new Set([].concat(req.query.status || []))]
+        .filter((s) => STATUS_VALIDOS.includes(s));
     const arquivados = req.query.arquivados === '1';
 
     let pagina = parseInt(req.query.pagina, 10);
     if (!Number.isFinite(pagina) || pagina < 1) pagina = 1;
 
     const filtros = { q: busca, status, arquivados };
-    const contagem = await alunosModel.contarPorStatus();
 
     const consultar = () => alunosModel.listar({
         status,
@@ -61,13 +77,13 @@ router.get('/dashboard', async (req, res) => {
     }
 
     res.render('professor_dashboard', {
+        aba,
         alunos: resultado.alunos,
         total: resultado.total,
         pagina,
         totalPaginas,
         tamanhoPagina: TAMANHO_PAGINA,
         filtros,
-        contagem,
     });
 });
 

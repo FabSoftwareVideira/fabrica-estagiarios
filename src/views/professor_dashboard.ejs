@@ -17,213 +17,213 @@
 
                 <h2>Painel do Professor</h2>
 
-                <div class="grid">
-                    <div class="info-box">
-                        <h3>Lista de Espera</h3>
-                        <p><%= contagem.lista_espera %></p>
-                    </div>
-                    <div class="info-box">
-                        <h3>Em Andamento</h3>
-                        <p><%= contagem.em_andamento %></p>
-                    </div>
-                    <div class="info-box">
-                        <h3>Concluídos</h3>
-                        <p><%= contagem.concluido %></p>
-                    </div>
-                    <div class="info-box">
-                        <h3>Arquivados</h3>
-                        <p><%= contagem.arquivados %></p>
-                    </div>
-                    <div class="info-box">
-                        <h3>Total de Alunos</h3>
-                        <p><%= contagem.total %></p>
-                    </div>
+                <div class="tabs">
+                    <a href="/professor/dashboard" class="tab <%= aba === 'alunos' ? 'active' : '' %>">Alunos</a>
+                    <% if (user.cargo === 'admin') { %>
+                        <a href="/professor/dashboard?aba=administracao"
+                            class="tab <%= aba === 'administracao' ? 'active' : '' %>">Administração</a>
+                    <% } %>
                 </div>
 
-                <div class="card">
-                    <h2>Alunos</h2>
-
-                    <form action="/professor/dashboard" method="GET" class="filters">
-                        <div class="filter-field filter-search">
-                            <label for="q">Buscar</label>
-                            <input id="q" type="text" name="q" value="<%= filtros.q %>"
-                                placeholder="Nome, matrícula ou e-mail...">
-                        </div>
-
-                        <div class="filter-field">
-                            <label for="status">Status</label>
-                            <select id="status" name="status">
-                                <option value="todos" <%= filtros.status==='todos' ? 'selected' : '' %>>Todos
-                                </option>
-                                <option value="lista_espera" <%= filtros.status==='lista_espera' ? 'selected' : ''
-                                    %>>Lista de espera</option>
-                                <option value="em_andamento" <%= filtros.status==='em_andamento' ? 'selected' : ''
-                                    %>>Em andamento</option>
-                                <option value="concluido" <%= filtros.status==='concluido' ? 'selected' : ''
-                                    %>>Concluído</option>
-                            </select>
-                        </div>
-
-                        <div class="filter-field filter-check">
-                            <label class="checkbox-label" for="arquivados">
-                                <input id="arquivados" type="checkbox" name="arquivados" value="1" <%= filtros.arquivados
-                                    ? 'checked' : '' %>>
-                                Mostrar apenas arquivados
-                            </label>
-                        </div>
-
-                        <div class="filter-actions">
-                            <button type="submit">Filtrar</button>
-                            <% if (filtros.q || filtros.status !== 'todos' || filtros.arquivados) { %>
-                                <a href="/professor/dashboard" class="btn btn-secondary">Limpar</a>
-                            <% } %>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="card">
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>Matrícula</th>
-                                    <th>E-mail</th>
-                                    <th>Supervisor</th>
-                                    <th>Horas</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% if (alunos.length === 0) { %>
-                                    <tr>
-                                        <td colspan="7">
-                                            <%= filtros.arquivados
-                                                ? 'Nenhum aluno arquivado encontrado.'
-                                                : 'Nenhum aluno encontrado com os filtros atuais.' %>
-                                        </td>
-                                    </tr>
-                                <% } else { %>
-                                    <% alunos.forEach((a) => { %>
-                                        <tr>
-                                            <td><%= a.nome %></td>
-                                            <td><%= a.matricula || '—' %></td>
-                                            <td><%= a.email %></td>
-                                            <td><%= a.supervisor_nome || '—' %></td>
-                                            <td><%= a.horas_realizadas %> / <%= a.carga_horaria %>h</td>
-                                            <td>
-                                                <% if (a.status === 'lista_espera') { %>
-                                                    <span class="status status-waiting">Lista de espera</span>
-                                                <% } else if (a.status === 'em_andamento') { %>
-                                                    <span class="status status-progress">Em andamento</span>
-                                                <% } else { %>
-                                                    <span class="status status-completed">Concluído</span>
-                                                <% } %>
-                                                <% if (a.arquivado) { %>
-                                                    <span class="status status-archived">Arquivado</span>
-                                                <% } %>
-                                            </td>
-                                            <td>
-                                                <div class="button-group">
-                                                    <a href="/professor/aluno/<%= a.usuario_id %>"
-                                                        class="btn">Visualizar</a>
-
-                                                    <% if (a.arquivado) { %>
-                                                        <form action="/professor/aluno/<%= a.usuario_id %>/desarquivar"
-                                                            method="POST">
-                                                            <button type="submit"
-                                                                class="btn-secondary">Desarquivar</button>
-                                                        </form>
-
-                                                        <% if (user.cargo === 'admin') { %>
-                                                            <form action="/professor/aluno/<%= a.usuario_id %>/excluir"
-                                                                method="POST"
-                                                                onsubmit="return confirm('Excluir este aluno definitivamente? Essa ação não pode ser desfeita.');">
-                                                                <button type="submit" class="btn-danger">Excluir</button>
-                                                            </form>
-                                                        <% } %>
-                                                    <% } else if (a.status === 'lista_espera') { %>
-                                                        <a href="/professor/cadastro-aluno/<%= a.usuario_id %>"
-                                                            class="btn btn-success">Aprovar</a>
-                                                        <form action="/professor/aluno/<%= a.usuario_id %>/arquivar"
-                                                            method="POST">
-                                                            <button type="submit"
-                                                                class="btn-secondary">Arquivar</button>
-                                                        </form>
-                                                    <% } else if (a.status === 'em_andamento') { %>
-                                                        <form action="/professor/aluno/<%= a.usuario_id %>/arquivar"
-                                                            method="POST">
-                                                            <button type="submit"
-                                                                class="btn-secondary">Arquivar</button>
-                                                        </form>
-                                                    <% } %>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <% }) %>
-                                <% } %>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <%
-                        const montarPagina = (p) => {
-                            const params = new URLSearchParams();
-                            if (filtros.q) params.set('q', filtros.q);
-                            if (filtros.status !== 'todos') params.set('status', filtros.status);
-                            if (filtros.arquivados) params.set('arquivados', '1');
-                            params.set('pagina', p);
-                            return '/professor/dashboard?' + params.toString();
-                        };
-                        const inicioExibido = total === 0 ? 0 : (pagina - 1) * tamanhoPagina + 1;
-                        const fimExibido = Math.min(total, pagina * tamanhoPagina);
-                        const inicioJanela = Math.max(1, pagina - 2);
-                        const fimJanela = Math.min(totalPaginas, pagina + 2);
-                    %>
-
-                    <div class="pagination">
-                        <span class="pagination-info">
-                            Mostrando <%= inicioExibido %>–<%= fimExibido %> de <%= total %> aluno(s)
-                        </span>
-
-                        <% if (totalPaginas > 1) { %>
-                            <div class="pagination-pages">
-                                <% if (pagina > 1) { %>
-                                    <a href="<%= montarPagina(pagina - 1) %>" class="pagination-link">Anterior</a>
-                                <% } %>
-
-                                <% if (inicioJanela > 1) { %>
-                                    <a href="<%= montarPagina(1) %>" class="pagination-link">1</a>
-                                    <% if (inicioJanela > 2) { %><span class="pagination-gap">…</span><% } %>
-                                <% } %>
-
-                                <% for (let p = inicioJanela; p <= fimJanela; p++) { %>
-                                    <a href="<%= montarPagina(p) %>"
-                                        class="pagination-link <%= p === pagina ? 'active' : '' %>"><%= p %></a>
-                                <% } %>
-
-                                <% if (fimJanela < totalPaginas) { %>
-                                    <% if (fimJanela < totalPaginas - 1) { %><span class="pagination-gap">…</span><% } %>
-                                    <a href="<%= montarPagina(totalPaginas) %>" class="pagination-link"><%=
-                                        totalPaginas %></a>
-                                <% } %>
-
-                                <% if (pagina < totalPaginas) { %>
-                                    <a href="<%= montarPagina(pagina + 1) %>" class="pagination-link">Próxima</a>
-                                <% } %>
-                            </div>
-                        <% } %>
-                    </div>
-                </div>
-
-                <% if (user.cargo==='admin' ) { %>
+                <% if (aba === 'administracao') { %>
                     <div class="card">
                         <h2>Administração</h2>
-                        <p>Gerencie confirmações, cargos e exclusão de contas de professores.</p>
-                        <br>
-                        <a href="/professor/professores" class="btn">Lista de Professores</a>
-                        <a href="/professor/cadastros" class="btn">Cadastrar Usuário</a>
+                        <p class="text-muted">Gerencie contas de professores e cadastre novos usuários.</p>
+
+                        <div class="action-grid">
+                            <a href="/professor/professores" class="action-card">
+                                <h3>Lista de Professores</h3>
+                                <p>Confirme cadastros, altere cargos e exclua contas de professores.</p>
+                                <span class="btn">Gerenciar</span>
+                            </a>
+                            <a href="/professor/cadastros" class="action-card">
+                                <h3>Cadastrar Usuário</h3>
+                                <p>Crie manualmente contas de alunos e professores.</p>
+                                <span class="btn">Cadastrar</span>
+                            </a>
+                        </div>
+                    </div>
+                <% } else { %>
+                    <div class="card filters-card">
+                        <form action="/professor/dashboard" method="GET" class="filters-form">
+                            <div class="filters-top">
+                                <input type="search" name="q" value="<%= filtros.q %>"
+                                    placeholder="Buscar por nome, matrícula ou e-mail..." aria-label="Buscar alunos">
+                                <button type="submit">Filtrar</button>
+                                <% if (filtros.q || filtros.status.length > 0 || filtros.arquivados) { %>
+                                    <a href="/professor/dashboard" class="btn btn-secondary">Limpar</a>
+                                <% } %>
+                            </div>
+
+                            <div class="filters-bottom">
+                                <span class="filters-label">Filtrar por</span>
+                                <div class="filter-pills">
+                                    <label class="filter-pill">
+                                        <input type="checkbox" name="status" value="lista_espera"
+                                            <%= filtros.status.includes('lista_espera') ? 'checked' : '' %>
+                                            data-auto-submit>
+                                        <span>Lista de espera</span>
+                                    </label>
+                                    <label class="filter-pill">
+                                        <input type="checkbox" name="status" value="em_andamento"
+                                            <%= filtros.status.includes('em_andamento') ? 'checked' : '' %>
+                                            data-auto-submit>
+                                        <span>Em andamento</span>
+                                    </label>
+                                    <label class="filter-pill">
+                                        <input type="checkbox" name="status" value="concluido"
+                                            <%= filtros.status.includes('concluido') ? 'checked' : '' %>
+                                            data-auto-submit>
+                                        <span>Concluído</span>
+                                    </label>
+
+                                    <span class="filter-pills-sep"></span>
+
+                                    <label class="filter-pill filter-pill-archived">
+                                        <input type="checkbox" name="arquivados" value="1"
+                                            <%= filtros.arquivados ? 'checked' : '' %>
+                                            data-auto-submit>
+                                        <span>Arquivados</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Matrícula</th>
+                                        <th>E-mail</th>
+                                        <th>Supervisor</th>
+                                        <th>Horas</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% if (alunos.length === 0) { %>
+                                        <tr>
+                                            <td colspan="7">
+                                                <%= filtros.arquivados
+                                                    ? 'Nenhum aluno arquivado encontrado.'
+                                                    : 'Nenhum aluno encontrado com os filtros atuais.' %>
+                                            </td>
+                                        </tr>
+                                    <% } else { %>
+                                        <% alunos.forEach((a) => { %>
+                                            <tr>
+                                                <td><%= a.nome %></td>
+                                                <td><%= a.matricula || '—' %></td>
+                                                <td><%= a.email %></td>
+                                                <td><%= a.supervisor_nome || '—' %></td>
+                                                <td><%= a.horas_realizadas %> / <%= a.carga_horaria %>h</td>
+                                                <td>
+                                                    <% if (a.status === 'lista_espera') { %>
+                                                        <span class="status status-waiting">Lista de espera</span>
+                                                    <% } else if (a.status === 'em_andamento') { %>
+                                                        <span class="status status-progress">Em andamento</span>
+                                                    <% } else { %>
+                                                        <span class="status status-completed">Concluído</span>
+                                                    <% } %>
+                                                    <% if (a.arquivado) { %>
+                                                        <span class="status status-archived">Arquivado</span>
+                                                    <% } %>
+                                                </td>
+                                                <td>
+                                                    <div class="button-group">
+                                                        <a href="/professor/aluno/<%= a.usuario_id %>"
+                                                            class="btn">Visualizar</a>
+
+                                                        <% if (a.arquivado) { %>
+                                                            <form action="/professor/aluno/<%= a.usuario_id %>/desarquivar"
+                                                                method="POST">
+                                                                <button type="submit"
+                                                                    class="btn-secondary">Desarquivar</button>
+                                                            </form>
+
+                                                            <% if (user.cargo === 'admin') { %>
+                                                                <form action="/professor/aluno/<%= a.usuario_id %>/excluir"
+                                                                    method="POST"
+                                                                    onsubmit="return confirm('Excluir este aluno definitivamente? Essa ação não pode ser desfeita.');">
+                                                                    <button type="submit" class="btn-danger">Excluir</button>
+                                                                </form>
+                                                            <% } %>
+                                                        <% } else if (a.status === 'lista_espera') { %>
+                                                            <a href="/professor/cadastro-aluno/<%= a.usuario_id %>"
+                                                                class="btn btn-success">Aprovar</a>
+                                                            <form action="/professor/aluno/<%= a.usuario_id %>/arquivar"
+                                                                method="POST">
+                                                                <button type="submit"
+                                                                    class="btn-secondary">Arquivar</button>
+                                                            </form>
+                                                        <% } else if (a.status === 'em_andamento') { %>
+                                                            <form action="/professor/aluno/<%= a.usuario_id %>/arquivar"
+                                                                method="POST">
+                                                                <button type="submit"
+                                                                    class="btn-secondary">Arquivar</button>
+                                                            </form>
+                                                        <% } %>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <% }) %>
+                                    <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <%
+                            const montarPagina = (p) => {
+                                const params = new URLSearchParams();
+                                if (filtros.q) params.set('q', filtros.q);
+                                filtros.status.forEach((s) => params.append('status', s));
+                                if (filtros.arquivados) params.set('arquivados', '1');
+                                params.set('pagina', p);
+                                return '/professor/dashboard?' + params.toString();
+                            };
+                            const inicioExibido = total === 0 ? 0 : (pagina - 1) * tamanhoPagina + 1;
+                            const fimExibido = Math.min(total, pagina * tamanhoPagina);
+                            const inicioJanela = Math.max(1, pagina - 2);
+                            const fimJanela = Math.min(totalPaginas, pagina + 2);
+                        %>
+
+                        <div class="pagination">
+                            <span class="pagination-info">
+                                Mostrando <%= inicioExibido %>–<%= fimExibido %> de <%= total %> aluno(s)
+                            </span>
+
+                            <% if (totalPaginas > 1) { %>
+                                <div class="pagination-pages">
+                                    <% if (pagina > 1) { %>
+                                        <a href="<%= montarPagina(pagina - 1) %>" class="pagination-link">Anterior</a>
+                                    <% } %>
+
+                                    <% if (inicioJanela > 1) { %>
+                                        <a href="<%= montarPagina(1) %>" class="pagination-link">1</a>
+                                        <% if (inicioJanela > 2) { %><span class="pagination-gap">…</span><% } %>
+                                    <% } %>
+
+                                    <% for (let p = inicioJanela; p <= fimJanela; p++) { %>
+                                        <a href="<%= montarPagina(p) %>"
+                                            class="pagination-link <%= p === pagina ? 'active' : '' %>"><%= p %></a>
+                                    <% } %>
+
+                                    <% if (fimJanela < totalPaginas) { %>
+                                        <% if (fimJanela < totalPaginas - 1) { %><span class="pagination-gap">…</span><% } %>
+                                        <a href="<%= montarPagina(totalPaginas) %>" class="pagination-link"><%=
+                                            totalPaginas %></a>
+                                    <% } %>
+
+                                    <% if (pagina < totalPaginas) { %>
+                                        <a href="<%= montarPagina(pagina + 1) %>" class="pagination-link">Próxima</a>
+                                    <% } %>
+                                </div>
+                            <% } %>
+                        </div>
                     </div>
                 <% } %>
         </main>

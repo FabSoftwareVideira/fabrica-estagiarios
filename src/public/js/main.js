@@ -58,6 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // filtros em formato de botão (checkbox) aplicam na hora
+    document.querySelectorAll('[data-auto-submit]').forEach((input) => {
+        input.addEventListener('change', () => {
+            if (input.form) input.form.requestSubmit();
+        });
+    });
+
     // anima a barra de progresso (evita ela já nascer preenchida sem transição)
     document.querySelectorAll('.progress-bar[data-percent]').forEach((bar) => {
         const percent = bar.dataset.percent;
