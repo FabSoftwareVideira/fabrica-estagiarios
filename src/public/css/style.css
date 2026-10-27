@@ -505,6 +505,118 @@ tbody tr:nth-child(even):hover {
   background: var(--success);
 }
 
+.status-archived {
+  background: var(--muted);
+}
+
+/* ===========================
+   Filtros e paginação
+=========================== */
+
+.filters {
+  flex-direction: row;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.filter-search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.filter-check {
+  justify-content: flex-end;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-actions button,
+.filter-actions .btn {
+  margin-top: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.pagination-info {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pagination-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--dark);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.pagination-link:hover {
+  background: var(--primary-glow);
+  border-color: var(--primary);
+}
+
+.pagination-link.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--white);
+}
+
+.pagination-gap {
+  color: var(--muted);
+  padding: 0 4px;
+}
+
 /* ===========================
    Login
 =========================== */

@@ -30,15 +30,45 @@ router.post('/completar-cadastro', async (req, res) => {
 
 router.use(requireNomeConfirmado);
 
-router.get('/dashboard', async (req, res) => {
-    const [listaEspera, emAndamento, concluidos, contagem] = await Promise.all([
-        alunosModel.listarPorStatus('lista_espera'),
-        alunosModel.listarPorStatus('em_andamento'),
-        alunosModel.listarPorStatus('concluido'),
-        alunosModel.contarPorStatus(),
-    ]);
+const TAMANHO_PAGINA = 10;
+const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'concluido'];
 
-    res.render('professor_dashboard', { listaEspera, emAndamento, concluidos, contagem });
+router.get('/dashboard', async (req, res) => {
+    const busca = (req.query.q || '').trim();
+    const status = STATUS_VALIDOS.includes(req.query.status) ? req.query.status : 'todos';
+    const arquivados = req.query.arquivados === '1';
+
+    let pagina = parseInt(req.query.pagina, 10);
+    if (!Number.isFinite(pagina) || pagina < 1) pagina = 1;
+
+    const filtros = { q: busca, status, arquivados };
+    const contagem = await alunosModel.contarPorStatus();
+
+    const consultar = () => alunosModel.listar({
+        status,
+        busca,
+        arquivados,
+        limite: TAMANHO_PAGINA,
+        offset: (pagina - 1) * TAMANHO_PAGINA,
+    });
+
+    let resultado = await consultar();
+    const totalPaginas = Math.max(1, Math.ceil(resultado.total / TAMANHO_PAGINA));
+
+    if (pagina > totalPaginas) {
+        pagina = totalPaginas;
+        resultado = await consultar();
+    }
+
+    res.render('professor_dashboard', {
+        alunos: resultado.alunos,
+        total: resultado.total,
+        pagina,
+        totalPaginas,
+        tamanhoPagina: TAMANHO_PAGINA,
+        filtros,
+        contagem,
+    });
 });
 
 router.get('/aluno/:id', async (req, res) => {
@@ -126,10 +156,9 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
 // Arquivar/desarquivar: qualquer professor (comum ou admin).
 // Excluir definitivamente: só admin.
 
-router.get('/arquivados', async (req, res) => {
-    const busca = req.query.q || '';
-    const arquivados = await alunosModel.listarArquivados(busca);
-    res.render('professor_arquivados', { arquivados, busca });
+// a lista de arquivados agora é a mesma tabela do dashboard, só com a flag
+router.get('/arquivados', (req, res) => {
+    res.redirect('/professor/dashboard?arquivados=1');
 });
 
 router.post('/aluno/:id/arquivar', async (req, res) => {

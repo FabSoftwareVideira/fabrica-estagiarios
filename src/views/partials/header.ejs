@@ -21,7 +21,7 @@
                             <a href="/logout">Sair (<%= user.nome %>)</a>
                             <% } else { %>
                                 <a href="/professor/dashboard">Dashboard</a>
-                                <a href="/professor/arquivados">Arquivados</a>
+                                <a href="/professor/dashboard?arquivados=1">Arquivados</a>
                                 <% if (user.cargo==='admin' ) { %>
                                     <a href="/professor/professores">Lista de Professores</a>
                                     <% } %>
