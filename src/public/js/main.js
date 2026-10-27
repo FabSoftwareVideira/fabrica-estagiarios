@@ -65,11 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // anima a barra de progresso (evita ela já nascer preenchida sem transição)
+    // preenche a barra de progresso de acordo com o percentual
     document.querySelectorAll('.progress-bar[data-percent]').forEach((bar) => {
-        const percent = bar.dataset.percent;
-        requestAnimationFrame(() => {
-            bar.style.width = `${percent}%`;
-        });
+        bar.style.width = `${bar.dataset.percent}%`;
     });
 });

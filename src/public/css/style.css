@@ -20,7 +20,6 @@
   --shadow-sm: 0 1px 2px rgba(38, 32, 43, 0.06), 0 1px 1px rgba(38, 32, 43, 0.04);
   --shadow-md: 0 8px 24px rgba(163, 0, 160, 0.08), 0 2px 6px rgba(38, 32, 43, 0.05);
   --shadow-lg: 0 20px 48px rgba(163, 0, 160, 0.14), 0 6px 16px rgba(38, 32, 43, 0.08);
-  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -55,23 +54,6 @@ a {
   width: 92%;
   max-width: 1140px;
   margin: 36px auto;
-  animation: fadeUp 0.5s var(--transition) both;
-}
-
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 main > h2 {
@@ -151,7 +133,6 @@ main > h2 {
   height: 2px;
   background: var(--white);
   border-radius: 2px;
-  transition: transform var(--transition), opacity var(--transition);
 }
 
 .main-nav {
@@ -169,7 +150,6 @@ main > h2 {
   padding: 8px 14px;
   border-radius: 8px;
   position: relative;
-  transition: background var(--transition), color var(--transition);
 }
 
 .main-nav a:hover,
@@ -194,12 +174,6 @@ main > h2 {
   padding: 24px 26px;
   margin-bottom: 22px;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition), transform var(--transition);
-}
-
-.card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
 }
 
 .card h2,
@@ -259,7 +233,6 @@ textarea {
   font-family: inherit;
   background: var(--white);
   color: var(--dark);
-  transition: border-color var(--transition), box-shadow var(--transition);
 }
 
 textarea {
@@ -300,19 +273,11 @@ button,
   margin-top: 8px;
   font-size: 15px;
   font-weight: 600;
-  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
 }
 
 button:hover,
 .btn:hover {
   background: var(--primary-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-button:active,
-.btn:active {
-  transform: translateY(0);
 }
 
 .btn-success {
@@ -382,10 +347,6 @@ td {
   font-size: 14.5px;
 }
 
-tr {
-  transition: background var(--transition);
-}
-
 tbody tr:hover {
   background: var(--primary-glow);
 }
@@ -416,13 +377,6 @@ tbody tr:nth-child(even):hover {
   padding: 20px;
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  transition: transform var(--transition), box-shadow var(--transition);
-  animation: fadeUp 0.5s var(--transition) both;
-}
-
-.info-box:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
 }
 
 .info-box h3 {
@@ -458,7 +412,6 @@ tbody tr:nth-child(even):hover {
   width: 0%;
   background: linear-gradient(90deg, var(--primary), var(--primary-light));
   border-radius: 20px;
-  transition: width 0.8s var(--transition);
 }
 
 /* ===========================
@@ -492,15 +445,6 @@ tbody tr:nth-child(even):hover {
   background: var(--primary);
 }
 
-.status-progress::before {
-  animation: pulse 1.8s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
 .status-completed {
   background: var(--success);
 }
@@ -531,7 +475,6 @@ tbody tr:nth-child(even):hover {
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 
 .tab:hover {
@@ -618,7 +561,6 @@ tbody tr:nth-child(even):hover {
   font-weight: 600;
   cursor: pointer;
   user-select: none;
-  transition: background var(--transition), border-color var(--transition), color var(--transition);
 }
 
 .filter-pill input {
@@ -636,7 +578,6 @@ tbody tr:nth-child(even):hover {
   border: 1.5px solid var(--border);
   border-radius: 4px;
   background: var(--white);
-  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
 
 .filter-pill:hover {
@@ -681,7 +622,6 @@ tbody tr:nth-child(even):hover {
   border-radius: var(--radius);
   background: var(--white);
   text-decoration: none;
-  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 
 .action-card h3 {
@@ -699,12 +639,6 @@ tbody tr:nth-child(even):hover {
 .action-card .btn {
   align-self: flex-start;
   margin-top: 6px;
-}
-
-.action-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
 }
 
 .pagination {
@@ -742,7 +676,6 @@ tbody tr:nth-child(even):hover {
   text-decoration: none;
   font-size: 14px;
   font-weight: 600;
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 
 .pagination-link:hover {
@@ -774,7 +707,6 @@ tbody tr:nth-child(even):hover {
   border: 1px solid var(--border);
   text-align: center;
   box-shadow: var(--shadow-lg);
-  animation: fadeUp 0.5s var(--transition) both;
 }
 
 .login-box h1 {
@@ -814,7 +746,6 @@ tbody tr:nth-child(even):hover {
   margin-bottom: 20px;
   font-weight: 600;
   font-size: 14.5px;
-  animation: fadeUp 0.35s var(--transition) both;
 }
 
 .flash-success {
@@ -876,7 +807,6 @@ tbody tr:nth-child(even):hover {
     align-items: stretch;
     gap: 2px;
     padding-top: 10px;
-    animation: fadeIn 0.2s ease both;
   }
 
   .main-nav.open {
