@@ -172,7 +172,11 @@
             </div>
 
             <p class="text-muted">
+                A validação das horas é responsabilidade do supervisor atribuído ao estágio.
                 Ao invalidar uma atividade, as horas deixam de contar e o aluno precisará registrar outra.
+                <% if (!aluno.arquivado && !podeValidarAtividades) { %>
+                    Você pode consultar as atividades, mas somente o supervisor pode validá-las ou invalidá-las.
+                <% } %>
             </p>
 
             <div class="table-wrap">
@@ -184,13 +188,13 @@
                             <th>Descrição</th>
                             <th>Horas</th>
                             <th>Validação</th>
-                            <% if (!aluno.arquivado) { %><th>Ações</th><% } %>
+                            <% if (podeValidarAtividades) { %><th>Ações</th><% } %>
                         </tr>
                     </thead>
                     <tbody>
                         <% if (atividades.length === 0) { %>
                             <tr>
-                                <td colspan="<%= aluno.arquivado ? 5 : 6 %>">Nenhuma atividade registrada ainda.</td>
+                                <td colspan="<%= podeValidarAtividades ? 6 : 5 %>">Nenhuma atividade registrada ainda.</td>
                             </tr>
                         <% } else { %>
                             <% atividades.forEach((a) => { %>
@@ -214,7 +218,7 @@
                                     <td>
                                         <%- include('partials/status_atividade', { atividade: a }) %>
                                     </td>
-                                    <% if (!aluno.arquivado) { %>
+                                    <% if (podeValidarAtividades) { %>
                                         <td>
                                             <% if (a.status_validacao === 'invalidada') { %>
                                                 <form

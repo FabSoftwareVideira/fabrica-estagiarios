@@ -27,17 +27,17 @@ async function salvarConfiguracao({ habilitado, diaSemana, horario }) {
 
 async function listarDestinatarios() {
     const { rows } = await pool.query(
-        `SELECT orientador.id, orientador.nome, orientador.email,
-                perfil_orientador.receber_relatorio_semanal,
+        `SELECT supervisor.id, supervisor.nome, supervisor.email,
+                perfil_supervisor.receber_relatorio_semanal,
                 COUNT(aluno.usuario_id)::int AS quantidade_alunos
          FROM alunos aluno
-         JOIN usuarios orientador ON orientador.id = aluno.orientador_id
-         JOIN professores perfil_orientador ON perfil_orientador.usuario_id = orientador.id
+         JOIN usuarios supervisor ON supervisor.id = aluno.supervisor_id
+         JOIN professores perfil_supervisor ON perfil_supervisor.usuario_id = supervisor.id
          WHERE aluno.arquivado = false
            AND aluno.status = 'em_andamento'
-         GROUP BY orientador.id, orientador.nome, orientador.email,
-                  perfil_orientador.receber_relatorio_semanal
-         ORDER BY orientador.nome ASC`
+         GROUP BY supervisor.id, supervisor.nome, supervisor.email,
+                  perfil_supervisor.receber_relatorio_semanal
+         ORDER BY supervisor.nome ASC`
     );
     return rows;
 }

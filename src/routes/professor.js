@@ -5,7 +5,7 @@ const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
 const relatorioSemanalModel = require('../models/relatorioSemanal');
-const { executar: enviarRelatorioSemanal } = require('../scripts/enviarRelatorioSemanalOrientadores');
+const { executar: enviarRelatorioSemanal } = require('../scripts/enviarRelatorioSemanalSupervisores');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
 const { gerarFapoPdf } = require('../services/fapoPdf');
@@ -187,8 +187,16 @@ router.get('/aluno/:id', async (req, res) => {
 
     const podeGerarFapo = aluno.status === 'concluido'
         && Number(aluno.orientador_id) === Number(req.session.user.id);
+    const podeValidarAtividades = !aluno.arquivado
+        && Number(aluno.supervisor_id) === Number(req.session.user.id);
 
-    res.render('professor_aluno', { aluno, atividades, professores, podeGerarFapo });
+    res.render('professor_aluno', {
+        aluno,
+        atividades,
+        professores,
+        podeGerarFapo,
+        podeValidarAtividades,
+    });
 });
 
 router.get('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
@@ -352,6 +360,11 @@ async function alterarValidacao(req, res, status) {
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
+    if (Number(aluno.supervisor_id) !== Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Somente o supervisor atribuído ao aluno pode validar ou invalidar as atividades.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
     const resultado = await atividadesModel.definirValidacao({
         atividadeId: req.params.atividadeId,
         alunoId: req.params.id,
@@ -506,11 +519,14 @@ router.post('/relatorio-semanal/enviar-agora', requireAdmin, async (req, res) =>
         if (!resultado.enviado) {
             setFlash(req, 'success', 'Nenhum professor elegível para receber o relatório no momento.');
         } else {
-            setFlash(req, 'success', `Resumo enviado em uma única mensagem para ${resultado.destinatarios} professor(es) em cópia oculta, com ${resultado.estudantes} estudante(s).`);
+            setFlash(req, 'success', `Resumo enviado em uma única mensagem para ${resultado.destinatarios} supervisor(es) em cópia oculta, com ${resultado.estudantes} estudante(s).`);
         }
     } catch (erro) {
         console.error('[professor/relatorio-semanal] erro no envio manual:', erro.message);
-        setFlash(req, 'error', 'Não foi possível enviar o relatório agora. Confira a configuração de e-mail e tente novamente.');
+        const mensagem = erro.code === 'EAUTH' || erro.responseCode === 535
+            ? 'O servidor de e-mail rejeitou as credenciais SMTP. Confira SMTP_USER e SMTP_PASS no secret ENV_FILE do GitHub.'
+            : 'Não foi possível enviar o relatório agora. Confira a configuração de e-mail e tente novamente.';
+        setFlash(req, 'error', mensagem);
     }
     res.redirect('/professor/relatorio-semanal');
 });

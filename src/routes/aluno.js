@@ -292,8 +292,6 @@ router.get('/ficha-acompanhamento', async (req, res) => {
     const atividadesRegistradas = await atividadesModel.listarPorAluno(req.session.user.id);
     const atividades = atividadesRegistradas.filter((atividade) =>
         atividade.status_validacao === 'validada'
-        && aluno.orientador_id != null
-        && Number(atividade.avaliado_por) === Number(aluno.orientador_id)
     );
 
     try {

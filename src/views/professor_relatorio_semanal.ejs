@@ -13,7 +13,7 @@
         <%- include('partials/flash') %>
 
         <h2>Relatório semanal por e-mail</h2>
-        <p class="page-subtitle text-muted">Configure o envio do resumo de estágio para os orientadores.</p>
+        <p class="page-subtitle text-muted">Configure o envio do resumo de estágio para os supervisores.</p>
 
         <section class="card">
             <h3>Programação</h3>
@@ -47,11 +47,11 @@
             </form>
 
             <form action="/professor/relatorio-semanal/enviar-agora" method="POST"
-                class="send-now-form" onsubmit="return confirm('Enviar agora o resumo aos professores elegíveis?');">
+                class="send-now-form" onsubmit="return confirm('Enviar agora o resumo aos supervisores elegíveis?');">
                 <div class="form-actions">
                     <button type="submit" class="btn-success">Enviar resumo agora</button>
                 </div>
-                <p class="text-muted">O envio manual não altera a programação automática. Professores que desativaram o recebimento no perfil não serão incluídos.</p>
+                <p class="text-muted">O envio manual não altera a programação automática. Supervisores que desativaram o recebimento no perfil não serão incluídos.</p>
             </form>
         </section>
 
@@ -59,18 +59,18 @@
             <div class="card-header">
                 <h3>Destinatários</h3>
                 <% const elegiveis = destinatarios.filter((d) => d.receber_relatorio_semanal).length; %>
-                <span class="text-muted"><%= elegiveis %> elegível(is) de <%= destinatarios.length %> orientador(es)</span>
+                <span class="text-muted"><%= elegiveis %> elegível(is) de <%= destinatarios.length %> supervisor(es)</span>
             </div>
-            <p class="text-muted recipients-intro">O resumo é enviado em uma única mensagem, com os professores elegíveis em cópia oculta (BCC). São elegíveis os orientadores com estudantes em estágio ativo e não arquivados que mantêm o recebimento habilitado no perfil. Como a mensagem é única, o conteúdo consolidado inclui os estudantes de todos os orientadores elegíveis.</p>
+            <p class="text-muted recipients-intro">O resumo é enviado em uma única mensagem, com os supervisores elegíveis em cópia oculta (BCC). São elegíveis os supervisores com estudantes em estágio ativo e não arquivados que mantêm o recebimento habilitado no perfil. Como a mensagem é única, o conteúdo consolidado inclui os estudantes de todos os supervisores elegíveis.</p>
 
             <% if (destinatarios.length === 0) { %>
-                <p class="empty-state">Nenhum orientador possui estudantes ativos atribuídos no momento.</p>
+                <p class="empty-state">Nenhum supervisor possui estudantes ativos atribuídos no momento.</p>
             <% } else { %>
                 <div class="table-wrap">
                     <table>
                         <thead>
                             <tr>
-                                <th>Orientador</th>
+                                <th>Supervisor</th>
                                 <th>E-mail de destino</th>
                                 <th>Estudantes ativos</th>
                                 <th>Recebimento</th>
@@ -102,7 +102,7 @@
             <% } else { %>
                 <p class="text-muted">Ainda não há registro de envio desde a ativação desta configuração.</p>
             <% } %>
-            <p class="text-muted">O agendamento só envia relatórios quando estiver habilitado e houver orientadores com estudantes ativos.</p>
+            <p class="text-muted">O agendamento só envia relatórios quando estiver habilitado e houver supervisores com estudantes ativos.</p>
         </section>
     </main>
 

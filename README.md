@@ -44,9 +44,9 @@ Em produção, use a URL HTTPS pública da aplicação em `GOOGLE_CALLBACK_URL` 
 
 ## Relatório semanal por e-mail
 
-O administrador configura o envio em **Administração → Relatório semanal por e-mail**. É possível habilitar/desabilitar e escolher o dia e horário, ou usar **Enviar resumo agora**. A tela lista os orientadores com estudantes ativos e quantos alunos cada um possui. Cada professor pode desativar o recebimento no próprio perfil. O envio automático começa desabilitado.
+O administrador configura o envio em **Administração → Relatório semanal por e-mail**. É possível habilitar/desabilitar e escolher o dia e horário, ou usar **Enviar resumo agora**. A tela lista os supervisores com estudantes ativos e quantos alunos cada um possui. Cada professor pode desativar o recebimento no próprio perfil. O envio automático começa desabilitado.
 
-O workflow `.github/workflows/relatorio-semanal.yml` verifica a programação a cada 15 minutos, e o script envia no dia/horário configurados pelo administrador (fuso `America/Sao_Paulo`). O envio manual ignora a programação automática, mas respeita as preferências dos professores. Em ambos os casos, sai uma única mensagem para o endereço SMTP configurado, com os professores elegíveis em cópia oculta (BCC). O conteúdo é consolidado e inclui os estudantes de todos esses professores. O resumo mostra as horas registradas e as atividades preenchidas nos últimos 7 dias; as horas incluem atividades pendentes de validação e excluem atividades invalidadas. Cada aluno tem um link para os detalhes na aplicação.
+O workflow `.github/workflows/relatorio-semanal.yml` verifica a programação a cada 15 minutos, e o script envia no dia/horário configurados pelo administrador (fuso `America/Sao_Paulo`). O envio manual ignora a programação automática, mas respeita as preferências dos professores. Em ambos os casos, sai uma única mensagem para o endereço SMTP configurado, com os supervisores elegíveis em cópia oculta (BCC). O conteúdo é consolidado e agrupa os estudantes por supervisor. O resumo mostra as horas registradas e as atividades preenchidas nos últimos 7 dias; as horas incluem atividades pendentes de validação e excluem atividades invalidadas. Cada aluno tem um link para os detalhes na aplicação.
 
 O workflow de deploy aplica automaticamente as migrações pendentes em ordem, usando `src/scripts/runMigrations.js`, antes de atualizar o container web. O histórico fica registrado na tabela `schema_migrations`. Na primeira execução em bancos legados, o runner verifica se o schema já está no estado esperado até a migração 010 e registra esse baseline; caso não esteja, o deploy para com uma mensagem de erro em vez de presumir e pular migrações antigas. Em instalações novas, `db/init.sql` cria a estrutura atual e o runner aplica e registra as migrações recentes de forma idempotente.
 
@@ -64,6 +64,8 @@ SMTP_FROM=Fábrica de Estagiários <nao-responda@seu-dominio>
 ```
 
 `SMTP_FROM` é opcional e, se omitido, usa `SMTP_USER` como remetente. O workflow roda no runner self-hosted já usado pelo deploy e executa o script dentro do container web. Também é possível iniciá-lo manualmente em **GitHub Actions → Relatório semanal dos orientadores → Run workflow**. Os e-mails são enviados após a implantação da nova versão da aplicação.
+
+Para Gmail/Google Workspace, use `smtp.gmail.com`, porta `587`, o endereço completo da conta em `SMTP_USER` e uma **senha de app** em `SMTP_PASS` (não a senha normal da conta). Se o Google mostrar os 16 caracteres em grupos separados por espaços, o serviço remove esses espaços automaticamente. Após alterar o secret `ENV_FILE`, faça um novo deploy para recriar o container com as credenciais atualizadas.
 
 Para produção, atualize também o secret `ENV_FILE` no GitHub e faça o deploy para que o container web receba as novas variáveis de SMTP e `APP_URL`. Depois da migração e do deploy, entre com a conta admin, configure o dia/horário e habilite os envios.
 

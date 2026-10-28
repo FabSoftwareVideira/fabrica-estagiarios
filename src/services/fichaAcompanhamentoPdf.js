@@ -32,8 +32,6 @@ async function gerarFichaAcompanhamentoPdf({ aluno, atividades }) {
     const form = pdfDoc.getForm();
     const atividadesValidadas = (atividades || []).filter((atividade) =>
         atividade.status_validacao === 'validada'
-        && aluno.orientador_id != null
-        && Number(atividade.avaliado_por) === Number(aluno.orientador_id)
     );
 
     // Preencher dados do aluno

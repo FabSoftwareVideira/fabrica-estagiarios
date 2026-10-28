@@ -13,9 +13,17 @@ function escaparHtml(valor) {
 
 function obterConfiguracaoEmail() {
     const { APP_ENV, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, APP_URL } = process.env;
-    const autenticacaoConfigurada = Boolean(SMTP_USER && SMTP_PASS);
+    const smtpHost = String(SMTP_HOST || '').trim();
+    const smtpUser = String(SMTP_USER || '').trim();
+    const senhaInformada = String(SMTP_PASS || '').trim();
+    // O Google exibe a senha de app em quatro blocos separados por espaços;
+    // esses espaços são apenas visuais e não fazem parte da credencial SMTP.
+    const smtpPass = smtpHost.toLowerCase() === 'smtp.gmail.com'
+        ? senhaInformada.replace(/\s/g, '')
+        : senhaInformada;
+    const autenticacaoConfigurada = Boolean(smtpUser && smtpPass);
 
-    if (!SMTP_HOST) {
+    if (!smtpHost) {
         throw new Error('Configure SMTP_HOST no ambiente.');
     }
 
@@ -40,20 +48,20 @@ function obterConfiguracaoEmail() {
 
     return {
         urlAplicacao: urlAplicacao.origin,
-        remetente: SMTP_FROM || SMTP_USER,
-        enderecoRemetente: SMTP_USER,
+        remetente: SMTP_FROM || smtpUser,
+        enderecoRemetente: smtpUser,
         transporte: nodemailer.createTransport({
-            host: SMTP_HOST,
+            host: smtpHost,
             port: Number(SMTP_PORT) || 587,
             secure: Number(SMTP_PORT) === 465,
-            ...(autenticacaoConfigurada ? { auth: { user: SMTP_USER, pass: SMTP_PASS } } : {}),
+            ...(autenticacaoConfigurada ? { auth: { user: smtpUser, pass: smtpPass } } : {}),
         }),
     };
 }
 
-function montarEmail(orientadores, urlAplicacao) {
-    const tabelasPorOrientador = orientadores.map((orientador) => {
-        const linhas = orientador.alunos.map((aluno) => {
+function montarEmail(supervisores, urlAplicacao) {
+    const tabelasPorSupervisor = supervisores.map((supervisor) => {
+        const linhas = supervisor.alunos.map((aluno) => {
             const quantidade = Number(aluno.atividades_semana);
             const statusAtividades = quantidade > 0 ? `Sim (${quantidade})` : 'Não';
             const linkAluno = `${urlAplicacao}/professor/aluno/${encodeURIComponent(aluno.aluno_id)}`;
@@ -68,7 +76,7 @@ function montarEmail(orientadores, urlAplicacao) {
         }).join('');
 
         return `
-            <h3 style="margin:24px 0 8px;color:#7a0078;">${escaparHtml(orientador.nome)}</h3>
+            <h3 style="margin:24px 0 8px;color:#7a0078;">${escaparHtml(supervisor.nome)}</h3>
             <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px;">
                 <thead>
                     <tr style="background:#f9fafb;">
@@ -89,7 +97,7 @@ function montarEmail(orientadores, urlAplicacao) {
             <div style="max-width:760px;margin:0 auto;padding:24px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;">
                 <h2 style="margin-top:0;color:#111827;">Resumo semanal de estágio</h2>
                 <p>Resumo dos estudantes em estágio ativo nos últimos 7 dias:</p>
-                ${tabelasPorOrientador}
+                ${tabelasPorSupervisor}
                 <p style="margin-bottom:0;margin-top:24px;font-size:12px;color:#6b7280;">As horas mostram os registros não invalidados no período; atividades pendentes de validação estão incluídas.</p>
             </div>
         </body>
@@ -97,10 +105,10 @@ function montarEmail(orientadores, urlAplicacao) {
 
     const texto = [
         'Resumo semanal de estágio — estudantes ativos dos últimos 7 dias:',
-        ...orientadores.flatMap((orientador) => [
+        ...supervisores.flatMap((supervisor) => [
             '',
-            `Orientador: ${orientador.nome}`,
-            ...orientador.alunos.map((aluno) => `${aluno.aluno_nome}: ${Number(aluno.horas_semana).toFixed(2)} horas registradas; atividades preenchidas: ${Number(aluno.atividades_semana) > 0 ? `Sim (${aluno.atividades_semana})` : 'Não'} — ${urlAplicacao}/professor/aluno/${aluno.aluno_id}`),
+            `Supervisor: ${supervisor.nome}`,
+            ...supervisor.alunos.map((aluno) => `${aluno.aluno_nome}: ${Number(aluno.horas_semana).toFixed(2)} horas registradas; atividades preenchidas: ${Number(aluno.atividades_semana) > 0 ? `Sim (${aluno.atividades_semana})` : 'Não'} — ${urlAplicacao}/professor/aluno/${aluno.aluno_id}`),
         ]),
         '',
         'As horas incluem atividades pendentes de validação e excluem as invalidadas.',
@@ -187,10 +195,10 @@ async function executar({ forcar = false } = {}) {
 
         const { rows } = await client.query(`
             SELECT
-                orientador.id AS orientador_id,
-                orientador.nome AS orientador_nome,
-                orientador.email AS orientador_email,
-                perfil_orientador.receber_relatorio_semanal,
+                supervisor.id AS supervisor_id,
+                supervisor.nome AS supervisor_nome,
+                supervisor.email AS supervisor_email,
+                perfil_supervisor.receber_relatorio_semanal,
                 aluno.usuario_id AS aluno_id,
                 estudante.nome AS aluno_nome,
                 COALESCE(SUM(atividade.horas) FILTER (
@@ -204,28 +212,28 @@ async function executar({ forcar = false } = {}) {
                 )::int AS atividades_semana
             FROM alunos aluno
             JOIN usuarios estudante ON estudante.id = aluno.usuario_id
-            JOIN usuarios orientador ON orientador.id = aluno.orientador_id
-            JOIN professores perfil_orientador ON perfil_orientador.usuario_id = orientador.id
+            JOIN usuarios supervisor ON supervisor.id = aluno.supervisor_id
+            JOIN professores perfil_supervisor ON perfil_supervisor.usuario_id = supervisor.id
             LEFT JOIN atividades atividade ON atividade.aluno_id = aluno.usuario_id
             WHERE aluno.arquivado = false
               AND aluno.status = 'em_andamento'
-              AND perfil_orientador.receber_relatorio_semanal = true
-            GROUP BY orientador.id, orientador.nome, orientador.email,
-                     perfil_orientador.receber_relatorio_semanal, aluno.usuario_id, estudante.nome
-            ORDER BY orientador.nome, estudante.nome
+              AND perfil_supervisor.receber_relatorio_semanal = true
+            GROUP BY supervisor.id, supervisor.nome, supervisor.email,
+                     perfil_supervisor.receber_relatorio_semanal, aluno.usuario_id, estudante.nome
+            ORDER BY supervisor.nome, estudante.nome
         `, [agoraLocal.data]);
 
-        const porOrientador = new Map();
+        const porSupervisor = new Map();
         for (const row of rows) {
-            if (!porOrientador.has(row.orientador_id)) {
-                porOrientador.set(row.orientador_id, {
-                    id: row.orientador_id,
-                    nome: row.orientador_nome,
-                    email: row.orientador_email,
+            if (!porSupervisor.has(row.supervisor_id)) {
+                porSupervisor.set(row.supervisor_id, {
+                    id: row.supervisor_id,
+                    nome: row.supervisor_nome,
+                    email: row.supervisor_email,
                     alunos: [],
                 });
             }
-            porOrientador.get(row.orientador_id).alunos.push({
+            porSupervisor.get(row.supervisor_id).alunos.push({
                 aluno_id: row.aluno_id,
                 aluno_nome: row.aluno_nome,
                 horas_semana: row.horas_semana,
@@ -233,21 +241,21 @@ async function executar({ forcar = false } = {}) {
             });
         }
 
-        let orientadores = [...porOrientador.values()];
-        if (orientadores.length === 0) {
-            console.log('[relatorio-semanal] nenhum orientador elegível para receber o resumo.');
+        let supervisores = [...porSupervisor.values()];
+        if (supervisores.length === 0) {
+            console.log('[relatorio-semanal] nenhum supervisor elegível para receber o resumo.');
             return { enviado: false, motivo: 'sem_destinatarios' };
         }
 
         if (!forcar) {
             const { rows: enviosAnteriores } = await client.query(
-                `SELECT orientador_id FROM envios_relatorios_semanais
-                 WHERE semana_inicio = $1::date AND orientador_id = ANY($2::integer[])`,
-                [agoraLocal.semanaInicio, orientadores.map((orientador) => orientador.id)]
+                `SELECT supervisor_id FROM envios_relatorios_semanais
+                 WHERE semana_inicio = $1::date AND supervisor_id = ANY($2::integer[])`,
+                [agoraLocal.semanaInicio, supervisores.map((supervisor) => supervisor.id)]
             );
-            const idsJaNotificados = new Set(enviosAnteriores.map((envio) => envio.orientador_id));
-            orientadores = orientadores.filter((orientador) => !idsJaNotificados.has(orientador.id));
-            if (orientadores.length === 0) {
+            const idsJaNotificados = new Set(enviosAnteriores.map((envio) => envio.supervisor_id));
+            supervisores = supervisores.filter((supervisor) => !idsJaNotificados.has(supervisor.id));
+            if (supervisores.length === 0) {
                 await client.query(
                     `UPDATE configuracoes_relatorio_semanal
                      SET ultimo_envio_semana = $1::date, atualizado_em = NOW()
@@ -259,11 +267,11 @@ async function executar({ forcar = false } = {}) {
         }
 
         const { transporte, remetente, enderecoRemetente, urlAplicacao } = obterConfiguracaoEmail();
-        const { html, texto } = montarEmail(orientadores, urlAplicacao);
+        const { html, texto } = montarEmail(supervisores, urlAplicacao);
         await transporte.sendMail({
             from: remetente,
             to: enderecoRemetente,
-            bcc: orientadores.map((orientador) => orientador.email),
+            bcc: supervisores.map((supervisor) => supervisor.email),
             subject: 'Resumo semanal de estágio dos estudantes',
             text: texto,
             html,
@@ -271,11 +279,11 @@ async function executar({ forcar = false } = {}) {
 
         if (!forcar) {
             await client.query(
-                `INSERT INTO envios_relatorios_semanais (semana_inicio, orientador_id)
-                 SELECT $1::date, orientador_id
-                 FROM UNNEST($2::integer[]) AS elegiveis(orientador_id)
-                 ON CONFLICT (semana_inicio, orientador_id) DO NOTHING`,
-                [agoraLocal.semanaInicio, orientadores.map((orientador) => orientador.id)]
+                `INSERT INTO envios_relatorios_semanais (semana_inicio, supervisor_id)
+                 SELECT $1::date, supervisor_id
+                 FROM UNNEST($2::integer[]) AS elegiveis(supervisor_id)
+                 ON CONFLICT (semana_inicio, supervisor_id) DO NOTHING`,
+                [agoraLocal.semanaInicio, supervisores.map((supervisor) => supervisor.id)]
             );
             await client.query(
                 `UPDATE configuracoes_relatorio_semanal
@@ -285,11 +293,11 @@ async function executar({ forcar = false } = {}) {
             );
         }
 
-        console.log(`[relatorio-semanal] email único enviado em ${forcar ? 'modo manual' : 'modo agendado'} para ${orientadores.length} professor(es) em BCC.`);
+        console.log(`[relatorio-semanal] email único enviado em ${forcar ? 'modo manual' : 'modo agendado'} para ${supervisores.length} supervisor(es) em BCC.`);
         return {
             enviado: true,
-            destinatarios: orientadores.length,
-            estudantes: orientadores.reduce((total, orientador) => total + orientador.alunos.length, 0),
+            destinatarios: supervisores.length,
+            estudantes: supervisores.reduce((total, supervisor) => total + supervisor.alunos.length, 0),
         };
     } finally {
         if (lockAdquirido) {

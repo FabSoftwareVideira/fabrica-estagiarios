@@ -86,9 +86,9 @@ ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS envios_relatorios_semanais (
     semana_inicio DATE NOT NULL,
-    orientador_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    supervisor_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
     enviado_em    TIMESTAMP NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (semana_inicio, orientador_id)
+    PRIMARY KEY (semana_inicio, supervisor_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_atividades_aluno ON atividades(aluno_id);

@@ -1,4 +1,4 @@
-name: Relatório semanal dos orientadores
+name: Relatório semanal dos supervisores
 
 on:
   schedule:
@@ -13,8 +13,8 @@ jobs:
   enviar-relatorios:
     runs-on: self-hosted
     concurrency:
-      group: relatorio-semanal-orientadores
+      group: relatorio-semanal-supervisores
       cancel-in-progress: false
     steps:
       - name: Verificar programação e enviar se estiver no horário
-        run: docker exec fabrica-estagiarios-web node src/scripts/enviarRelatorioSemanalOrientadores.js
+        run: docker exec fabrica-estagiarios-web node src/scripts/enviarRelatorioSemanalSupervisores.js
