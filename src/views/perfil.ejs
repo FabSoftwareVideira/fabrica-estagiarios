@@ -26,6 +26,15 @@
                         <p class="text-muted">O e-mail não pode ser alterado porque identifica sua conta Google ou
                             GitHub.</p>
 
+                        <% if (usuario.tipo === 'professor') { %>
+                            <label class="schedule-toggle profile-email-preference">
+                                <input type="checkbox" name="receber_relatorio_semanal"
+                                    <%= professor && professor.receber_relatorio_semanal ? 'checked' : '' %>>
+                                <span>Receber o resumo semanal de estágio por e-mail</span>
+                            </label>
+                            <p class="text-muted">Se desativado, você não será incluído nos envios semanais nem nos envios manuais do administrador.</p>
+                        <% } %>
+
                         <% if (usuario.tipo==='aluno' ) { %>
                             <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
                             <input type="text" id="matricula" name="matricula" maxlength="30"

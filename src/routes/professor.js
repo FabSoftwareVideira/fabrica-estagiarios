@@ -4,6 +4,8 @@ const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
+const relatorioSemanalModel = require('../models/relatorioSemanal');
+const { executar: enviarRelatorioSemanal } = require('../scripts/enviarRelatorioSemanalOrientadores');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
 const { gerarFapoPdf } = require('../services/fapoPdf');
@@ -466,6 +468,51 @@ router.get('/professores', requireAdmin, async (req, res) => {
 
 router.get('/cadastros', requireAdmin, (req, res) => {
     res.render('professor_cadastros');
+});
+
+router.get('/relatorio-semanal', requireAdmin, async (req, res) => {
+    const [configuracao, destinatarios] = await Promise.all([
+        relatorioSemanalModel.buscarConfiguracao(),
+        relatorioSemanalModel.listarDestinatarios(),
+    ]);
+
+    res.render('professor_relatorio_semanal', { configuracao, destinatarios });
+});
+
+router.post('/relatorio-semanal', requireAdmin, async (req, res) => {
+    const diaSemana = typeof req.body.dia_semana === 'string' && /^[0-6]$/.test(req.body.dia_semana)
+        ? Number(req.body.dia_semana)
+        : NaN;
+    const horario = typeof req.body.horario === 'string' ? req.body.horario : '';
+    const habilitado = req.body.habilitado === 'on';
+
+    if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6
+        || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(horario)
+        || Number(horario.slice(3)) % 15 !== 0) {
+        setFlash(req, 'error', 'Escolha um dia da semana e um horário válido, em intervalos de 15 minutos.');
+        return res.redirect('/professor/relatorio-semanal');
+    }
+
+    await relatorioSemanalModel.salvarConfiguracao({ habilitado, diaSemana, horario });
+    setFlash(req, 'success', habilitado
+        ? 'Relatório semanal ativado e programação salva.'
+        : 'Envio semanal desativado. A programação foi salva.');
+    res.redirect('/professor/relatorio-semanal');
+});
+
+router.post('/relatorio-semanal/enviar-agora', requireAdmin, async (req, res) => {
+    try {
+        const resultado = await enviarRelatorioSemanal({ forcar: true });
+        if (!resultado.enviado) {
+            setFlash(req, 'success', 'Nenhum professor elegível para receber o relatório no momento.');
+        } else {
+            setFlash(req, 'success', `Resumo enviado em uma única mensagem para ${resultado.destinatarios} professor(es) em cópia oculta, com ${resultado.estudantes} estudante(s).`);
+        }
+    } catch (erro) {
+        console.error('[professor/relatorio-semanal] erro no envio manual:', erro.message);
+        setFlash(req, 'error', 'Não foi possível enviar o relatório agora. Confira a configuração de e-mail e tente novamente.');
+    }
+    res.redirect('/professor/relatorio-semanal');
 });
 
 router.post('/cadastros', requireAdmin, async (req, res) => {

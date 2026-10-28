@@ -341,6 +341,40 @@ li {
     color: var(--muted);
 }
 
+.schedule-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  cursor: pointer;
+}
+
+.schedule-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.profile-email-preference {
+  margin: 12px 0;
+}
+
+.send-now-form {
+  margin-top: 20px;
+}
+
+.recipients-intro {
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--light);
+  color: var(--muted);
+}
+
 .hours-pending {
     font-size: 12px;
 }

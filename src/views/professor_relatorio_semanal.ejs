@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório semanal por e-mail</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <main class="container">
+        <%- include('partials/flash') %>
+
+        <h2>Relatório semanal por e-mail</h2>
+        <p class="page-subtitle text-muted">Configure o envio do resumo de estágio para os orientadores.</p>
+
+        <section class="card">
+            <h3>Programação</h3>
+            <form action="/professor/relatorio-semanal" method="POST" class="weekly-report-form">
+                <label class="schedule-toggle">
+                    <input type="checkbox" name="habilitado" <%= configuracao.habilitado ? 'checked' : '' %>>
+                    <span>Habilitar envio automático semanal</span>
+                </label>
+
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="dia_semana">Enviar toda</label>
+                        <select name="dia_semana" id="dia_semana" required>
+                            <% const dias = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']; %>
+                            <% dias.forEach((dia, indice) => { %>
+                                <option value="<%= indice %>" <%= Number(configuracao.dia_semana) === indice ? 'selected' : '' %>><%= dia %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label for="horario">Horário</label>
+                        <input type="time" name="horario" id="horario" value="<%= configuracao.horario %>" step="900" required>
+                    </div>
+                </div>
+
+                <p class="text-muted">Fuso horário: Brasília (America/Sao_Paulo). O horário é configurado em intervalos de 15 minutos; o envio pode ocorrer alguns minutos após o horário escolhido.</p>
+
+                <div class="form-actions">
+                    <button type="submit">Salvar configuração</button>
+                </div>
+            </form>
+
+            <form action="/professor/relatorio-semanal/enviar-agora" method="POST"
+                class="send-now-form" onsubmit="return confirm('Enviar agora o resumo aos professores elegíveis?');">
+                <div class="form-actions">
+                    <button type="submit" class="btn-success">Enviar resumo agora</button>
+                </div>
+                <p class="text-muted">O envio manual não altera a programação automática. Professores que desativaram o recebimento no perfil não serão incluídos.</p>
+            </form>
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <h3>Destinatários</h3>
+                <% const elegiveis = destinatarios.filter((d) => d.receber_relatorio_semanal).length; %>
+                <span class="text-muted"><%= elegiveis %> elegível(is) de <%= destinatarios.length %> orientador(es)</span>
+            </div>
+            <p class="text-muted recipients-intro">O resumo é enviado em uma única mensagem, com os professores elegíveis em cópia oculta (BCC). São elegíveis os orientadores com estudantes em estágio ativo e não arquivados que mantêm o recebimento habilitado no perfil. Como a mensagem é única, o conteúdo consolidado inclui os estudantes de todos os orientadores elegíveis.</p>
+
+            <% if (destinatarios.length === 0) { %>
+                <p class="empty-state">Nenhum orientador possui estudantes ativos atribuídos no momento.</p>
+            <% } else { %>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Orientador</th>
+                                <th>E-mail de destino</th>
+                                <th>Estudantes ativos</th>
+                                <th>Recebimento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% destinatarios.forEach((destinatario) => { %>
+                                <tr>
+                                    <td><%= destinatario.nome %></td>
+                                    <td><a href="mailto:<%= destinatario.email %>"><%= destinatario.email %></a></td>
+                                    <td><%= destinatario.quantidade_alunos %></td>
+                                    <td><%= destinatario.receber_relatorio_semanal ? 'Habilitado' : 'Desativado pelo professor' %></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </section>
+
+        <section class="card weekly-report-state">
+            <h3>Último envio</h3>
+            <% if (configuracao.ultimo_envio_semana) { %>
+                <% const valorDataEnvio = configuracao.ultimo_envio_semana instanceof Date
+                    ? configuracao.ultimo_envio_semana.toISOString().slice(0, 10)
+                    : String(configuracao.ultimo_envio_semana).slice(0, 10); %>
+                <% const dataEnvio = new Date(`${valorDataEnvio}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }); %>
+                <p>Relatório enviado na semana de <strong><%= dataEnvio %></strong>.</p>
+            <% } else { %>
+                <p class="text-muted">Ainda não há registro de envio desde a ativação desta configuração.</p>
+            <% } %>
+            <p class="text-muted">O agendamento só envia relatórios quando estiver habilitado e houver orientadores com estudantes ativos.</p>
+        </section>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

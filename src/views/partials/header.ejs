@@ -26,7 +26,8 @@
                                 class="nav-link nav-link-cta <%= navAtivo('/aluno/nova-atividade') %>">Nova Atividade</a>
                         <% } %>
                     <% } else { %>
-                        <% const adminAtivo = currentPath === '/professor/dashboard' && currentTab === 'administracao'; %>
+                        <% const adminAtivo = (currentPath === '/professor/dashboard' && currentTab === 'administracao')
+                            || currentPath === '/professor/relatorio-semanal'; %>
                         <a href="/professor/dashboard"
                             class="nav-link <%= currentPath === '/professor/dashboard' && !adminAtivo ? 'active' : '' %>">Dashboard</a>
                         <% if (user.cargo === 'admin') { %>

@@ -37,7 +37,10 @@ router.get('/perfil', requireAuth, async (req, res) => {
     const usuario = await usuarios.buscarPorId(req.session.user.id);
     req.session.user.avatarEmoji = usuario.avatar_emoji || null;
     const aluno = usuario.tipo === 'aluno' ? await alunos.buscarPorUsuarioId(usuario.id) : null;
-    res.render('perfil', { usuario, aluno, avatares });
+    const professor = usuario.tipo === 'professor'
+        ? await professores.buscarPorUsuarioId(usuario.id)
+        : null;
+    res.render('perfil', { usuario, aluno, professor, avatares });
 });
 
 router.post('/perfil', requireAuth, async (req, res) => {
@@ -77,6 +80,11 @@ router.post('/perfil', requireAuth, async (req, res) => {
         if (req.session.user.tipo === 'aluno') {
             const aluno = await alunos.buscarPorUsuarioId(req.session.user.id);
             if (aluno) await alunos.atualizarMatricula(req.session.user.id, matricula);
+        } else {
+            await professores.definirRecebimentoRelatorio(
+                req.session.user.id,
+                req.body.receber_relatorio_semanal === 'on'
+            );
         }
 
         setFlash(req, 'success', 'Perfil atualizado com sucesso.');

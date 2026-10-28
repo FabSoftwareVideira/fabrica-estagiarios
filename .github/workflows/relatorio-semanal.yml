@@ -1,0 +1,20 @@
+name: Relatório semanal dos orientadores
+
+on:
+  schedule:
+    # Verifica a configuração do administrador; o script respeita o horário de Brasília.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enviar-relatorios:
+    runs-on: self-hosted
+    concurrency:
+      group: relatorio-semanal-orientadores
+      cancel-in-progress: false
+    steps:
+      - name: Verificar programação e enviar se estiver no horário
+        run: docker exec fabrica-estagiarios-web node src/scripts/enviarRelatorioSemanalOrientadores.js

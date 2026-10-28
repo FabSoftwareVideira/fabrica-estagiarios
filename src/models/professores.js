@@ -12,7 +12,9 @@ async function buscarPorUsuarioId(usuarioId) {
 
 async function criar({ usuarioId, cargo = 'comum' }) {
     const { rows } = await pool.query(
-        `INSERT INTO professores (usuario_id, cargo) VALUES ($1, $2) RETURNING *`,
+        `INSERT INTO professores (usuario_id, cargo, receber_relatorio_semanal)
+         VALUES ($1, $2, true)
+         RETURNING *`,
         [usuarioId, cargo]
     );
     return rows[0];
@@ -36,9 +38,23 @@ async function definirCargo(usuarioId, cargo) {
     await pool.query('UPDATE professores SET cargo = $2 WHERE usuario_id = $1', [usuarioId, cargo]);
 }
 
+async function definirRecebimentoRelatorio(usuarioId, receber) {
+    await pool.query(
+        'UPDATE professores SET receber_relatorio_semanal = $2 WHERE usuario_id = $1',
+        [usuarioId, receber]
+    );
+}
+
 async function excluir(usuarioId) {
     // apaga o usuário (o registro em "professores" some junto via ON DELETE CASCADE)
     await pool.query('DELETE FROM usuarios WHERE id = $1', [usuarioId]);
 }
 
-module.exports = { buscarPorUsuarioId, criar, listarExceto, definirCargo, excluir };
+module.exports = {
+    buscarPorUsuarioId,
+    criar,
+    listarExceto,
+    definirCargo,
+    definirRecebimentoRelatorio,
+    excluir,
+};
