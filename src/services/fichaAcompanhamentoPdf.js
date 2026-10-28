@@ -59,7 +59,13 @@ async function gerarFichaAcompanhamentoPdf({ aluno, atividades }) {
         saidaField.setText(formatarHora(atividade.hora_fim) || '');
         
         const atividadeField = form.getTextField(`atividade_${num}`);
-        atividadeField.setText(atividade.descricao || '');
+        let descricao = String(atividade.descricao || '');
+        if (descricao.length > 140) descricao = `${descricao.slice(0, 137)}...`;
+        const limiteDescricao = atividadeField.getMaxLength();
+        if (limiteDescricao != null && descricao.length > limiteDescricao) {
+            atividadeField.setMaxLength(140);
+        }
+        atividadeField.setText(descricao);
         
         const horasField = form.getTextField(`horas_${num}`);
         horasField.setText(atividade.horas ? String(atividade.horas).replace('.', ',') : '');

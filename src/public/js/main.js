@@ -56,6 +56,55 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selecionada) ativarAba(selecionada);
     });
 
+    const horaInicio = document.getElementById('hora_inicio');
+    const horaFim = document.getElementById('hora_fim');
+    const horasCalculadas = document.getElementById('horas');
+
+    if (horaInicio && horaFim && horasCalculadas) {
+        const minutosDoDia = (valor) => {
+            const correspondencia = valor.match(/^(\d{2}):(\d{2})$/);
+            if (!correspondencia) return null;
+            return Number(correspondencia[1]) * 60 + Number(correspondencia[2]);
+        };
+
+        const calcularHoras = () => {
+            horaFim.setCustomValidity('');
+            horasCalculadas.value = '';
+            if (!horaInicio.value || !horaFim.value) return;
+
+            const inicio = minutosDoDia(horaInicio.value);
+            const fim = minutosDoDia(horaFim.value);
+            if (inicio === null || fim === null || fim <= inicio) {
+                horaFim.setCustomValidity('O horário final deve ser posterior ao horário inicial.');
+                return;
+            }
+
+            const duracaoMinutos = fim - inicio;
+            if (duracaoMinutos > 6 * 60) {
+                horaFim.setCustomValidity('Cada atividade pode ter no máximo 6 horas.');
+                return;
+            }
+
+            horasCalculadas.value = (duracaoMinutos / 60).toFixed(2);
+        };
+
+        horaInicio.addEventListener('input', calcularHoras);
+        horaFim.addEventListener('input', calcularHoras);
+        horaInicio.addEventListener('change', calcularHoras);
+        horaFim.addEventListener('change', calcularHoras);
+        calcularHoras();
+    }
+
+    const descricaoAtividade = document.getElementById('descricao');
+    const contadorDescricao = document.getElementById('descricao-contador');
+    if (descricaoAtividade && contadorDescricao) {
+        const atualizarContador = () => {
+            contadorDescricao.textContent = `${descricaoAtividade.value.length}/140 caracteres`;
+        };
+        descricaoAtividade.addEventListener('input', atualizarContador);
+        atualizarContador();
+    }
+
     // impede supervisor e orientador de serem o mesmo professor
     // (checagem "de verdade" fica no servidor, isso aqui é só feedback rápido)
     const supervisorSelect = document.getElementById('supervisor');

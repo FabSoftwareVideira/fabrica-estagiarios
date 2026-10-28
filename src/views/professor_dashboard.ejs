@@ -16,10 +16,15 @@
             <%- include('partials/flash') %>
 
                 <div class="tabs">
-                    <a href="/professor/dashboard" class="tab <%= aba === 'alunos' ? 'active' : '' %>">Alunos</a>
                     <% if (user.cargo === 'admin') { %>
+                        <a href="/professor/dashboard" class="tab <%= aba === 'alunos' ? 'active' : '' %>">Alunos</a>
                         <a href="/professor/dashboard?aba=administracao"
                             class="tab <%= aba === 'administracao' ? 'active' : '' %>">Administração</a>
+                    <% } else { %>
+                        <a href="/professor/dashboard?aba=orientandos"
+                            class="tab <%= aba === 'orientandos' ? 'active' : '' %>">Meus orientandos</a>
+                        <a href="/professor/dashboard?aba=supervisionados"
+                            class="tab <%= aba === 'supervisionados' ? 'active' : '' %>">Meus supervisionados</a>
                     <% } %>
                 </div>
 
@@ -45,6 +50,7 @@
                     <div class="card filters-card">
                         <form action="/professor/dashboard" method="GET" class="filters-form">
                             <input type="hidden" name="f" value="1">
+                            <input type="hidden" name="aba" value="<%= aba %>">
                             <% if (ordenacao && ordenacao.campo) { %>
                                 <input type="hidden" name="ordenar" value="<%= ordenacao.campo %>">
                                 <input type="hidden" name="dir" value="<%= ordenacao.direcao %>">
@@ -54,7 +60,7 @@
                                     placeholder="Buscar por nome do aluno..." aria-label="Buscar alunos">
                                 <button type="submit">Filtrar</button>
                                 <% if (filtroPersonalizado) { %>
-                                    <a href="/professor/dashboard" class="btn btn-secondary">Limpar</a>
+                                    <a href="/professor/dashboard?aba=<%= aba %>" class="btn btn-secondary">Limpar</a>
                                 <% } %>
                             </div>
 
@@ -98,6 +104,7 @@
                         const parametrosBase = () => {
                             const params = new URLSearchParams();
                             params.set('f', '1');
+                            params.set('aba', aba);
                             if (filtros.q) params.set('q', filtros.q);
                             filtros.status.forEach((s) => params.append('status', s));
                             if (filtros.arquivados) params.set('arquivados', '1');

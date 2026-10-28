@@ -111,7 +111,7 @@ router.get('/dashboard', async (req, res) => {
     res.render('aluno_dashboard', {
         aluno,
         atividades,
-        abaInicial: req.query.aba === 'atividades' ? 'atividades' : 'resumo',
+        abaInicial: ['atividades', 'fichas'].includes(req.query.aba) ? req.query.aba : 'resumo',
         fapoSalva,
         horasRealizadas,
         horasPendentes,
@@ -136,16 +136,11 @@ router.get('/faa', requireEstagioConcluido, async (req, res) => {
         ? `${formatarDataBr(datas[0])} a ${formatarDataBr(datas[datas.length - 1])}`
         : '';
 
-    const atividadesSugeridas = validadas
-        .map((a) => `${formatarDataBr(a.data)} - ${a.descricao} (${Number(a.horas)}h)`)
-        .join('\n');
-
     res.render('aluno_faa', {
         aluno: req.aluno,
         faaSalva,
-        empresa: req.aluno.empresa || (faaSalva ? faaSalva.empresa : ''),
         periodo: faaSalva ? faaSalva.periodo : periodoSugerido,
-        atividadesTexto: faaSalva ? faaSalva.atividades : atividadesSugeridas,
+        atividadesTexto: faaSalva ? faaSalva.atividades : '',
         comentarios: faaSalva ? faaSalva.comentarios : '',
         dataAssinatura: faaSalva ? dataParaInput(faaSalva.data_assinatura) : dataLocalIso(),
         notasSalvas: faaSalva ? faaSalva.notas : [],
@@ -312,7 +307,7 @@ router.get('/ficha-acompanhamento', async (req, res) => {
     } catch (err) {
         console.error('[aluno/ficha-acompanhamento] erro ao gerar PDF:', err.message);
         setFlash(req, 'error', 'Não foi possível gerar o PDF da ficha de acompanhamento. Tente novamente.');
-        return res.redirect('/aluno/atividades');
+        return res.redirect('/aluno/dashboard?aba=fichas');
     }
 });
 
@@ -320,35 +315,79 @@ router.get('/atividades', (req, res) => res.redirect('/aluno/dashboard?aba=ativi
 
 // só acessível com o estágio em andamento (lista de espera / concluído são bloqueados)
 router.get('/nova-atividade', requireEmAndamento, (req, res) => {
-    res.render('aluno_nova_atividade');
+    const formData = req.session.novaAtividadeForm || {};
+    delete req.session.novaAtividadeForm;
+    res.render('aluno_nova_atividade', { formData });
 });
 
-router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
-    const { data, hora_inicio, hora_fim, horas, descricao } = req.body;
+function redirecionarNovaAtividadeComErro(req, res, mensagem, formData) {
+    req.session.novaAtividadeForm = formData;
+    setFlash(req, 'error', mensagem);
+    return res.redirect('/aluno/nova-atividade');
+}
 
-    if (!data || !hora_inicio || !hora_fim || !horas || !descricao) {
-        setFlash(req, 'error', 'Preencha todos os campos da atividade.');
-        return res.redirect('/aluno/nova-atividade');
+router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
+    const { data, hora_inicio, hora_fim, descricao } = req.body;
+    const formData = {
+        data: data || '',
+        hora_inicio: hora_inicio || '',
+        hora_fim: hora_fim || '',
+        descricao: descricao || '',
+    };
+    const descricaoNormalizada = (descricao || '').trim();
+
+    if (!data || !hora_inicio || !hora_fim || !descricaoNormalizada) {
+        return redirecionarNovaAtividadeComErro(req, res, 'Preencha todos os campos da atividade.', formData);
+    }
+
+    if (descricaoNormalizada.length > 140) {
+        return redirecionarNovaAtividadeComErro(
+            req, res, 'A descrição da atividade deve ter no máximo 140 caracteres.', formData
+        );
+    }
+
+    const minutosDoDia = (horario) => {
+        const correspondencia = /^(\d{2}):(\d{2})$/.exec(String(horario));
+        if (!correspondencia) return null;
+        const hora = Number(correspondencia[1]);
+        const minuto = Number(correspondencia[2]);
+        if (hora > 23 || minuto > 59) return null;
+        return hora * 60 + minuto;
+    };
+
+    const inicioMinutos = minutosDoDia(hora_inicio);
+    const fimMinutos = minutosDoDia(hora_fim);
+    if (inicioMinutos === null || fimMinutos === null || fimMinutos <= inicioMinutos) {
+        return redirecionarNovaAtividadeComErro(
+            req, res, 'O horário final deve ser posterior ao horário inicial.', formData
+        );
+    }
+
+    const horasCalculadas = Number(((fimMinutos - inicioMinutos) / 60).toFixed(2));
+    if (horasCalculadas > 6) {
+        return redirecionarNovaAtividadeComErro(
+            req, res, 'Cada atividade pode ter no máximo 6 horas.', formData
+        );
     }
 
     // não é permitido registrar horas em finais de semana
     const diaSemana = new Date(data + 'T12:00:00').getDay();
     if (diaSemana === 0 || diaSemana === 6) {
-        setFlash(req, 'error', 'Não é possível registrar horas em fins de semana (sábado e domingo).');
-        return res.redirect('/aluno/nova-atividade');
+        return redirecionarNovaAtividadeComErro(
+            req, res, 'Não é possível registrar horas em fins de semana (sábado e domingo).', formData
+        );
     }
 
     // limite de 6 horas registradas por dia, somando as atividades já existentes
     const totalDia = await atividadesModel.somarHorasDoDia(req.session.user.id, data);
-    const horasInformadas = Number(horas);
-    if (totalDia + horasInformadas > 6) {
+    if (totalDia + horasCalculadas > 6) {
         const disponivel = Math.max(0, 6 - totalDia);
-        setFlash(req, 'error',
+        const mensagem =
             'Limite de 6 horas por dia. ' +
             (disponivel > 0
                 ? `Você já registrou ${totalDia}h nesta data; restam ${disponivel}h disponíveis.`
-                : `Você já registrou o máximo de 6h nesta data.`));
-        return res.redirect('/aluno/nova-atividade');
+                : `Você já registrou o máximo de 6h nesta data.`);
+        return redirecionarNovaAtividadeComErro(req, res, mensagem, formData);
     }
 
     await atividadesModel.criar({
@@ -356,10 +395,11 @@ router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
         data,
         horaInicio: hora_inicio,
         horaFim: hora_fim,
-        horas: Number(horas),
-        descricao: descricao.trim(),
+        horas: horasCalculadas,
+        descricao: descricaoNormalizada,
     });
 
+    delete req.session.novaAtividadeForm;
     setFlash(req, 'success', 'Atividade registrada com sucesso.');
     res.redirect('/aluno/atividades');
 });

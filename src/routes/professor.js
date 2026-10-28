@@ -38,9 +38,10 @@ const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'concluido'];
 const CAMPOS_ORDENACAO = ['nome', 'supervisor', 'horas', 'status'];
 
 router.get('/dashboard', async (req, res) => {
-    const aba = req.query.aba === 'administracao' && req.session.user.cargo === 'admin'
-        ? 'administracao'
-        : 'alunos';
+    const isAdmin = req.session.user.cargo === 'admin';
+    const aba = isAdmin
+        ? (req.query.aba === 'administracao' ? 'administracao' : 'alunos')
+        : (req.query.aba === 'supervisionados' ? 'supervisionados' : 'orientandos');
 
     if (aba === 'administracao') {
         return res.render('professor_dashboard', {
@@ -74,7 +75,7 @@ router.get('/dashboard', async (req, res) => {
         .filter((s) => STATUS_VALIDOS.includes(s));
 
     if (!filtroEnviado && status.length === 0) {
-        status = ['lista_espera', 'em_andamento'];
+        status = ['lista_espera', 'em_andamento', 'concluido'];
     }
 
     let pagina = parseInt(req.query.pagina, 10);
@@ -86,6 +87,8 @@ router.get('/dashboard', async (req, res) => {
         status,
         busca,
         arquivados,
+        orientadorId: !isAdmin && aba === 'orientandos' ? req.session.user.id : null,
+        supervisorId: !isAdmin && aba === 'supervisionados' ? req.session.user.id : null,
         limite: TAMANHO_PAGINA,
         offset: (pagina - 1) * TAMANHO_PAGINA,
         ordenarPor: campoOrdenacao,

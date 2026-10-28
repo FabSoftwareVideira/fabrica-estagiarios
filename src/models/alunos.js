@@ -49,9 +49,18 @@ const ORDENACOES = {
              END`,
 };
 
-async function listar({ status, busca, arquivados, limite, offset, ordenarPor, direcao }) {
+async function listar({ status, busca, arquivados, limite, offset, ordenarPor, direcao, orientadorId, supervisorId }) {
     const valores = [Boolean(arquivados)];
     const filtros = ['a.arquivado = $1'];
+
+    if (orientadorId != null) {
+        valores.push(orientadorId);
+        filtros.push(`a.orientador_id = $${valores.length}`);
+    }
+    if (supervisorId != null) {
+        valores.push(supervisorId);
+        filtros.push(`a.supervisor_id = $${valores.length}`);
+    }
 
     const statusSelecionados = Array.isArray(status) ? status : (status ? [status] : []);
     if (statusSelecionados.length > 0) {

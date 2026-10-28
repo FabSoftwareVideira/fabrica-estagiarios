@@ -18,25 +18,27 @@
         <div class="card">
             <form action="/aluno/nova-atividade" method="POST">
                 <label for="data">Data</label>
-                <input type="date" id="data" name="data" required>
+                <input type="date" id="data" name="data" required value="<%= formData.data || '' %>">
 
                 <div class="form-grid">
                     <div class="form-field">
                         <label for="hora_inicio">Horário de Início</label>
-                        <input type="time" id="hora_inicio" name="hora_inicio" required>
+                        <input type="time" id="hora_inicio" name="hora_inicio" required value="<%= formData.hora_inicio || '' %>">
                     </div>
 
                     <div class="form-field">
                         <label for="hora_fim">Horário de Término</label>
-                        <input type="time" id="hora_fim" name="hora_fim" required>
+                        <input type="time" id="hora_fim" name="hora_fim" required value="<%= formData.hora_fim || '' %>">
                     </div>
                 </div>
 
                 <label for="horas">Quantidade de Horas</label>
-                <input type="number" id="horas" name="horas" min="0.5" max="6" step="0.5" placeholder="Ex.: 4" required>
+                <input type="number" id="horas" name="horas" min="0.01" max="6" step="0.01" placeholder="Calculado pelos horários" readonly>
+                <small class="text-muted">Calculada automaticamente a partir do horário inicial e final.</small>
 
                 <label for="descricao">Descrição da Atividade</label>
-                <textarea id="descricao" name="descricao" placeholder="Descreva detalhadamente a atividade realizada..." required></textarea>
+                <input type="text" id="descricao" name="descricao" maxlength="140" placeholder="Descreva objetivamente a atividade realizada..." required value="<%= formData.descricao || '' %>">
+                <small id="descricao-contador" class="text-muted" aria-live="polite">0/140 caracteres</small>
 
                 <div class="form-note">
                     <strong>Orientações</strong>

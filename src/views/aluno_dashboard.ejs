@@ -15,7 +15,7 @@
 
         <% const statusLabel = { lista_espera: 'Lista de Espera', em_andamento: 'Em andamento', concluido: 'Concluído' }; %>
         <% const statusClass = { lista_espera: 'status-waiting', em_andamento: 'status-progress', concluido: 'status-completed' }; %>
-        <% const abaSelecionada = abaInicial === 'atividades' ? 'atividades' : 'resumo'; %>
+        <% const abaSelecionada = ['atividades', 'fichas'].includes(abaInicial) ? abaInicial : 'resumo'; %>
 
         <!-- <h2 class="dashboard-heading">Dashboard do aluno</h2> -->
 
@@ -43,8 +43,8 @@
                     aria-selected="<%= abaSelecionada === 'resumo' %>" aria-controls="panel-resumo" tabindex="<%= abaSelecionada === 'resumo' ? '0' : '-1' %>">Resumo</button>
                 <button type="button" class="dashboard-tab <%= abaSelecionada === 'atividades' ? 'is-active' : '' %>" id="tab-atividades" role="tab"
                     aria-selected="<%= abaSelecionada === 'atividades' %>" aria-controls="panel-atividades" tabindex="<%= abaSelecionada === 'atividades' ? '0' : '-1' %>">Atividades</button>
-                <button type="button" class="dashboard-tab" id="tab-fichas" role="tab"
-                    aria-selected="false" aria-controls="panel-fichas" tabindex="-1">Fichas</button>
+                <button type="button" class="dashboard-tab <%= abaSelecionada === 'fichas' ? 'is-active' : '' %>" id="tab-fichas" role="tab"
+                    aria-selected="<%= abaSelecionada === 'fichas' %>" aria-controls="panel-fichas" tabindex="<%= abaSelecionada === 'fichas' ? '0' : '-1' %>">Fichas</button>
             </div>
 
             <section class="dashboard-tab-panel" id="panel-resumo" role="tabpanel"
@@ -67,7 +67,12 @@
                 <div class="card">
                     <div class="card-header">
                         <h2>Histórico de Atividades</h2>
-                        <span class="text-muted"><%= atividades.length %> atividade(s)</span>
+                        <div class="table-actions">
+                            <span class="text-muted"><%= atividades.length %> atividade(s)</span>
+                            <% if (aluno.status === 'em_andamento') { %>
+                                <a href="/aluno/nova-atividade" class="btn btn-success">Nova Atividade</a>
+                            <% } %>
+                        </div>
                     </div>
                     <div class="table-wrap">
                         <table>
@@ -107,7 +112,7 @@
             </section>
 
             <section class="dashboard-tab-panel" id="panel-fichas" role="tabpanel"
-                aria-labelledby="tab-fichas" tabindex="0" hidden>
+                aria-labelledby="tab-fichas" tabindex="0" <%= abaSelecionada === 'fichas' ? '' : 'hidden' %>>
                 <div class="card fichas-center">
                     <div class="card-header">
                         <h2>Fichas do Estágio</h2>
