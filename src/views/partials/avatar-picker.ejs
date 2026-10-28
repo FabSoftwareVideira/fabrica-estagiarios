@@ -1,0 +1,16 @@
+<fieldset class="avatar-fieldset">
+    <legend>Escolha seu avatar</legend>
+    <p class="text-muted">Escolha um animal ou um ícone famoso da tecnologia para aparecer ao lado do seu nome.</p>
+    <div class="avatar-picker">
+        <% avatares.forEach((avatar) => { %>
+            <label class="avatar-option">
+                <input type="radio" name="avatarEmoji" value="<%= avatar.emoji %>"
+                    <%= selectedAvatar === avatar.emoji ? 'checked' : '' %> required>
+                <span class="avatar-choice">
+                    <span class="avatar-emoji" aria-hidden="true"><%= avatar.emoji %></span>
+                    <span class="avatar-name"><%= avatar.nome %></span>
+                </span>
+            </label>
+        <% }); %>
+    </div>
+</fieldset>

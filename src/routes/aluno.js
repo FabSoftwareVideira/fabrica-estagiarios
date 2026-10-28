@@ -8,6 +8,7 @@ const faposModel = require('../models/fapos');
 const { gerarFaaPdf, formatarDataBr } = require('../services/faaPdf');
 const { gerarFichaAcompanhamentoPdf } = require('../services/fichaAcompanhamentoPdf');
 const { gerarFapoPdf } = require('../services/fapoPdf');
+const avatares = require('../config/avatares');
 
 router.use(requireRole('aluno'));
 
@@ -16,21 +17,28 @@ router.use(requireRole('aluno'));
 router.get('/completar-cadastro', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
     if (aluno) return res.redirect('/aluno/dashboard'); // já completou, não deixa preencher de novo
-    res.render('aluno_completar_cadastro', { nomeAtual: req.session.user.nome });
+    res.render('aluno_completar_cadastro', {
+        nomeAtual: req.session.user.nome,
+        avatares,
+        selectedAvatar: req.session.user.avatarEmoji || '',
+    });
 });
 
 router.post('/completar-cadastro', async (req, res) => {
     const matricula = (req.body.matricula || '').trim();
     const nome = (req.body.nome || '').trim();
-    if (!matricula || !nome) {
-        setFlash(req, 'error', 'Informe seu nome completo e sua matrícula.');
+    const avatarEmoji = typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '';
+    if (!matricula || !nome || !avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
+        setFlash(req, 'error', 'Informe seu nome completo, sua matrícula e escolha um avatar.');
         return res.redirect('/aluno/completar-cadastro');
     }
     try {
         // o GitHub nem sempre devolve o nome completo (às vezes só o primeiro
         // nome/login), então aproveitamos essa telinha pra confirmar/corrigir
         await usuariosModel.confirmarNome(req.session.user.id, nome);
+        await usuariosModel.atualizarAvatar(req.session.user.id, avatarEmoji);
         req.session.user.nome = nome;
+        req.session.user.avatarEmoji = avatarEmoji;
 
         await alunosModel.criar({ usuarioId: req.session.user.id, matricula });
         setFlash(req, 'success', 'Cadastro concluído! Você entrará na lista de espera até a aprovação de um professor.');

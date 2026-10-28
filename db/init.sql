@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     github_id     BIGINT UNIQUE,
     google_id     VARCHAR(255) UNIQUE,
     avatar_url    TEXT,
+    avatar_emoji  TEXT,
     tipo          VARCHAR(20)  NOT NULL CHECK (tipo IN ('aluno', 'professor')),
     -- o GitHub só garante o "login"/nome público no OAuth, então o nome pode
     -- vir incompleto (ex.: só o primeiro nome); esse campo controla se a

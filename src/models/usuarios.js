@@ -73,6 +73,14 @@ async function atualizarPerfil(usuarioId, nome) {
     return rows[0];
 }
 
+async function atualizarAvatar(usuarioId, avatarEmoji) {
+    const { rows } = await pool.query(
+        `UPDATE usuarios SET avatar_emoji = $2 WHERE id = $1 RETURNING *`,
+        [usuarioId, avatarEmoji]
+    );
+    return rows[0];
+}
+
 module.exports = {
     buscarPorEmail,
     buscarPorGithubId,
@@ -84,4 +92,5 @@ module.exports = {
     listarProfessores,
     confirmarNome,
     atualizarPerfil,
+    atualizarAvatar,
 };

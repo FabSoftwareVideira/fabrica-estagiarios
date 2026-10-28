@@ -66,6 +66,7 @@ async function entrarComo(tipo, req, res) {
         nome: usuarioAtualizado.nome,
         email: usuarioAtualizado.email,
         tipo: usuarioAtualizado.tipo,
+        avatarEmoji: usuarioAtualizado.avatar_emoji || null,
     };
 
     if (usuarioAtualizado.tipo === 'professor') {

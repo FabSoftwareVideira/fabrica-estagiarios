@@ -38,7 +38,7 @@
 
                 <div class="nav-user">
                     <a href="/perfil" class="nav-user-profile <%= navAtivo('/perfil') %>" title="Meu perfil">
-                        <span class="nav-avatar"><%= user.nome.charAt(0).toUpperCase() %></span>
+                        <span class="nav-avatar"><%= user.avatarEmoji || user.nome.charAt(0).toUpperCase() %></span>
                         <span class="nav-user-name"><%= user.nome %></span>
                     </a>
                     <a href="/logout" class="nav-logout">Sair</a>

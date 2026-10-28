@@ -8,6 +8,7 @@ const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
 const { gerarFapoPdf } = require('../services/fapoPdf');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
+const avatares = require('../config/avatares');
 
 router.use(requireRole('professor'));
 
@@ -16,18 +17,25 @@ router.use(requireRole('professor'));
 router.get('/completar-cadastro', async (req, res) => {
     const usuario = await usuariosModel.buscarPorId(req.session.user.id);
     if (usuario && usuario.nome_confirmado) return res.redirect('/professor/dashboard');
-    res.render('professor_completar_cadastro', { nomeAtual: usuario ? usuario.nome : '' });
+    res.render('professor_completar_cadastro', {
+        nomeAtual: usuario ? usuario.nome : '',
+        avatares,
+        selectedAvatar: usuario ? (usuario.avatar_emoji || '') : '',
+    });
 });
 
 router.post('/completar-cadastro', async (req, res) => {
     const nome = (req.body.nome || '').trim();
-    if (!nome) {
-        setFlash(req, 'error', 'Informe seu nome completo.');
+    const avatarEmoji = typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '';
+    if (!nome || !avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
+        setFlash(req, 'error', 'Informe seu nome completo e escolha um avatar.');
         return res.redirect('/professor/completar-cadastro');
     }
     const usuario = await usuariosModel.confirmarNome(req.session.user.id, nome);
+    await usuariosModel.atualizarAvatar(req.session.user.id, avatarEmoji);
     req.session.user.nome = usuario.nome;
-    setFlash(req, 'success', 'Nome confirmado com sucesso.');
+    req.session.user.avatarEmoji = avatarEmoji;
+    setFlash(req, 'success', 'Cadastro concluído com sucesso.');
     res.redirect('/professor/dashboard');
 });
 

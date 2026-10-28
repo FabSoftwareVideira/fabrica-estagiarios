@@ -15,11 +15,13 @@
 
         <div class="login-box">
             <h1>Falta pouco!</h1>
-            <p>O GitHub nem sempre informa seu nome completo. Confirme (ou corrija) abaixo pra concluir o cadastro.</p>
+            <p>Confirme seu nome completo e escolha um avatar para concluir o cadastro.</p>
 
             <form action="/professor/completar-cadastro" method="POST">
-                <input type="text" name="nome" placeholder="Nome completo" value="<%= nomeAtual %>" required>
-                <button type="submit" class="btn">Confirmar</button>
+                <label for="nome">Nome completo</label>
+                <input type="text" id="nome" name="nome" maxlength="150" value="<%= nomeAtual %>" required>
+                <%- include('partials/avatar-picker', { avatares, selectedAvatar }) %>
+                <button type="submit" class="btn">Concluir Cadastro</button>
             </form>
         </div>
     </main>

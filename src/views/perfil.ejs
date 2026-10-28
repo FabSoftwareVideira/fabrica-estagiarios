@@ -30,7 +30,8 @@
                             <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
                             <input type="text" id="matricula" name="matricula" maxlength="30"
                                 value="<%= aluno ? (aluno.matricula || '') : '' %>">
-                            <% } %>
+                        <% } %>
+                        <%- include('partials/avatar-picker', { avatares, selectedAvatar: usuario.avatar_emoji || '' }) %>
 
                                 <div class="button-group">
                                     <button type="submit" class="btn-success">Salvar alterações</button>

@@ -5,6 +5,7 @@ const alunos = require('../models/alunos');
 const professores = require('../models/professores');
 const { requireAuth, setFlash } = require('../middleware/auth');
 const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
+const avatares = require('../config/avatares');
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
@@ -34,17 +35,24 @@ router.get('/login', (req, res) => {
 
 router.get('/perfil', requireAuth, async (req, res) => {
     const usuario = await usuarios.buscarPorId(req.session.user.id);
+    req.session.user.avatarEmoji = usuario.avatar_emoji || null;
     const aluno = usuario.tipo === 'aluno' ? await alunos.buscarPorUsuarioId(usuario.id) : null;
-    res.render('perfil', { usuario, aluno });
+    res.render('perfil', { usuario, aluno, avatares });
 });
 
 router.post('/perfil', requireAuth, async (req, res) => {
     const nome = (req.body.nome || '').trim();
     const matriculaInformada = (req.body.matricula || '').trim();
     const matricula = matriculaInformada || null;
+    const avatarEmoji = typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '';
 
     if (!nome) {
         setFlash(req, 'error', 'Informe seu nome completo.');
+        return res.redirect('/perfil');
+    }
+
+    if (!avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
+        setFlash(req, 'error', 'Escolha um avatar para seu perfil.');
         return res.redirect('/perfil');
     }
 
@@ -62,6 +70,9 @@ router.post('/perfil', requireAuth, async (req, res) => {
 
         const usuario = await usuarios.atualizarPerfil(req.session.user.id, nome);
         req.session.user.nome = usuario.nome;
+
+        await usuarios.atualizarAvatar(req.session.user.id, avatarEmoji);
+        req.session.user.avatarEmoji = avatarEmoji;
 
         if (req.session.user.tipo === 'aluno') {
             const aluno = await alunos.buscarPorUsuarioId(req.session.user.id);
@@ -213,7 +224,14 @@ router.get('/auth/github/callback', async (req, res) => {
             cargo = professor ? professor.cargo : 'comum';
         }
 
-        req.session.user = { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo, cargo };
+        req.session.user = {
+            id: usuario.id,
+            nome: usuario.nome,
+            email: usuario.email,
+            tipo: usuario.tipo,
+            cargo,
+            avatarEmoji: usuario.avatar_emoji || null,
+        };
 
         if (usuario.tipo === 'professor') {
             return res.redirect('/professor/dashboard');
@@ -324,7 +342,14 @@ router.get('/auth/google/callback', async (req, res) => {
             cargo = professor ? professor.cargo : 'comum';
         }
 
-        req.session.user = { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo, cargo };
+        req.session.user = {
+            id: usuario.id,
+            nome: usuario.nome,
+            email: usuario.email,
+            tipo: usuario.tipo,
+            cargo,
+            avatarEmoji: usuario.avatar_emoji || null,
+        };
 
         if (usuario.tipo === 'professor') {
             return res.redirect('/professor/dashboard');
