@@ -7,6 +7,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Tag de imagem para rollback; vazio usa o código atual
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -107,13 +112,36 @@ jobs:
           echo "Building ${PROJECT_NAME}:${APP_VERSION}..."
           docker compose -f ${{ env.COMPOSE_FILE }} build fabrica-estagiarios-web
 
-      - name: 🐳 Atualizar e subir containers
+      - name: 🗄️ Executar migrações pendentes
+        if: ${{ ! github.event.inputs.image_tag }}
         working-directory: ${{ env.APP_DIR }}
         run: |
-          echo "Parando containers existentes..."
-          docker compose -f ${{ env.COMPOSE_FILE }} down --timeout 30
+          echo "Garantindo que o PostgreSQL está ativo..."
+          docker compose -f ${{ env.COMPOSE_FILE }} up -d fabrica-estagiarios-db
 
-          echo "Iniciando serviços..."
+          for attempt in $(seq 1 30); do
+            health="$(docker inspect --format='{{.State.Health.Status}}' fabrica-estagiarios-db)"
+            if [[ "${health}" == "healthy" ]]; then
+              break
+            fi
+            sleep 2
+          done
+
+          health="$(docker inspect --format='{{.State.Health.Status}}' fabrica-estagiarios-db)"
+          if [[ "${health}" != "healthy" ]]; then
+            echo "❌ PostgreSQL não ficou saudável (status: ${health})"
+            exit 1
+          fi
+
+          echo "Executando migrações pendentes com a imagem ${APP_VERSION}..."
+          docker compose -f ${{ env.COMPOSE_FILE }} run --rm --no-deps \
+            fabrica-estagiarios-web node src/scripts/runMigrations.js
+
+      - name: 🐳 Atualizar e subir aplicação
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          echo "Iniciando/atualizando os serviços..."
+
           # --no-build garante que usa a imagem já buildada no step anterior
           docker compose -f ${{ env.COMPOSE_FILE }} up -d --remove-orphans --no-build
 

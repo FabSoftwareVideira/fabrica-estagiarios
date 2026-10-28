@@ -48,14 +48,9 @@ O administrador configura o envio em **Administração → Relatório semanal po
 
 O workflow `.github/workflows/relatorio-semanal.yml` verifica a programação a cada 15 minutos, e o script envia no dia/horário configurados pelo administrador (fuso `America/Sao_Paulo`). O envio manual ignora a programação automática, mas respeita as preferências dos professores. Em ambos os casos, sai uma única mensagem para o endereço SMTP configurado, com os professores elegíveis em cópia oculta (BCC). O conteúdo é consolidado e inclui os estudantes de todos esses professores. O resumo mostra as horas registradas e as atividades preenchidas nos últimos 7 dias; as horas incluem atividades pendentes de validação e excluem atividades invalidadas. Cada aluno tem um link para os detalhes na aplicação.
 
-Em bancos existentes, aplique as migrações antes de usar os recursos de relatório. Execute na VPS, a partir da pasta do projeto, na ordem:
+O workflow de deploy aplica automaticamente as migrações pendentes em ordem, usando `src/scripts/runMigrations.js`, antes de atualizar o container web. O histórico fica registrado na tabela `schema_migrations`. Na primeira execução em bancos legados, o runner verifica se o schema já está no estado esperado até a migração 010 e registra esse baseline; caso não esteja, o deploy para com uma mensagem de erro em vez de presumir e pular migrações antigas. Em instalações novas, `db/init.sql` cria a estrutura atual e o runner aplica e registra as migrações recentes de forma idempotente.
 
-```bash
-docker exec -i fabrica-estagiarios-db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < db/migrations/011_relatorio_semanal_config.sql
-docker exec -i fabrica-estagiarios-db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < db/migrations/012_preferencia_email_professor.sql
-```
-
-Em desenvolvimento, use o container `fabrica-estagiarios-dev-db` no lugar de `fabrica-estagiarios-db`.
+Em desenvolvimento, as migrações podem ser executadas manualmente dentro do container web com `docker exec fabrica-estagiarios-dev-web node src/scripts/runMigrations.js`.
 
 Adicione estas variáveis ao `ENV_FILE` configurado nos GitHub Actions (e ao `.env` da VPS):
 
