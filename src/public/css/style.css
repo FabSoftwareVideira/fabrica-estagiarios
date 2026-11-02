@@ -792,11 +792,14 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
   font-size: clamp(40px, 5vw, 62px); line-height: 1.06; letter-spacing: -0.035em;
 }
 .public-lead { max-width: 560px; color: var(--texto-suave); font-size: 19px; line-height: 1.65; }
-.public-hero-link {
-  display: inline-flex; align-items: center; gap: 10px; margin-top: 24px;
-  color: var(--azul-800); font-weight: 700; text-decoration: none;
+.public-course-note { margin-top: 12px; color: var(--texto-suave); font-size: 15px; font-weight: 600; }
+.public-hero-cta {
+  display: inline-flex; min-height: 50px; align-items: center; justify-content: center; gap: 14px;
+  margin-top: 24px; padding: 12px 20px; border: 1px solid var(--verde-700); border-radius: 7px;
+  background: var(--verde-700); color: #fff; font-weight: 700; text-decoration: none;
+  box-shadow: var(--sombra); transition: background 0.15s, transform 0.15s;
 }
-.public-hero-link:hover { color: var(--azul-700); text-decoration: underline; }
+.public-hero-cta:hover { transform: translateY(-1px); background: #185b1c; color: #fff; }
 .public-login {
   padding: 30px; background: var(--superficie); border: 1px solid var(--borda-suave);
   border-radius: 16px; box-shadow: var(--sombra-alta);
@@ -840,14 +843,28 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
   gap: 30px; align-items: start; padding: 34px 0 8px; border-top: 1px solid var(--borda-suave);
 }
 .public-how .public-eyebrow { margin-bottom: 8px; }
-.public-how-copy { display: grid; gap: 12px; color: var(--texto-suave); }
-.public-how-copy strong { color: var(--texto); }
+.public-how-heading > p { margin-top: 12px; color: var(--texto-suave); }
+.public-how-copy { display: grid; gap: 12px; }
+.public-flow-step {
+  display: grid; grid-template-columns: 38px 1fr; gap: 14px; align-items: start;
+  padding: 16px 18px; background: var(--superficie); border: 1px solid var(--borda-suave); border-radius: 9px;
+}
+.public-flow-number {
+  display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--azul-50); color: var(--azul-800); font-weight: 800;
+}
+.public-flow-step h3 { margin-bottom: 3px; color: var(--azul-900); font-size: 17px; }
+.public-flow-step p { color: var(--texto-suave); font-size: 15px; }
 html.alto-contraste .public-home { background: var(--fundo); }
 html.alto-contraste .public-eyebrow, html.alto-contraste .public-feature-number { color: #ffd700; }
 html.alto-contraste .public-hero h1, html.alto-contraste .public-login h2,
 html.alto-contraste .public-section-heading h2, html.alto-contraste .public-how h2,
 html.alto-contraste .public-feature h3 { color: #ffd700; }
 html.alto-contraste .public-feature, html.alto-contraste .public-login { background: var(--superficie); border-color: var(--borda); }
+html.alto-contraste .public-flow-step { background: var(--superficie); border-color: var(--borda); }
+html.alto-contraste .public-flow-step h3, html.alto-contraste .public-flow-number { color: #ffd700; }
+html.alto-contraste .public-flow-number { background: #1a1a1a; }
+html.alto-contraste .public-hero-cta { color: #000; background: #00e676; border-color: #00e676; }
 
 @media (max-width: 800px) {
   .public-container { padding-top: 34px; }
@@ -861,6 +878,7 @@ html.alto-contraste .public-feature, html.alto-contraste .public-login { backgro
   .public-hero { gap: 26px; padding-top: 10px; }
   .public-hero h1 { font-size: 40px; }
   .public-lead { font-size: 17px; }
+  .public-hero-cta { width: 100%; }
   .public-login { padding: 24px 20px; }
   .public-feature-grid { grid-template-columns: 1fr; gap: 12px; }
   .public-feature { min-height: auto; padding: 19px; }
