@@ -24,6 +24,15 @@ const USUARIOS_DEV = {
         email: `professor.dev${DOMINIO_PROFESSOR}`,
         googleId: 'dev-google-professor',
         avatarUrl: null,
+        tipo: 'professor',
+        cargo: 'comum',
+    },
+    professorAdmin: {
+        nome: 'Professor Admin de Teste',
+        email: `professor.admin.dev${DOMINIO_PROFESSOR}`,
+        googleId: 'dev-google-professor-admin',
+        avatarUrl: null,
+        tipo: 'professor',
         cargo: 'admin',
     },
     aluno: {
@@ -31,6 +40,7 @@ const USUARIOS_DEV = {
         email: 'aluno.dev@exemplo.com',
         googleId: 'dev-google-aluno',
         avatarUrl: null,
+        tipo: 'aluno',
     },
 };
 
@@ -43,7 +53,7 @@ async function entrarComo(tipo, req, res) {
         usuario = await usuariosModel.criar({
             nome: dados.nome,
             email: dados.email,
-            tipo,
+            tipo: dados.tipo,
             githubId: null,
             googleId: dados.googleId,
             avatarUrl: dados.avatarUrl,
@@ -52,10 +62,12 @@ async function entrarComo(tipo, req, res) {
     }
 
     // 2) garante a linha na tabela específica (professores)
-    if (tipo === 'professor') {
+    if (dados.tipo === 'professor') {
         const existente = await professoresModel.buscarPorUsuarioId(usuario.id);
         if (!existente) {
             await professoresModel.criar({ usuarioId: usuario.id, cargo: dados.cargo });
+        } else if (existente.cargo !== dados.cargo) {
+            await professoresModel.definirCargo(usuario.id, dados.cargo);
         }
     }
 
@@ -79,6 +91,7 @@ async function entrarComo(tipo, req, res) {
 }
 
 router.get('/professor', apenasDev, (req, res) => entrarComo('professor', req, res));
+router.get('/professor-admin', apenasDev, (req, res) => entrarComo('professorAdmin', req, res));
 router.get('/aluno', apenasDev, (req, res) => entrarComo('aluno', req, res));
 
 module.exports = router;
