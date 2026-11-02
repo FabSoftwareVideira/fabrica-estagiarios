@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fichas · Controle de Estágio</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main id="conteudo" class="container">
+        <%- include('partials/flash') %>
+
+        <div class="page-head">
+            <div>
+                <h1>Fichas dos meus orientandos</h1>
+                <p>Preencha a FAPO, lance as notas da banca e emita a ata de cada aluno.</p>
+            </div>
+        </div>
+
+        <% const rotuloResultado = RESULTADOS; %>
+
+        <h2 class="secao-titulo">Prontos para a banca <span class="contagem"><%= prontos.length %></span></h2>
+        <% if (prontos.length === 0) { %>
+            <div class="card"><p class="empty-state">Nenhum orientando cumpriu todas as horas ainda. Quando isso acontecer, ele aparece aqui.</p></div>
+        <% } else { %>
+            <div class="lista-cartoes">
+                <% prontos.forEach((o) => { %>
+                    <article class="orientando pronto">
+                        <div>
+                            <h3><a href="/professor/aluno/<%= o.usuario_id %>"><%= o.nome %></a></h3>
+                            <p class="meta"><%= o.empresa || 'Empresa não informada' %> · <%= o.horas_realizadas %>/<%= o.carga_horaria %>h</p>
+                        </div>
+                        <div class="orientando-fichas" aria-label="Situação das fichas">
+                            <span class="status <%= o.tem_faa ? 'status-completed' : 'status-waiting' %>">FAA <%= o.tem_faa ? 'recebida' : 'pendente' %></span>
+                            <span class="status <%= o.tem_fapo ? 'status-completed' : 'status-banca' %>">FAPO <%= o.tem_fapo ? 'salva' : 'a preencher' %></span>
+                            <span class="status <%= o.tem_ata ? 'status-progress' : 'status-banca' %>">Ata <%= o.tem_ata ? 'em rascunho' : 'a preencher' %></span>
+                        </div>
+                        <div class="orientando-acoes">
+                            <a href="/professor/aluno/<%= o.usuario_id %>/fapo" class="btn btn-secondary btn-sm"><%- icone('caneta') %> FAPO</a>
+                            <a href="/professor/aluno/<%= o.usuario_id %>/fare" class="btn btn-success btn-sm"><%- icone('arquivo') %> <%= o.tem_ata ? 'Continuar ata' : 'Preencher ata' %></a>
+                        </div>
+                    </article>
+                <% }) %>
+            </div>
+        <% } %>
+
+        <h2 class="secao-titulo">Estágio em andamento <span class="contagem"><%= andamento.length %></span></h2>
+        <% if (andamento.length === 0) { %>
+            <div class="card"><p class="empty-state">Nenhum orientando com estágio em andamento.</p></div>
+        <% } else { %>
+            <div class="lista-cartoes">
+                <% andamento.forEach((o) => { %>
+                    <article class="orientando">
+                        <div>
+                            <h3><a href="/professor/aluno/<%= o.usuario_id %>"><%= o.nome %></a></h3>
+                            <p class="meta"><%= o.empresa || 'Empresa não informada' %></p>
+                        </div>
+                        <div>
+                            <% const pct = o.carga_horaria > 0 ? Math.min(100, Math.round((o.horas_realizadas / o.carga_horaria) * 100)) : 0; %>
+                            <p class="meta"><%= o.horas_realizadas %> de <%= o.carga_horaria %>h validadas</p>
+                            <div class="progress"><div class="progress-bar" data-percent="<%= pct %>"></div></div>
+                        </div>
+                        <div class="orientando-acoes">
+                            <span class="status status-progress">Em andamento</span>
+                        </div>
+                    </article>
+                <% }) %>
+            </div>
+        <% } %>
+
+        <h2 class="secao-titulo">Encerrados <span class="contagem"><%= encerrados.length %></span></h2>
+        <% if (encerrados.length === 0) { %>
+            <div class="card"><p class="empty-state">Nenhum estágio encerrado ainda.</p></div>
+        <% } else { %>
+            <div class="lista-cartoes">
+                <% encerrados.forEach((o) => { %>
+                    <article class="orientando encerrado">
+                        <div>
+                            <h3><a href="/professor/aluno/<%= o.usuario_id %>"><%= o.nome %></a></h3>
+                            <p class="meta">Encerrado em <%= dataBr(o.encerrado_em) %><% if (o.resultado) { %> · <%= rotuloResultado[o.resultado] %><% } %></p>
+                        </div>
+                        <div><span class="status status-completed">Encerrado</span></div>
+                        <div class="orientando-acoes">
+                            <a href="/professor/aluno/<%= o.usuario_id %>/fare/pdf" class="btn btn-success btn-sm"><%- icone('baixar') %> Ata</a>
+                            <a href="/professor/aluno/<%= o.usuario_id %>/fapo/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> FAPO</a>
+                            <a href="/professor/aluno/<%= o.usuario_id %>/fare" class="btn btn-ghost btn-sm">Detalhes</a>
+                        </div>
+                    </article>
+                <% }) %>
+            </div>
+        <% } %>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

@@ -10,13 +10,30 @@
 
     <%- include('partials/header') %>
 
-    <main class="container">
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Início', href: '/aluno/dashboard' },
+            { texto: 'Fichas', href: '/aluno/dashboard?aba=fichas' },
+            { texto: 'FAA' }
+        ] }) %>
         <%- include('partials/flash') %>
 
-        <h2>Ficha de Autoavaliação (FAA)</h2>
-        <p class="text-muted page-subtitle">
-            Preencha os dados abaixo. A ficha é salva automaticamente ao gerar o PDF.
-        </p>
+        <div class="page-head">
+            <div>
+                <h1>FAA · Autoavaliação</h1>
+                <p>Dê uma nota de 0 a 10 para cada item e conte como foi o estágio.</p>
+            </div>
+        </div>
+
+        <% if (somenteLeitura) { %>
+            <div class="aviso aviso-info" role="status">
+                <%- icone('cadeado') %>
+                <div>
+                    <strong>Estágio encerrado</strong>
+                    A FAA não pode mais ser alterada. Você pode baixar o PDF para imprimir.
+                </div>
+            </div>
+        <% } %>
 
         <% if (faaSalva) { %>
             <div class="faa-saved">
@@ -26,7 +43,7 @@
                         Última atualização em <%= new Date(faaSalva.atualizado_em).toLocaleString('pt-BR') %>.
                     </span>
                 </div>
-                <a href="/aluno/faa/pdf" class="btn btn-secondary">Gerar PDF novamente</a>
+                <a href="/aluno/faa/pdf" class="btn btn-secondary"><%- icone('baixar') %> Baixar PDF</a>
             </div>
         <% } %>
 
@@ -62,6 +79,7 @@
         %>
 
         <form action="/aluno/faa" method="POST" class="faa-form">
+            <fieldset <%= somenteLeitura ? 'disabled' : '' %>>
             <section class="card">
                 <h2>Dados do estágio</h2>
                 <div class="form-grid">
@@ -132,14 +150,18 @@
                     placeholder="Opcional"><%= comentarios %></textarea>
             </section>
 
+            </fieldset>
+
             <div class="button-group form-actions">
-                <button type="submit" name="acao" value="salvar_pdf">
-                    <%= faaSalva ? 'Salvar alterações e gerar PDF' : 'Salvar e gerar PDF' %>
-                </button>
-                <button type="submit" name="acao" value="salvar" class="btn btn-secondary">
-                    Salvar sem gerar PDF
-                </button>
-                <a href="/aluno/dashboard" class="btn btn-secondary">Cancelar</a>
+                <% if (!somenteLeitura) { %>
+                    <button type="submit" name="acao" value="salvar_pdf" class="btn-success">
+                        <%= faaSalva ? 'Salvar e baixar PDF' : 'Salvar e baixar PDF' %>
+                    </button>
+                    <button type="submit" name="acao" value="salvar" class="btn-secondary">Salvar sem baixar</button>
+                <% } else if (faaSalva) { %>
+                    <a href="/aluno/faa/pdf" class="btn btn-success"><%- icone('baixar') %> Baixar PDF</a>
+                <% } %>
+                <a href="/aluno/dashboard?aba=fichas" class="btn btn-secondary">Voltar às fichas</a>
             </div>
         </form>
     </main>

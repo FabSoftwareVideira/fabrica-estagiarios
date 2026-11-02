@@ -1,45 +1,60 @@
+<script>try { if (localStorage.getItem('contraste') === '1') document.documentElement.classList.add('alto-contraste'); } catch (e) {}</script>
+<a href="#conteudo" class="skip-link">Ir para o conteúdo</a>
+
+<div class="utility-bar">
+    <div class="utility-inner">
+        <ul class="utility-links" aria-label="Acesso rápido">
+            <li><a href="https://videira.ifc.edu.br/estagios-extensao/" target="_blank" rel="noopener noreferrer">Extensão e Estágios</a></li>
+            <li><a href="https://sig.ifc.edu.br" target="_blank" rel="noopener noreferrer">SIGAA</a></li>
+            <li><a href="https://videira.ifc.edu.br/" target="_blank" rel="noopener noreferrer">Portal do Campus</a></li>
+        </ul>
+        <button type="button" class="contrast-toggle" data-contraste aria-pressed="false">
+            <%- icone('contraste') %> Alto contraste
+        </button>
+    </div>
+</div>
+
 <header class="site-header">
     <div class="header-inner">
-        <a href="<%= user ? (user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard') : '/login' %>"
-            class="brand">
-            <span class="brand-mark">IFC</span>
-            <span class="brand-text">Controle de Estágio</span>
+        <a href="<%= user ? (user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard') : '/login' %>" class="brand">
+            <img src="/img/logo-ifc-videira.png" alt="Instituto Federal Catarinense, Campus Videira" class="brand-logo" width="110" height="44">
+            <span class="brand-text">Controle de Estágio<small>Curso Técnico em Informática</small></span>
         </a>
 
-        <button class="nav-toggle" aria-label="Abrir menu" aria-expanded="false">
-            <span></span><span></span><span></span>
-        </button>
+        <% if (user) { %>
+            <button class="nav-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-principal">
+                <%- icone('menu') %> Menu
+            </button>
+        <% } %>
 
-        <% const navAtivo = (caminho) => (currentPath === caminho ? 'active' : ''); %>
-
-        <nav class="main-nav" aria-label="Navegação principal">
-            <% if (!user) { %>
-                <div class="nav-links">
-                    <a href="/login" class="nav-link">Login</a>
-                </div>
-            <% } else { %>
+        <nav class="main-nav" id="menu-principal" aria-label="Navegação principal">
+            <% if (user) { %>
+                <% const ativo = (condicao) => (condicao ? 'active' : ''); %>
+                <% const atual = (condicao) => (condicao ? 'aria-current="page"' : ''); %>
                 <div class="nav-links">
                     <% if (user.tipo === 'aluno') { %>
-                        <a href="/aluno/dashboard" class="nav-link <%= currentPath === '/aluno/dashboard' && currentTab !== 'atividades' ? 'active' : '' %>">Dashboard</a>
+                        <% const noDash = currentPath === '/aluno/dashboard'; %>
+                        <% const aba = currentTab || 'resumo'; %>
+                        <a href="/aluno/dashboard" class="nav-link <%= ativo(noDash && aba !== 'atividades' && aba !== 'fichas') %>"><%- icone('home') %> Início</a>
+                        <a href="/aluno/dashboard?aba=atividades" class="nav-link <%= ativo(noDash && aba === 'atividades') %>"><%- icone('lista') %> Atividades</a>
+                        <a href="/aluno/dashboard?aba=fichas" class="nav-link <%= ativo((noDash && aba === 'fichas') || currentPath.startsWith('/aluno/faa')) %>"><%- icone('arquivo') %> Fichas</a>
                         <% if (typeof alunoStatus !== 'undefined' && alunoStatus === 'em_andamento') { %>
-                            <a href="/aluno/nova-atividade"
-                                class="nav-link nav-link-cta <%= navAtivo('/aluno/nova-atividade') %>">Nova Atividade</a>
+                            <a href="/aluno/nova-atividade" class="nav-link nav-link-cta <%= ativo(currentPath === '/aluno/nova-atividade') %>"><%- icone('mais') %> Nova atividade</a>
                         <% } %>
                     <% } else { %>
-                        <% const adminAtivo = (currentPath === '/professor/dashboard' && currentTab === 'administracao')
-                            || currentPath === '/professor/relatorio-semanal'; %>
-                        <a href="/professor/dashboard"
-                            class="nav-link <%= currentPath === '/professor/dashboard' && !adminAtivo ? 'active' : '' %>">Dashboard</a>
+                        <% const emFichas = currentPath === '/professor/fichas' || /^\/professor\/aluno\/\d+\/(fare|fapo)/.test(currentPath); %>
+                        <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
+                        <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> Alunos</a>
+                        <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
                         <% if (user.cargo === 'admin') { %>
-                            <a href="/professor/dashboard?aba=administracao"
-                                class="nav-link <%= adminAtivo ? 'active' : '' %>">Administração</a>
+                            <a href="/professor/dashboard?aba=administracao" class="nav-link <%= ativo(emAdmin) %>"><%- icone('escudo') %> Administração</a>
                         <% } %>
                     <% } %>
                 </div>
 
                 <div class="nav-user">
-                    <a href="/perfil" class="nav-user-profile <%= navAtivo('/perfil') %>" title="Meu perfil">
-                        <span class="nav-avatar"><%= user.avatarEmoji || user.nome.charAt(0).toUpperCase() %></span>
+                    <a href="/perfil" class="nav-user-profile" title="Meu perfil">
+                        <span class="nav-avatar" aria-hidden="true"><%= user.avatarEmoji || user.nome.charAt(0).toUpperCase() %></span>
                         <span class="nav-user-name"><%= user.nome %></span>
                     </a>
                     <a href="/logout" class="nav-logout">Sair</a>

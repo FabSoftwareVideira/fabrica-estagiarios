@@ -3,60 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nova Atividade</title>
+    <title>Nova atividade · Controle de Estágio</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
     <%- include('partials/header') %>
 
-    <main class="container">
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Início', href: '/aluno/dashboard' },
+            { texto: 'Atividades', href: '/aluno/dashboard?aba=atividades' },
+            { texto: 'Nova atividade' }
+        ] }) %>
         <%- include('partials/flash') %>
 
-        <h2>Registrar Nova Atividade</h2>
+        <div class="page-head">
+            <div>
+                <h1>Registrar atividade</h1>
+                <p>Escolha o dia no calendário e conte o que você fez.</p>
+            </div>
+        </div>
 
-        <div class="card">
-            <form action="/aluno/nova-atividade" method="POST">
-                <label for="data">Data</label>
-                <input type="date" id="data" name="data" required value="<%= formData.data || '' %>">
+        <div class="atividade-layout">
+            <section class="card" aria-labelledby="titulo-calendario">
+                <h2 id="titulo-calendario" class="sr-only">Calendário</h2>
+                <%- include('partials/calendario', {
+                    dados: calendario,
+                    modo: 'selecionar',
+                    hoje,
+                    selecionado: formData.data || ''
+                }) %>
+                <div class="dia-resumo" data-cal-painel aria-live="polite" hidden></div>
+            </section>
 
-                <div class="form-grid">
-                    <div class="form-field">
-                        <label for="hora_inicio">Horário de Início</label>
-                        <input type="time" id="hora_inicio" name="hora_inicio" required value="<%= formData.hora_inicio || '' %>">
+            <section class="card">
+                <h2>Dados da atividade</h2>
+                <form action="/aluno/nova-atividade" method="POST">
+                    <label for="data">Dia</label>
+                    <input type="date" id="data" name="data" required value="<%= formData.data || '' %>">
+
+                    <div class="form-grid form-grid-2">
+                        <div class="form-field">
+                            <label for="hora_inicio">Entrada</label>
+                            <input type="time" id="hora_inicio" name="hora_inicio" required value="<%= formData.hora_inicio || '' %>">
+                        </div>
+                        <div class="form-field">
+                            <label for="hora_fim">Saída</label>
+                            <input type="time" id="hora_fim" name="hora_fim" required value="<%= formData.hora_fim || '' %>">
+                        </div>
                     </div>
 
-                    <div class="form-field">
-                        <label for="hora_fim">Horário de Término</label>
-                        <input type="time" id="hora_fim" name="hora_fim" required value="<%= formData.hora_fim || '' %>">
+                    <label for="horas">Duração</label>
+                    <input type="number" id="horas" name="horas" min="0.01" max="6" step="0.01" placeholder="Calculada pelos horários" readonly>
+                    <small class="text-muted">Calculada sozinha a partir da entrada e da saída.</small>
+
+                    <label for="descricao">O que você fez?</label>
+                    <input type="text" id="descricao" name="descricao" maxlength="140" placeholder="Descreva de forma objetiva a atividade realizada" required value="<%= formData.descricao || '' %>">
+                    <small id="descricao-contador" class="text-muted" aria-live="polite">0/140 caracteres</small>
+
+                    <div class="form-note">
+                        <strong>Antes de salvar</strong>
+                        <ul>
+                            <li>Registre só o que você realmente fez.</li>
+                            <li>Fins de semana não contam. Cada dia vai até 6 horas.</li>
+                            <li>As horas só entram no total depois que o supervisor validar.</li>
+                        </ul>
                     </div>
-                </div>
 
-                <label for="horas">Quantidade de Horas</label>
-                <input type="number" id="horas" name="horas" min="0.01" max="6" step="0.01" placeholder="Calculado pelos horários" readonly>
-                <small class="text-muted">Calculada automaticamente a partir do horário inicial e final.</small>
-
-                <label for="descricao">Descrição da Atividade</label>
-                <input type="text" id="descricao" name="descricao" maxlength="140" placeholder="Descreva objetivamente a atividade realizada..." required value="<%= formData.descricao || '' %>">
-                <small id="descricao-contador" class="text-muted" aria-live="polite">0/140 caracteres</small>
-
-                <div class="form-note">
-                    <strong>Orientações</strong>
-                    <ul>
-                        <li>Informe apenas atividades realmente realizadas.</li>
-                        <li>Não é possível registrar horas em fins de semana (sábado e domingo).</li>
-                        <li>O limite é de 6 horas por dia, somando todas as atividades do dia.</li>
-                        <li>Descreva a atividade de forma objetiva e clara.</li>
-                        <li>As horas cadastradas só contam depois de validadas pelo professor.</li>
-                        <li>Quando as horas validadas atingirem a carga horária, o estágio será concluído automaticamente.</li>
-                    </ul>
-                </div>
-
-                <div class="button-group form-actions">
-                    <button type="submit">Salvar Atividade</button>
-                    <a href="/aluno/atividades" class="btn btn-secondary">Cancelar</a>
-                </div>
-            </form>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-success"><%- icone('check') %> Salvar atividade</button>
+                        <a href="/aluno/dashboard?aba=atividades" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </section>
         </div>
     </main>
 

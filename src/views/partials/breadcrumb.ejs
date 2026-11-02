@@ -1,0 +1,12 @@
+<%# itens: [{ texto, href? }] — o último é a página atual %>
+<nav class="breadcrumb" aria-label="Você está em">
+    <ol>
+        <% itens.forEach((item, i) => { %>
+            <% if (item.href && i < itens.length - 1) { %>
+                <li><a href="<%= item.href %>"><%= item.texto %></a></li>
+            <% } else { %>
+                <li><span aria-current="page"><%= item.texto %></span></li>
+            <% } %>
+        <% }) %>
+    </ol>
+</nav>

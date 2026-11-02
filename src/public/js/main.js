@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // preenche a barra de progresso de acordo com o percentual
-    document.querySelectorAll('.progress-bar[data-percent]').forEach((bar) => {
+    document.querySelectorAll('.progress-bar[data-percent], .progress-pending[data-percent]').forEach((bar) => {
         bar.style.width = `${bar.dataset.percent}%`;
     });
 
@@ -165,3 +165,302 @@ document.addEventListener('DOMContentLoaded', () => {
         atualizarMedia();
     }
 });
+
+// ─── Recursos novos: contraste, tabelas no celular, calendário e ata ─────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    // alto contraste (lembra a escolha neste navegador)
+    document.querySelectorAll('[data-contraste]').forEach((botao) => {
+        const raiz = document.documentElement;
+        botao.setAttribute('aria-pressed', String(raiz.classList.contains('alto-contraste')));
+        botao.addEventListener('click', () => {
+            const ligado = raiz.classList.toggle('alto-contraste');
+            botao.setAttribute('aria-pressed', String(ligado));
+            try { localStorage.setItem('contraste', ligado ? '1' : '0'); } catch (e) { /* sem armazenamento */ }
+        });
+    });
+
+    // no celular as tabelas viram cartões: cada célula ganha o título da coluna
+    document.querySelectorAll('.table-wrap table').forEach((tabela) => {
+        const titulos = Array.from(tabela.querySelectorAll('thead th')).map((th) => {
+            const copia = th.cloneNode(true);
+            copia.querySelectorAll('.sort-icon').forEach((icone) => icone.remove());
+            return copia.textContent.trim();
+        });
+        tabela.querySelectorAll('tbody tr').forEach((linha) => {
+            Array.from(linha.children).forEach((celula, i) => {
+                if (!celula.hasAttribute('data-label') && titulos[i]) celula.setAttribute('data-label', titulos[i]);
+            });
+        });
+    });
+
+    // confirmação antes de ações importantes
+    document.addEventListener('click', (evento) => {
+        const alvo = evento.target.closest('[data-confirmar]');
+        if (alvo && !window.confirm(alvo.dataset.confirmar)) evento.preventDefault();
+    });
+
+    document.querySelectorAll('[data-calendario]').forEach(iniciarCalendario);
+    document.querySelectorAll('[data-ata]').forEach(iniciarAta);
+});
+
+function formatarNumero(valor, casas = 2) {
+    if (valor === null || valor === undefined || Number.isNaN(valor)) return '—';
+    return Number(valor).toFixed(casas).replace('.', ',');
+}
+
+function iniciarCalendario(el) {
+    const dados = JSON.parse(el.querySelector('[data-cal-dados]').textContent || '[]');
+    const modo = el.dataset.modo;
+    const hoje = el.dataset.hoje;
+    const podeRegistrar = el.dataset.podeRegistrar === '1';
+    const grade = el.querySelector('[data-cal-grade]');
+    const titulo = el.querySelector('[data-cal-titulo]');
+    const contexto = el.closest('section, .card') || document;
+    const painel = contexto.querySelector('[data-cal-painel]');
+    const campoData = modo === 'selecionar' ? document.getElementById('data') : null;
+    const linhasTabela = document.querySelectorAll('tr[data-dia]');
+    const avisoFiltro = document.querySelector('[data-cal-filtro]');
+
+    const porDia = new Map();
+    dados.forEach((a) => {
+        const dia = porDia.get(a.data) || { horas: 0, itens: [], validada: false, invalidada: false };
+        dia.horas += a.horas;
+        dia.itens.push(a);
+        if (a.status === 'validada') dia.validada = true;
+        if (a.status === 'invalidada') dia.invalidada = true;
+        porDia.set(a.data, dia);
+    });
+
+    const iso = (ano, mes, dia) => `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const dataDe = (texto) => { const [a, m, d] = texto.split('-').map(Number); return new Date(a, m - 1, d); };
+    const ehFimDeSemana = (data) => data.getDay() === 0 || data.getDay() === 6;
+    const formatarHoras = (h) => String(Number(h.toFixed(2))).replace('.', ',');
+
+    let selecionado = el.dataset.selecionado || (campoData && campoData.value) || '';
+    const base = dataDe(selecionado || hoje);
+    let visivel = { ano: base.getFullYear(), mes: base.getMonth() };
+
+    function atualizarPainel() {
+        if (!painel) return;
+        painel.replaceChildren();
+        if (!selecionado) { painel.hidden = true; return; }
+
+        const data = dataDe(selecionado);
+        const dia = porDia.get(selecionado);
+        const nome = data.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+        const linha = document.createElement('p');
+        const forte = document.createElement('strong');
+        forte.textContent = nome;
+        linha.append(forte);
+
+        const fimDeSemana = ehFimDeSemana(data);
+        const horas = dia ? dia.horas : 0;
+        const restam = Math.max(0, 6 - horas);
+        if (fimDeSemana) {
+            linha.append(' — fim de semana: não dá para registrar horas.');
+        } else if (!dia) {
+            linha.append(' — nenhuma atividade ainda. Você pode registrar até 6h.');
+        } else if (restam === 0) {
+            linha.append(` — ${formatarHoras(horas)}h registradas. O limite de 6h do dia foi atingido.`);
+        } else {
+            linha.append(` — ${formatarHoras(horas)}h registradas, restam ${formatarHoras(restam)}h.`);
+        }
+        painel.append(linha);
+
+        if (dia) {
+            const lista = document.createElement('ul');
+            lista.className = 'dia-lista';
+            dia.itens.forEach((a) => {
+                const item = document.createElement('li');
+                const hora = document.createElement('time');
+                hora.textContent = a.inicio && a.fim ? `${a.inicio}–${a.fim}` : `${formatarHoras(a.horas)}h`;
+                const texto = document.createElement('span');
+                const rotulo = { validada: 'validada', pendente: 'aguardando validação', invalidada: 'invalidada' }[a.status] || '';
+                texto.textContent = `${a.descricao} (${rotulo})`;
+                item.append(hora, texto);
+                lista.append(item);
+            });
+            painel.append(lista);
+        }
+
+        if (modo === 'ver' && podeRegistrar && !fimDeSemana && restam > 0) {
+            const link = document.createElement('a');
+            link.href = `/aluno/nova-atividade?data=${selecionado}`;
+            link.className = 'btn btn-success btn-sm';
+            link.style.marginTop = '10px';
+            link.textContent = 'Registrar atividade neste dia';
+            painel.append(link);
+        }
+        painel.hidden = false;
+    }
+
+    function filtrarTabela() {
+        if (modo !== 'ver') return;
+        linhasTabela.forEach((linha) => { linha.hidden = Boolean(selecionado) && linha.dataset.dia !== selecionado; });
+        if (avisoFiltro) avisoFiltro.hidden = !selecionado;
+    }
+
+    function selecionar(valor) {
+        selecionado = valor;
+        if (campoData && campoData.value !== valor) {
+            campoData.value = valor;
+            campoData.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        desenhar();
+        atualizarPainel();
+        filtrarTabela();
+    }
+
+    function desenhar() {
+        const { ano, mes } = visivel;
+        titulo.textContent = new Date(ano, mes, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        grade.replaceChildren();
+
+        ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].forEach((letra, i) => {
+            const cab = document.createElement('div');
+            cab.className = `cal-semana${i === 0 || i === 6 ? ' fim' : ''}`;
+            cab.textContent = letra;
+            cab.setAttribute('aria-hidden', 'true');
+            grade.append(cab);
+        });
+
+        const primeiro = new Date(ano, mes, 1).getDay();
+        for (let i = 0; i < primeiro; i += 1) {
+            const vazio = document.createElement('span');
+            vazio.className = 'cal-dia fora';
+            grade.append(vazio);
+        }
+
+        const totalDias = new Date(ano, mes + 1, 0).getDate();
+        for (let d = 1; d <= totalDias; d += 1) {
+            const chave = iso(ano, mes, d);
+            const data = new Date(ano, mes, d);
+            const dia = porDia.get(chave);
+            const fim = ehFimDeSemana(data);
+
+            const botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'cal-dia';
+            if (fim) botao.classList.add('fim-semana');
+            if (chave === hoje) botao.classList.add('hoje');
+            if (chave === selecionado) botao.classList.add('selecionado');
+            if (dia && dia.validada) botao.classList.add('tem-validada');
+            if (dia && dia.invalidada) botao.classList.add('tem-invalidada');
+            if (dia && dia.horas >= 6) botao.classList.add('lotado');
+
+            const numero = document.createElement('span');
+            numero.textContent = String(d);
+            botao.append(numero);
+            if (dia) {
+                const chip = document.createElement('span');
+                chip.className = 'cal-horas';
+                chip.textContent = `${formatarHoras(dia.horas)}h`;
+                botao.append(chip);
+            }
+
+            const longa = data.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+            botao.setAttribute('aria-label', `${longa}${dia ? `, ${formatarHoras(dia.horas)} horas registradas` : ''}${fim ? ', fim de semana' : ''}`);
+            botao.setAttribute('aria-pressed', String(chave === selecionado));
+
+            if (fim && modo === 'selecionar') {
+                botao.setAttribute('aria-disabled', 'true');
+            } else {
+                botao.addEventListener('click', () => {
+                    selecionar(modo === 'ver' && chave === selecionado ? '' : chave);
+                });
+            }
+            grade.append(botao);
+        }
+    }
+
+    el.querySelectorAll('[data-cal]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+            const acao = botao.dataset.cal;
+            if (acao === 'hoje') {
+                const h = dataDe(hoje);
+                visivel = { ano: h.getFullYear(), mes: h.getMonth() };
+            } else {
+                const novo = new Date(visivel.ano, visivel.mes + (acao === 'proximo' ? 1 : -1), 1);
+                visivel = { ano: novo.getFullYear(), mes: novo.getMonth() };
+            }
+            desenhar();
+        });
+    });
+
+    // digitar a data no campo também atualiza o calendário
+    if (campoData) {
+        campoData.addEventListener('change', () => {
+            if (campoData.value && campoData.value !== selecionado) {
+                selecionado = campoData.value;
+                const nova = dataDe(selecionado);
+                visivel = { ano: nova.getFullYear(), mes: nova.getMonth() };
+                desenhar();
+                atualizarPainel();
+            }
+        });
+    }
+
+    const limpar = document.querySelector('[data-cal-limpar]');
+    if (limpar) limpar.addEventListener('click', () => selecionar(''));
+
+    desenhar();
+    atualizarPainel();
+    filtrarTabela();
+}
+
+function iniciarAta(form) {
+    const SOMA_PESOS = 10;
+    const ler = (valor) => {
+        const n = parseFloat(String(valor).replace(',', '.'));
+        return Number.isFinite(n) ? n : null;
+    };
+
+    const calcular = () => {
+        const pontos = {};
+
+        form.querySelectorAll('[data-ata-nota]').forEach((campo) => {
+            const nota = ler(campo.value);
+            pontos[campo.dataset.ataNota] = nota === null ? null : (nota * Number(campo.dataset.peso)) / SOMA_PESOS;
+        });
+        form.querySelectorAll('[data-ata-fixa]').forEach((item) => {
+            const nota = ler(item.dataset.valor);
+            pontos[item.dataset.ataFixa] = nota === null ? null : (nota * Number(item.dataset.peso)) / SOMA_PESOS;
+        });
+        form.querySelectorAll('[data-ata-banca]').forEach((linha) => {
+            const notas = Array.from(linha.querySelectorAll('[data-banca]')).map((c) => ler(c.value)).filter((n) => n !== null);
+            const media = notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null;
+            linha.querySelector('[data-media]').textContent = formatarNumero(media);
+            pontos[linha.dataset.chave] = media === null ? null : (media * Number(linha.dataset.peso)) / SOMA_PESOS;
+        });
+
+        let final = 0;
+        Object.entries(pontos).forEach(([chave, valor]) => {
+            if (valor !== null) final += valor;
+            document.querySelectorAll(`[data-pt="${chave}"]`).forEach((c) => { c.textContent = formatarNumero(valor); });
+        });
+        const textoFinal = formatarNumero(Math.round((final + Number.EPSILON) * 100) / 100);
+        document.querySelectorAll('[data-ata-final]').forEach((c) => { c.textContent = textoFinal; });
+    };
+
+    form.addEventListener('input', calcular);
+
+    const ressalva = form.querySelector('[data-ressalva]');
+    form.querySelectorAll('input[name="resultado"]').forEach((radio) => {
+        radio.addEventListener('change', () => {
+            if (ressalva) ressalva.hidden = form.querySelector('input[name="resultado"]:checked').value !== 'aprovado_ressalva';
+        });
+    });
+
+    // escolher uma data de ressalva marca a opção correspondente
+    ['corrigir_relatorio', 'refazer_apresentacao'].forEach((nome) => {
+        const caixa = form.querySelector(`input[name="${nome}"]`);
+        const data = form.querySelector(`input[name="${nome}_ate"]`);
+        if (caixa && data) {
+            data.addEventListener('input', () => { if (data.value) caixa.checked = true; });
+        }
+    });
+
+    calcular();
+}

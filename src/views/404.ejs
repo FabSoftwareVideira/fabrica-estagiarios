@@ -3,26 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Página não encontrada</title>
+    <title>Página não encontrada · Controle de Estágio</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-    <header class="site-header">
-        <div class="header-inner">
-            <a href="/login" class="brand">
-                <span class="brand-mark">IFC</span>
-                <span class="brand-text">Controle de Estágio</span>
-            </a>
-        </div>
-    </header>
+    <%- include('partials/header') %>
 
-    <main class="container text-center">
-        <div class="card">
-            <h2 style="font-size: 56px; margin-bottom: 6px;">404</h2>
-            <p class="text-muted">A página que você tentou acessar não existe ou foi movida.</p>
-            <br>
-            <a href="/login" class="btn">Voltar para o início</a>
+    <main id="conteudo" class="container">
+        <div class="login-box text-center">
+            <h1>Página não encontrada</h1>
+            <p>O endereço que você tentou abrir não existe ou foi movido.</p>
+            <a href="/" class="btn">Ir para o início</a>
         </div>
     </main>
 

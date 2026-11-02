@@ -9,6 +9,10 @@ const { gerarFaaPdf, formatarDataBr } = require('../services/faaPdf');
 const { gerarFichaAcompanhamentoPdf } = require('../services/fichaAcompanhamentoPdf');
 const { gerarFapoPdf } = require('../services/fapoPdf');
 const avatares = require('../config/avatares');
+const faresModel = require('../models/fares');
+const { gerarFarePdf } = require('../services/farePdf');
+const { montarContexto, dadosParaPdf } = require('../services/ataDados');
+const { formatarHora } = require('../utils/datas');
 
 router.use(requireRole('aluno'));
 
@@ -82,6 +86,14 @@ function dataParaInput(valor) {
     return Number.isNaN(data.getTime()) ? '' : dataLocalIso(data);
 }
 
+function nomeBaseArquivo(nome) {
+    return String(nome)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'aluno';
+}
+
 function enviarPdf(res, alunoNome, pdfBytes) {
     const nomeBase = String(alunoNome)
         .normalize('NFD')
@@ -92,6 +104,18 @@ function enviarPdf(res, alunoNome, pdfBytes) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="FAA-${nomeBase}.pdf"`);
     return res.send(Buffer.from(pdfBytes));
+}
+
+// atividades do aluno no formato usado pelo calendário (uma entrada por atividade)
+function dadosCalendario(atividades) {
+    return atividades.map((a) => ({
+        data: dataParaInput(a.data),
+        horas: Number(a.horas),
+        status: a.status_validacao,
+        inicio: formatarHora(a.hora_inicio),
+        fim: formatarHora(a.hora_fim),
+        descricao: a.descricao,
+    }));
 }
 
 async function requireEstagioConcluido(req, res, next) {
@@ -110,6 +134,7 @@ router.get('/dashboard', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
     const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
     const fapoSalva = await faposModel.buscarPorAluno(req.session.user.id);
+    const faaSalva = await faasModel.buscarPorAluno(req.session.user.id);
 
     const horasRealizadas = Number(aluno.horas_realizadas);
     const horasPendentes = Number(aluno.horas_pendentes);
@@ -121,11 +146,16 @@ router.get('/dashboard', async (req, res) => {
         atividades,
         abaInicial: ['atividades', 'fichas'].includes(req.query.aba) ? req.query.aba : 'resumo',
         fapoSalva,
+        faaSalva,
         horasRealizadas,
         horasPendentes,
         cargaHoraria,
         horasRestantes: Math.max(0, cargaHoraria - horasRealizadas),
         percentual,
+        encerrado: Boolean(aluno.encerrado_em),
+        fareSalva: aluno.encerrado_em ? await faresModel.buscarPorAluno(req.session.user.id) : null,
+        calendario: dadosCalendario(atividades),
+        hoje: dataLocalIso(),
     });
 });
 
@@ -153,10 +183,16 @@ router.get('/faa', requireEstagioConcluido, async (req, res) => {
         dataAssinatura: faaSalva ? dataParaInput(faaSalva.data_assinatura) : dataLocalIso(),
         notasSalvas: faaSalva ? faaSalva.notas : [],
         respostasSalvas: faaSalva ? faaSalva.respostas : [],
+        somenteLeitura: Boolean(req.aluno.encerrado_em),
     });
 });
 
 router.post('/faa', requireEstagioConcluido, async (req, res) => {
+    if (req.aluno.encerrado_em) {
+        setFlash(req, 'error', 'O estágio foi encerrado e a FAA não pode mais ser alterada. Você pode apenas imprimir os documentos.');
+        return res.redirect('/aluno/dashboard?aba=fichas');
+    }
+
     const acao = req.body.acao === 'salvar' ? 'salvar' : 'salvar_pdf';
     // a empresa é a cadastrada no estágio pelo professor, nunca digitada pelo aluno
     const empresa = (req.aluno.empresa || '').trim();
@@ -283,6 +319,27 @@ router.get('/fapo/pdf', requireEstagioConcluido, async (req, res) => {
     }
 });
 
+router.get('/fare/pdf', requireEstagioConcluido, async (req, res) => {
+    if (!req.aluno.encerrado_em) {
+        setFlash(req, 'error', 'A ata da banca fica disponível depois que o orientador conclui o estágio.');
+        return res.redirect('/aluno/dashboard?aba=fichas');
+    }
+
+    try {
+        const contexto = await montarContexto(req.aluno);
+        if (!contexto.fare) throw new Error('ata não encontrada');
+        const pdfBytes = await gerarFarePdf(dadosParaPdf({ aluno: req.aluno, ...contexto }));
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Ata-Banca-${nomeBaseArquivo(req.aluno.nome)}.pdf"`);
+        return res.send(Buffer.from(pdfBytes));
+    } catch (err) {
+        console.error('[aluno/fare/pdf] erro ao gerar PDF:', err.message);
+        setFlash(req, 'error', 'Não foi possível gerar o PDF da ata. Tente novamente.');
+        return res.redirect('/aluno/dashboard?aba=fichas');
+    }
+});
+
 router.get('/ficha-acompanhamento', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
     if (aluno.supervisor_id) {
@@ -320,10 +377,21 @@ router.get('/ficha-acompanhamento', async (req, res) => {
 router.get('/atividades', (req, res) => res.redirect('/aluno/dashboard?aba=atividades'));
 
 // só acessível com o estágio em andamento (lista de espera / concluído são bloqueados)
-router.get('/nova-atividade', requireEmAndamento, (req, res) => {
+router.get('/nova-atividade', requireEmAndamento, async (req, res) => {
     const formData = req.session.novaAtividadeForm || {};
     delete req.session.novaAtividadeForm;
-    res.render('aluno_nova_atividade', { formData });
+
+    // ?data=AAAA-MM-DD (vindo do calendário do dashboard) pré-seleciona o dia
+    if (!formData.data && dataIsoValida(String(req.query.data || ''))) {
+        formData.data = req.query.data;
+    }
+
+    const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
+    res.render('aluno_nova_atividade', {
+        formData,
+        calendario: dadosCalendario(atividades),
+        hoje: dataLocalIso(),
+    });
 });
 
 function redirecionarNovaAtividadeComErro(req, res, mensagem, formData) {

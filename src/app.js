@@ -4,6 +4,8 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const { pool } = require('./config/database');
 const { attachUser } = require('./middleware/auth');
+const { icone } = require('./utils/icones');
+const { dataParaInput, formatarDataBr } = require('./utils/datas');
 
 const app = express();
 
@@ -17,6 +19,9 @@ if (isProd) {
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.locals.icone = icone;
+app.locals.dataIso = dataParaInput;
+app.locals.dataBr = formatarDataBr;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

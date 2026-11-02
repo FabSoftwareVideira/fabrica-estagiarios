@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ata da banca · Controle de Estágio</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main id="conteudo" class="container">
+        <%
+            const fmt = (n, c = 2) => (n === null || n === undefined || n === '' ? '—' : Number(n).toFixed(c).replace('.', ','));
+            const v = (x) => (x === null || x === undefined ? '' : x);
+            const notaFapo = fapo ? fapo.nota : null;
+            const pesoDe = { fac: 2, fapo: 2, faa: 1 };
+            const linhas = calculo.linhas;
+        %>
+
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Fichas', href: '/professor/fichas' },
+            { texto: aluno.nome, href: '/professor/aluno/' + aluno.usuario_id },
+            { texto: 'Ata da banca' }
+        ] }) %>
+        <%- include('partials/flash') %>
+
+        <div class="page-head">
+            <div>
+                <h1>Ata da banca</h1>
+                <p><strong><%= aluno.nome %></strong> · <%= aluno.empresa || 'Empresa não informada' %> · <%= Number(aluno.horas_realizadas) %>h validadas</p>
+            </div>
+            <span class="status <%= estagioStatus(aluno).classe %>"><%= estagioStatus(aluno).label %></span>
+        </div>
+
+        <% if (encerrado) { %>
+            <!-- Estágio encerrado: só consulta e impressão -->
+            <div class="aviso aviso-ok" role="status">
+                <%- icone('check') %>
+                <div>
+                    <strong>Estágio concluído em <%= dataBr(aluno.encerrado_em) %></strong>
+                    A ata está pronta para impressão. O aluno só pode consultar e imprimir os documentos.
+                </div>
+            </div>
+
+            <div class="situacao">
+                <section class="card">
+                    <h2>Nota final</h2>
+                    <p class="ata-final"><%= fmt(calculo.final) %></p>
+                    <p class="text-muted">Resultado: <strong><%= RESULTADOS[fare.resultado] %></strong>
+                        <% if (fare.resultado === 'aprovado_ressalva') { %>
+                            <br>
+                            <% if (fare.corrigir_relatorio_ate) { %>Corrigir o relatório até <%= dataBr(fare.corrigir_relatorio_ate) %>. <% } %>
+                            <% if (fare.refazer_apresentacao_ate) { %>Refazer a apresentação até <%= dataBr(fare.refazer_apresentacao_ate) %>.<% } %>
+                        <% } %>
+                    </p>
+                    <div class="table-wrap">
+                        <table class="ata-pontos">
+                            <tbody>
+                                <tr><td>FAC · Avaliação do concedente</td><td><%= fmt(linhas.fac.nota, 1) %></td></tr>
+                                <tr><td>FAPO · Avaliação do orientador</td><td><%= fmt(linhas.fapo.nota, 1) %></td></tr>
+                                <% criterios.forEach((c) => { %>
+                                    <tr><td><%= c.titulo %> (média da banca)</td><td><%= fmt(linhas[c.chave].nota) %></td></tr>
+                                <% }) %>
+                                <tr><td>FAA · Autoavaliação</td><td><%= fmt(linhas.faa.nota) %></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <% if (fare.comentarios) { %><p class="text-muted"><strong>Comentários:</strong> <%= fare.comentarios %></p><% } %>
+                    <p class="text-muted" style="margin-top: 8px;">Avaliadores: <%= orientadorNome %>, <%= fare.avaliador_1 %> e <%= fare.avaliador_2 %></p>
+                </section>
+
+                <section class="card proximo-passo">
+                    <div>
+                        <h2>Documentos</h2>
+                        <p>Baixe a ata e a FAPO para imprimir e colher as assinaturas.</p>
+                    </div>
+                    <div class="button-group">
+                        <a href="/professor/aluno/<%= aluno.usuario_id %>/fare/pdf" class="btn"><%- icone('baixar') %> Ata da banca</a>
+                        <% if (fapo) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary" style="color:#fff;border-color:#fff;"><%- icone('baixar') %> FAPO</a><% } %>
+                    </div>
+                </section>
+            </div>
+
+            <div class="card">
+                <h2>Precisa corrigir algo?</h2>
+                <p class="text-muted">Reabrir o estágio devolve ao aluno a edição da FAA e deixa a ata como rascunho. Depois é só concluir de novo.</p>
+                <form action="/professor/aluno/<%= aluno.usuario_id %>/fare/reabrir" method="POST" class="card-actions"
+                    onsubmit="return confirm('Reabrir o estágio? O aluno poderá editar a FAA de novo e a ata voltará a ser rascunho.');">
+                    <button type="submit" class="btn-danger"><%- icone('refazer') %> Reabrir estágio</button>
+                </form>
+            </div>
+
+        <% } else { %>
+
+            <% if (!fapo) { %>
+                <div class="aviso" role="note">
+                    <%- icone('alerta') %>
+                    <div>
+                        <strong>Falta a FAPO</strong>
+                        A nota da FAPO entra na ata. <a href="/professor/aluno/<%= aluno.usuario_id %>/fapo">Preencher a FAPO agora</a>.
+                    </div>
+                </div>
+            <% } %>
+
+            <form action="/professor/aluno/<%= aluno.usuario_id %>/fare" method="POST" data-ata novalidate>
+                <div class="ata-layout">
+                    <div>
+                        <section class="card">
+                            <h2>Dados do estágio</h2>
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="periodo">Período do estágio</label>
+                                    <input type="text" id="periodo" name="periodo" maxlength="80" value="<%= v(valores.periodo) %>" placeholder="Ex.: 03/03/2026 a 30/09/2026">
+                                </div>
+                                <div class="form-field">
+                                    <label for="horas-total">Horas cumpridas</label>
+                                    <input type="text" id="horas-total" value="<%= Number(aluno.horas_realizadas) %>h" readonly>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="card">
+                            <h2>Notas das fichas</h2>
+                            <p class="text-muted">Cada nota vai de 0 a 10.</p>
+
+                            <div class="form-grid" style="margin-top: 12px;">
+                                <div class="form-field">
+                                    <label for="nota_fac">FAC · Avaliação do concedente (peso 2)</label>
+                                    <input type="number" id="nota_fac" name="nota_fac" min="0" max="10" step="0.1" inputmode="decimal"
+                                        value="<%= v(valores.nota_fac) %>" data-ata-nota="fac" data-peso="2" placeholder="Ex.: 9,5">
+                                    <small>Nota da ficha preenchida pela empresa.</small>
+                                </div>
+                            </div>
+
+                            <div class="fonte-nota" data-ata-fixa="fapo" data-valor="<%= v(notaFapo) %>" data-peso="2">
+                                <span>FAPO · Avaliação do orientador (peso 2)<br>
+                                    <small class="text-muted"><%= fapo ? 'Vem da FAPO salva.' : 'Ainda não preenchida.' %></small></span>
+                                <span class="table-actions">
+                                    <strong><%= fmt(notaFapo, 1) %></strong>
+                                    <a href="/professor/aluno/<%= aluno.usuario_id %>/fapo" class="btn btn-secondary btn-sm"><%- icone('caneta') %> <%= fapo ? 'Editar' : 'Preencher' %></a>
+                                </span>
+                            </div>
+
+                            <% if (faa) { %>
+                                <div class="fonte-nota" data-ata-fixa="faa" data-valor="<%= notaFaa %>" data-peso="1">
+                                    <span>FAA · Autoavaliação (peso 1)<br><small class="text-muted">Média das 10 notas que o aluno deu.</small></span>
+                                    <strong><%= fmt(notaFaa) %></strong>
+                                </div>
+                            <% } else { %>
+                                <div class="form-grid" style="margin-top: 12px;">
+                                    <div class="form-field">
+                                        <label for="nota_faa_manual">FAA · Autoavaliação (peso 1)</label>
+                                        <input type="number" id="nota_faa_manual" name="nota_faa_manual" min="0" max="10" step="0.1" inputmode="decimal"
+                                            value="<%= v(valores.nota_faa_manual) %>" data-ata-nota="faa" data-peso="1" placeholder="Ex.: 8,5">
+                                        <small>O aluno ainda não preencheu a FAA no sistema. Digite a nota da ficha em papel.</small>
+                                    </div>
+                                </div>
+                            <% } %>
+                        </section>
+
+                        <section class="card">
+                            <h2>Notas da banca</h2>
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label>N1 · Orientador</label>
+                                    <input type="text" value="<%= orientadorNome %>" readonly>
+                                </div>
+                                <div class="form-field">
+                                    <label for="avaliador_1">N2 · Avaliador 1</label>
+                                    <input type="text" id="avaliador_1" name="avaliador_1" maxlength="150" value="<%= v(valores.avaliador_1) %>" placeholder="Nome completo">
+                                </div>
+                                <div class="form-field">
+                                    <label for="avaliador_2">N3 · Avaliador 2</label>
+                                    <input type="text" id="avaliador_2" name="avaliador_2" maxlength="150" value="<%= v(valores.avaliador_2) %>" placeholder="Nome completo">
+                                </div>
+                            </div>
+
+                            <div class="table-wrap" style="margin-top: 16px;">
+                                <table class="nota-tabela">
+                                    <thead>
+                                        <tr><th>Critério</th><th>Peso</th><th>N1</th><th>N2</th><th>N3</th><th>Média</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <% criterios.forEach((c, i) => { %>
+                                            <tr data-ata-banca data-chave="<%= c.chave %>" data-peso="<%= c.peso %>">
+                                                <td data-label="Critério"><%= c.titulo %></td>
+                                                <td data-label="Peso"><%= c.peso %></td>
+                                                <% [1, 2, 3].forEach((n) => { %>
+                                                    <td data-label="N<%= n %>">
+                                                        <input type="number" name="banca_<%= i + 1 %>_<%= n %>" min="0" max="10" step="0.1" inputmode="decimal"
+                                                            value="<%= v(valores.banca[i][n - 1]) %>" aria-label="<%= c.titulo %>, N<%= n %>" data-banca>
+                                                    </td>
+                                                <% }) %>
+                                                <td data-label="Média" class="media" data-media><%= fmt(linhas[c.chave].nota) %></td>
+                                            </tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section class="card">
+                            <h2>Resultado</h2>
+                            <div class="opcoes-resultado" role="radiogroup" aria-label="Resultado da banca">
+                                <label class="opcao-resultado">
+                                    <input type="radio" name="resultado" value="aprovado" <%= valores.resultado === 'aprovado' ? 'checked' : '' %>>
+                                    <span>Aprovado</span>
+                                </label>
+                                <label class="opcao-resultado">
+                                    <input type="radio" name="resultado" value="aprovado_ressalva" <%= valores.resultado === 'aprovado_ressalva' ? 'checked' : '' %>>
+                                    <span>Aprovado com ressalva<small>O aluno precisa corrigir algo até uma data.</small></span>
+                                </label>
+                                <div class="ressalva-extra" data-ressalva <%= valores.resultado === 'aprovado_ressalva' ? '' : 'hidden' %>>
+                                    <div class="ressalva-linha">
+                                        <label class="check-line" style="margin:0;"><input type="checkbox" name="corrigir_relatorio" <%= valores.corrigir_relatorio_ate ? 'checked' : '' %>> Corrigir o relatório e entregar até</label>
+                                        <input type="date" name="corrigir_relatorio_ate" value="<%= v(valores.corrigir_relatorio_ate) %>" aria-label="Data limite para corrigir o relatório">
+                                    </div>
+                                    <div class="ressalva-linha">
+                                        <label class="check-line" style="margin:0;"><input type="checkbox" name="refazer_apresentacao" <%= valores.refazer_apresentacao_ate ? 'checked' : '' %>> Refazer a apresentação à banca até</label>
+                                        <input type="date" name="refazer_apresentacao_ate" value="<%= v(valores.refazer_apresentacao_ate) %>" aria-label="Data limite para refazer a apresentação">
+                                    </div>
+                                </div>
+                                <label class="opcao-resultado">
+                                    <input type="radio" name="resultado" value="reprovado" <%= valores.resultado === 'reprovado' ? 'checked' : '' %>>
+                                    <span>Reprovado</span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <section class="card">
+                            <h2>Comentários e data</h2>
+                            <label for="comentarios">Comentários e observações</label>
+                            <textarea id="comentarios" name="comentarios" maxlength="600" placeholder="Opcional. Cabem até 4 linhas na ata impressa."><%= v(valores.comentarios) %></textarea>
+                            <div class="form-grid" style="margin-top: 16px;">
+                                <div class="form-field">
+                                    <label for="data_ata">Data da ata</label>
+                                    <input type="date" id="data_ata" name="data_ata" value="<%= v(valores.data_ata) %>">
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <aside class="ata-resumo" aria-label="Resumo da nota">
+                        <div class="card">
+                            <h2>Nota final</h2>
+                            <p class="ata-final" data-ata-final><%= fmt(calculo.final) %></p>
+                            <p class="text-muted">Soma de (nota × peso) ÷ 10</p>
+                            <table class="ata-pontos">
+                                <tbody>
+                                    <tr><td>FAC (peso 2)</td><td data-pt="fac"><%= fmt(linhas.fac.pontos) %></td></tr>
+                                    <tr><td>FAPO (peso 2)</td><td data-pt="fapo"><%= fmt(linhas.fapo.pontos) %></td></tr>
+                                    <% criterios.forEach((c) => { %>
+                                        <tr><td><%= c.titulo %> (peso <%= c.peso %>)</td><td data-pt="<%= c.chave %>"><%= fmt(linhas[c.chave].pontos) %></td></tr>
+                                    <% }) %>
+                                    <tr><td>FAA (peso 1)</td><td data-pt="faa"><%= fmt(linhas.faa.pontos) %></td></tr>
+                                </tbody>
+                            </table>
+                            <div class="button-group">
+                                <button type="submit" name="acao" value="salvar" class="btn-secondary"><%- icone('check') %> Salvar rascunho</button>
+                                <% if (fare) { %>
+                                    <a href="/professor/aluno/<%= aluno.usuario_id %>/fare/pdf" class="btn btn-secondary"><%- icone('olho') %> Prévia em PDF</a>
+                                <% } %>
+                                <button type="submit" name="acao" value="finalizar" class="btn-success"
+                                    data-confirmar="Concluir o estágio? Depois disso o aluno só poderá consultar e imprimir os documentos. Você ainda poderá reabrir se precisar corrigir algo.">
+                                    <%- icone('cadeado') %> Concluir estágio e emitir ata
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+
+                <div class="barra-mobile">
+                    <span>Nota final <strong data-ata-final><%= fmt(calculo.final) %></strong></span>
+                    <button type="submit" name="acao" value="salvar" class="btn-secondary btn-sm">Salvar rascunho</button>
+                </div>
+            </form>
+        <% } %>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

@@ -4,12 +4,15 @@
 
 const alunosModel = require('../models/alunos');
 const usuariosModel = require('../models/usuarios');
+const { estagioStatus } = require('../config/status');
 
 async function attachUser(req, res, next) {
     res.locals.user = req.session.user || null;
     res.locals.flash = req.session.flash || null;
     res.locals.currentPath = req.path;
     res.locals.currentTab = req.query.aba || null;
+    res.locals.estagioStatus = estagioStatus;
+    res.locals.alunoEncerrado = false;
     delete req.session.flash;
 
     // usado pelo header pra só mostrar "Nova Atividade" quando o estágio
@@ -19,6 +22,7 @@ async function attachUser(req, res, next) {
         try {
             const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
             res.locals.alunoStatus = aluno ? aluno.status : null;
+            res.locals.alunoEncerrado = Boolean(aluno && aluno.encerrado_em);
         } catch (err) {
             res.locals.alunoStatus = null;
         }

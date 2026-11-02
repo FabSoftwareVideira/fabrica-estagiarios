@@ -10,14 +10,20 @@
 
     <%- include('partials/header') %>
 
-    <main class="container">
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Fichas', href: '/professor/fichas' },
+            { texto: aluno.nome, href: '/professor/aluno/' + aluno.usuario_id },
+            { texto: 'FAPO' }
+        ] }) %>
         <%- include('partials/flash') %>
 
-        <h2>Ficha de Avaliação pelo Professor Orientador (FAPO)</h2>
-        <p class="text-muted page-subtitle">
-            Estagiário(a): <strong><%= aluno.nome %></strong> ·
-            Empresa/Entidade concedente: <strong><%= aluno.empresa || '—' %></strong>
-        </p>
+        <div class="page-head">
+            <div>
+                <h1>FAPO · Avaliação do orientador</h1>
+                <p><strong><%= aluno.nome %></strong> · <%= aluno.empresa || 'Empresa não informada' %></p>
+            </div>
+        </div>
 
         <% if (fapoSalva) { %>
             <div class="faa-saved">
@@ -27,7 +33,7 @@
                         Última atualização em <%= new Date(fapoSalva.atualizado_em).toLocaleString('pt-BR') %>.
                     </span>
                 </div>
-                <a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary">Gerar PDF novamente</a>
+                <a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary"><%- icone('baixar') %> Baixar PDF</a>
             </div>
         <% } %>
 
@@ -52,9 +58,9 @@
             </section>
 
             <div class="button-group form-actions">
-                <button type="submit" name="acao" value="salvar_pdf">Salvar e gerar PDF da FAPO</button>
-                <button type="submit" name="acao" value="salvar" class="btn-secondary">Salvar sem gerar PDF</button>
-                <a href="/professor/aluno/<%= aluno.usuario_id %>" class="btn btn-secondary">Voltar</a>
+                <button type="submit" name="acao" value="salvar_pdf" class="btn-success">Salvar e baixar PDF</button>
+                <button type="submit" name="acao" value="salvar" class="btn-secondary">Salvar sem baixar</button>
+                <a href="/professor/fichas" class="btn btn-secondary">Voltar às fichas</a>
             </div>
         </form>
     </main>

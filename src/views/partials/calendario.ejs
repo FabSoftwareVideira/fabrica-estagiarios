@@ -1,0 +1,30 @@
+<%#
+  Calendário mensal das atividades (montado por /js/main.js).
+  Variáveis: dados (atividades), modo ('selecionar' | 'ver'), hoje, selecionado, podeRegistrar
+%>
+<div class="calendario"
+    data-calendario
+    data-modo="<%= modo %>"
+    data-hoje="<%= hoje %>"
+    data-selecionado="<%= typeof selecionado !== 'undefined' ? selecionado : '' %>"
+    data-pode-registrar="<%= typeof podeRegistrar !== 'undefined' && podeRegistrar ? '1' : '0' %>">
+    <div class="cal-topo">
+        <span class="cal-titulo" data-cal-titulo aria-live="polite"></span>
+        <div class="cal-nav">
+            <button type="button" data-cal="anterior" aria-label="Mês anterior"><%- icone('esquerda') %></button>
+            <button type="button" class="cal-hoje" data-cal="hoje">Hoje</button>
+            <button type="button" data-cal="proximo" aria-label="Próximo mês"><%- icone('direita') %></button>
+        </div>
+    </div>
+
+    <div class="cal-grade" data-cal-grade role="group" aria-label="Dias do mês"></div>
+
+    <div class="cal-legenda" aria-hidden="true">
+        <span><i class="lg-validada"></i> Horas validadas</span>
+        <span><i class="lg-pendente"></i> Aguardando validação</span>
+        <span><i class="lg-invalida"></i> Invalidada</span>
+        <span><i class="lg-fim"></i> Fim de semana</span>
+    </div>
+
+    <script type="application/json" data-cal-dados><%- JSON.stringify(dados).replace(/</g, '\\u003c') %></script>
+</div>

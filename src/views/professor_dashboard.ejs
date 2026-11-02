@@ -12,7 +12,7 @@
 
     <%- include('partials/header') %>
 
-        <main class="container">
+        <main id="conteudo" class="container">
             <%- include('partials/flash') %>
 
                 <div class="tabs">
@@ -31,7 +31,7 @@
                 <% if (aba === 'administracao') { %>
                     <div class="card">
                         <h2>Administração</h2>
-                        <p class="text-muted">Gerencie contas de professores e cadastre novos usuários.</p>
+                        <p class="text-muted">Gerencie contas de professores, cadastre usuários e configure o relatório semanal.</p>
 
                         <div class="action-grid">
                             <a href="/professor/professores" class="action-card">
@@ -62,8 +62,8 @@
                             <% } %>
                             <div class="filters-top">
                                 <input type="search" name="q" value="<%= filtros.q %>"
-                                    placeholder="Buscar por nome do aluno..." aria-label="Buscar alunos">
-                                <button type="submit">Filtrar</button>
+                                    placeholder="Buscar por nome, matrícula ou e-mail" aria-label="Buscar alunos">
+                                <button type="submit"><%- icone('lupa', 18) %> Buscar</button>
                                 <% if (filtroPersonalizado) { %>
                                     <a href="/professor/dashboard?aba=<%= aba %>" class="btn btn-secondary">Limpar</a>
                                 <% } %>
@@ -85,10 +85,16 @@
                                         <span>Em andamento</span>
                                     </label>
                                     <label class="filter-pill">
-                                        <input type="checkbox" name="status" value="concluido"
-                                            <%= filtros.status.includes('concluido') ? 'checked' : '' %>
+                                        <input type="checkbox" name="status" value="aguardando_banca"
+                                            <%= filtros.status.includes('aguardando_banca') || filtros.status.includes('concluido') ? 'checked' : '' %>
                                             data-auto-submit>
-                                        <span>Concluído</span>
+                                        <span>Aguardando banca</span>
+                                    </label>
+                                    <label class="filter-pill">
+                                        <input type="checkbox" name="status" value="encerrado"
+                                            <%= filtros.status.includes('encerrado') || filtros.status.includes('concluido') ? 'checked' : '' %>
+                                            data-auto-submit>
+                                        <span>Encerrado</span>
                                     </label>
 
                                     <span class="filter-pills-sep"></span>
@@ -184,22 +190,17 @@
                                     <% } else { %>
                                         <% alunos.forEach((a) => { %>
                                             <tr>
-                                                <td><%= a.nome %></td>
+                                                <td><a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a></td>
                                                 <td><%= a.supervisor_nome || '—' %></td>
                                                 <td>
-                                                    <%= a.horas_realizadas %> / <%= a.carga_horaria %>h
+                                                    <%= Number(a.horas_realizadas) %> / <%= a.carga_horaria %>h
                                                     <% if (Number(a.horas_pendentes) > 0) { %>
                                                         <br><span class="text-muted hours-pending">+<%= a.horas_pendentes %>h pendentes</span>
                                                     <% } %>
                                                 </td>
                                                 <td>
-                                                    <% if (a.status === 'lista_espera') { %>
-                                                        <span class="status status-waiting">Lista de espera</span>
-                                                    <% } else if (a.status === 'em_andamento') { %>
-                                                        <span class="status status-progress">Em andamento</span>
-                                                    <% } else { %>
-                                                        <span class="status status-completed">Concluído</span>
-                                                    <% } %>
+                                                    <% const st = estagioStatus(a); %>
+                                                    <span class="status <%= st.classe %>"><%= st.label %></span>
                                                     <% if (a.arquivado) { %>
                                                         <span class="status status-archived">Arquivado</span>
                                                     <% } %>

@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS alunos (
     orientador_id   INTEGER REFERENCES usuarios(id),
     carga_horaria   INTEGER NOT NULL DEFAULT 60,
     arquivado       BOOLEAN NOT NULL DEFAULT false,
+    encerrado_em    TIMESTAMP,
     criado_em       TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -69,6 +70,27 @@ CREATE TABLE IF NOT EXISTS fapos (
     data_assinatura DATE NOT NULL,
     criado_em       TIMESTAMP NOT NULL DEFAULT NOW(),
     atualizado_em   TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS fares (
+    aluno_id            INTEGER PRIMARY KEY REFERENCES alunos(usuario_id) ON DELETE CASCADE,
+    periodo             TEXT NOT NULL DEFAULT '',
+    -- nota da FAC (avaliação do concedente), digitada pelo orientador
+    nota_fac            NUMERIC(4,1) CHECK (nota_fac IS NULL OR (nota_fac >= 0 AND nota_fac <= 10)),
+    -- só é usada quando o aluno não preencheu a FAA no sistema
+    nota_faa_manual     NUMERIC(4,1) CHECK (nota_faa_manual IS NULL OR (nota_faa_manual >= 0 AND nota_faa_manual <= 10)),
+    -- 3 critérios (apresentação, prática, relatório) x 3 notas (N1, N2, N3)
+    banca               JSONB NOT NULL DEFAULT '[[null,null,null],[null,null,null],[null,null,null]]'
+                            CHECK (jsonb_typeof(banca) = 'array' AND jsonb_array_length(banca) = 3),
+    avaliador_1         TEXT NOT NULL DEFAULT '',
+    avaliador_2         TEXT NOT NULL DEFAULT '',
+    resultado           VARCHAR(20) CHECK (resultado IS NULL OR resultado IN ('aprovado', 'aprovado_ressalva', 'reprovado')),
+    corrigir_relatorio_ate     DATE,
+    refazer_apresentacao_ate   DATE,
+    comentarios         TEXT NOT NULL DEFAULT '',
+    data_ata            DATE,
+    criado_em           TIMESTAMP NOT NULL DEFAULT NOW(),
+    atualizado_em       TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS configuracoes_relatorio_semanal (

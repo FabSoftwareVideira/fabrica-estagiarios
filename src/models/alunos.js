@@ -42,11 +42,23 @@ const ORDENACOES = {
     nome: 'u.nome',
     supervisor: "COALESCE(sup.nome, '')",
     horas: 'horas_realizadas',
-    status: `CASE a.status
-                WHEN 'lista_espera' THEN 1
-                WHEN 'em_andamento' THEN 2
-                ELSE 3
+    status: `CASE
+                WHEN a.status = 'lista_espera' THEN 1
+                WHEN a.status = 'em_andamento' THEN 2
+                WHEN a.encerrado_em IS NULL THEN 3
+                ELSE 4
              END`,
+};
+
+// filtros de status aceitos na listagem. "aguardando_banca" e "encerrado" são
+// fases do status "concluido" (horas cumpridas); o valor antigo "concluido"
+// continua valendo e pega as duas.
+const CONDICOES_STATUS = {
+    lista_espera: "a.status = 'lista_espera'",
+    em_andamento: "a.status = 'em_andamento'",
+    aguardando_banca: "(a.status = 'concluido' AND a.encerrado_em IS NULL)",
+    encerrado: "(a.status = 'concluido' AND a.encerrado_em IS NOT NULL)",
+    concluido: "a.status = 'concluido'",
 };
 
 async function listar({ status, busca, arquivados, limite, offset, ordenarPor, direcao, orientadorId, supervisorId }) {
@@ -63,9 +75,11 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
     }
 
     const statusSelecionados = Array.isArray(status) ? status : (status ? [status] : []);
-    if (statusSelecionados.length > 0) {
-        valores.push(statusSelecionados);
-        filtros.push(`a.status = ANY($${valores.length})`);
+    const condicoesStatus = statusSelecionados
+        .map((chave) => CONDICOES_STATUS[chave])
+        .filter(Boolean);
+    if (condicoesStatus.length > 0) {
+        filtros.push(`(${condicoesStatus.join(' OR ')})`);
     }
 
     const termo = (busca || '').trim();
@@ -88,11 +102,7 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
     const sentido = direcao === 'desc' ? 'DESC' : 'ASC';
     const orderBy = expressaoOrdenacao
         ? `${expressaoOrdenacao} ${sentido}, u.nome`
-        : `CASE a.status
-                WHEN 'lista_espera' THEN 1
-                WHEN 'em_andamento' THEN 2
-                ELSE 3
-           END,
+        : `${ORDENACOES.status},
            u.nome`;
 
     const valoresPagina = [...valores, limite, offset];

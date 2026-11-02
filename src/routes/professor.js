@@ -8,6 +8,7 @@ const relatorioSemanalModel = require('../models/relatorioSemanal');
 const { executar: enviarRelatorioSemanal } = require('../scripts/enviarRelatorioSemanalSupervisores');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
+const faresModel = require('../models/fares');
 const { gerarFapoPdf } = require('../services/fapoPdf');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
@@ -42,10 +43,12 @@ router.post('/completar-cadastro', async (req, res) => {
 });
 
 router.use(requireNomeConfirmado);
+router.use(require('./fichas'));
 
 const TAMANHO_PAGINA = 10;
-const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'concluido'];
+const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'concluido'];
 const CAMPOS_ORDENACAO = ['nome', 'supervisor', 'horas', 'status'];
+const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado'];
 
 router.get('/dashboard', async (req, res) => {
     const isAdmin = req.session.user.cargo === 'admin';
@@ -85,7 +88,7 @@ router.get('/dashboard', async (req, res) => {
         .filter((s) => STATUS_VALIDOS.includes(s));
 
     if (!filtroEnviado && status.length === 0) {
-        status = ['lista_espera', 'em_andamento', 'concluido'];
+        status = [...STATUS_FILTRO];
     }
 
     let pagina = parseInt(req.query.pagina, 10);
@@ -169,6 +172,12 @@ async function requireOrientadorFapo(req, res, next) {
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
+    // com o estágio encerrado a FAPO vira só consulta (o PDF continua liberado)
+    if (aluno.encerrado_em && !req.path.endsWith('/pdf')) {
+        setFlash(req, 'error', 'O estágio foi encerrado, então a FAPO não pode mais ser alterada. Baixe o PDF ou reabra a ata.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
     req.aluno = aluno;
     next();
 }
@@ -180,14 +189,19 @@ router.get('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/dashboard');
     }
 
-    const [atividades, professores] = await Promise.all([
+    const [atividades, professores, fapo, faa, fare] = await Promise.all([
         atividadesModel.listarPorAluno(req.params.id),
         usuariosModel.listarProfessores(),
+        faposModel.buscarPorAluno(req.params.id),
+        faasModel.buscarPorAluno(req.params.id),
+        faresModel.buscarPorAluno(req.params.id),
     ]);
 
-    const podeGerarFapo = aluno.status === 'concluido'
-        && Number(aluno.orientador_id) === Number(req.session.user.id);
+    const ehOrientador = Number(aluno.orientador_id) === Number(req.session.user.id);
+    const encerrado = Boolean(aluno.encerrado_em);
+    const podeGerarFapo = aluno.status === 'concluido' && ehOrientador && !encerrado;
     const podeValidarAtividades = !aluno.arquivado
+        && !encerrado
         && Number(aluno.supervisor_id) === Number(req.session.user.id);
 
     res.render('professor_aluno', {
@@ -196,6 +210,11 @@ router.get('/aluno/:id', async (req, res) => {
         professores,
         podeGerarFapo,
         podeValidarAtividades,
+        ehOrientador,
+        encerrado,
+        fapo,
+        faa,
+        fare,
     });
 });
 
@@ -316,6 +335,10 @@ router.post('/aluno/:id', async (req, res) => {
         setFlash(req, 'error', 'Não é possível editar um estágio arquivado. Desarquive primeiro.');
         return res.redirect('/professor/aluno/' + req.params.id);
     }
+    if (aluno.encerrado_em) {
+        setFlash(req, 'error', 'O estágio foi encerrado. Reabra a ata da banca para alterar os dados.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
 
     const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
 
@@ -357,6 +380,11 @@ async function alterarValidacao(req, res, status) {
 
     if (aluno.arquivado) {
         setFlash(req, 'error', 'Não é possível validar horas de um estágio arquivado.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
+    if (aluno.encerrado_em) {
+        setFlash(req, 'error', 'O estágio foi encerrado. Reabra a ata da banca para alterar validações.');
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 

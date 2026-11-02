@@ -122,3 +122,11 @@ docker compose -f docker-compose.prod.yml down
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+## Encerramento do estágio e ata da banca (FARE)
+
+- O orientador abre **Fichas** no menu, preenche a FAPO e a ata da banca (nota da FAC, notas N1/N2/N3 de cada critério, avaliadores, resultado e comentários).
+- A nota final é a soma de (nota x peso) dividida por 10. A FAA vem da ficha do aluno (ou é digitada se o aluno não preencheu) e a FAPO vem da ficha salva.
+- Ao **concluir o estágio** (`alunos.encerrado_em`), o aluno não registra mais atividades nem altera a FAA, e o supervisor não valida mais horas: só é possível consultar e imprimir. O orientador (ou admin) pode **reabrir** o estágio.
+- Migração: `db/migrations/014_ata_banca.sql` (coluna `encerrado_em` e tabela `fares`). O modelo do PDF fica em `docs/FARE - Avaliação-Estágio-Ata-Banca-.pdf`.
+
