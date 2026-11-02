@@ -64,6 +64,10 @@ function montarEmail(supervisores, urlAplicacao) {
         const linhas = supervisor.alunos.map((aluno) => {
             const quantidade = Number(aluno.atividades_semana);
             const statusAtividades = quantidade > 0 ? `Sim (${quantidade})` : 'Não';
+            const atividadesPendentes = Number(aluno.atividades_pendentes);
+            const badgeAvaliacao = atividadesPendentes > 0
+                ? `<span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:bold;">${atividadesPendentes} pendente(s)</span>`
+                : '<span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:bold;">Nenhuma pendente</span>';
             const linkAluno = `${urlAplicacao}/professor/aluno/${encodeURIComponent(aluno.aluno_id)}`;
 
             return `
@@ -71,6 +75,7 @@ function montarEmail(supervisores, urlAplicacao) {
                     <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${escaparHtml(aluno.aluno_nome)}</td>
                     <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${Number(aluno.horas_semana).toFixed(2)} h</td>
                     <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${statusAtividades}</td>
+                    <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${badgeAvaliacao}</td>
                     <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;"><a href="${escaparHtml(linkAluno)}" style="color:#2563eb;">Ver detalhes</a></td>
                 </tr>`;
         }).join('');
@@ -83,6 +88,7 @@ function montarEmail(supervisores, urlAplicacao) {
                         <th style="padding:10px;text-align:left;border-bottom:1px solid #d1d5db;">Estudante</th>
                         <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Horas registradas</th>
                         <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Preencheu atividades</th>
+                        <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Para avaliar</th>
                         <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Detalhes</th>
                     </tr>
                 </thead>
@@ -108,7 +114,7 @@ function montarEmail(supervisores, urlAplicacao) {
         ...supervisores.flatMap((supervisor) => [
             '',
             `Supervisor: ${supervisor.nome}`,
-            ...supervisor.alunos.map((aluno) => `${aluno.aluno_nome}: ${Number(aluno.horas_semana).toFixed(2)} horas registradas; atividades preenchidas: ${Number(aluno.atividades_semana) > 0 ? `Sim (${aluno.atividades_semana})` : 'Não'} — ${urlAplicacao}/professor/aluno/${aluno.aluno_id}`),
+            ...supervisor.alunos.map((aluno) => `${aluno.aluno_nome}: ${Number(aluno.horas_semana).toFixed(2)} horas registradas; atividades preenchidas: ${Number(aluno.atividades_semana) > 0 ? `Sim (${aluno.atividades_semana})` : 'Não'}; para avaliar: ${Number(aluno.atividades_pendentes) > 0 ? `${aluno.atividades_pendentes} pendente(s)` : 'nenhuma pendente'} — ${urlAplicacao}/professor/aluno/${aluno.aluno_id}`),
         ]),
         '',
         'As horas incluem atividades pendentes de validação e excluem as invalidadas.',
@@ -209,7 +215,12 @@ async function executar({ forcar = false } = {}) {
                 COUNT(atividade.id) FILTER (
                     WHERE atividade.data >= $1::date - INTERVAL '6 days'
                       AND atividade.data < $1::date + INTERVAL '1 day'
-                )::int AS atividades_semana
+                )::int AS atividades_semana,
+                COUNT(atividade.id) FILTER (
+                    WHERE atividade.data >= $1::date - INTERVAL '6 days'
+                      AND atividade.data < $1::date + INTERVAL '1 day'
+                      AND atividade.status_validacao = 'pendente'
+                )::int AS atividades_pendentes
             FROM alunos aluno
             JOIN usuarios estudante ON estudante.id = aluno.usuario_id
             JOIN usuarios supervisor ON supervisor.id = aluno.supervisor_id
@@ -238,6 +249,7 @@ async function executar({ forcar = false } = {}) {
                 aluno_nome: row.aluno_nome,
                 horas_semana: row.horas_semana,
                 atividades_semana: row.atividades_semana,
+                atividades_pendentes: row.atividades_pendentes,
             });
         }
 
@@ -320,4 +332,4 @@ if (require.main === module) {
         .finally(() => pool.end());
 }
 
-module.exports = { executar };
+module.exports = { executar, montarEmail };

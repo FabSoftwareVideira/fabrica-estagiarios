@@ -50,7 +50,7 @@ O workflow `.github/workflows/relatorio-semanal.yml` verifica a programação a 
 
 O workflow de deploy aplica automaticamente as migrações pendentes em ordem, usando `src/scripts/runMigrations.js`, antes de atualizar o container web. O histórico fica registrado na tabela `schema_migrations`. Na primeira execução em bancos legados, o runner verifica se o schema já está no estado esperado até a migração 010 e registra esse baseline; caso não esteja, o deploy para com uma mensagem de erro em vez de presumir e pular migrações antigas. Em instalações novas, `db/init.sql` cria a estrutura atual e o runner aplica e registra as migrações recentes de forma idempotente.
 
-Em desenvolvimento, as migrações podem ser executadas manualmente dentro do container web com `docker exec fabrica-estagiarios-dev-web node src/scripts/runMigrations.js`.
+Em desenvolvimento, `npm run dev` aplica automaticamente as migrações pendentes antes de iniciar o servidor. Para aplicar sem reiniciar a aplicação, execute `docker exec fabrica-estagiarios-dev-web node src/scripts/runMigrations.js`.
 
 Adicione estas variáveis ao `ENV_FILE` configurado nos GitHub Actions (e ao `.env` da VPS):
 
@@ -129,4 +129,3 @@ docker compose -f docker-compose.prod.yml up -d
 - A nota final é a soma de (nota x peso) dividida por 10. A FAA vem da ficha do aluno (ou é digitada se o aluno não preencheu) e a FAPO vem da ficha salva.
 - Ao **concluir o estágio** (`alunos.encerrado_em`), o aluno não registra mais atividades nem altera a FAA, e o supervisor não valida mais horas: só é possível consultar e imprimir. O orientador (ou admin) pode **reabrir** o estágio.
 - Migração: `db/migrations/014_ata_banca.sql` (coluna `encerrado_em` e tabela `fares`). O modelo do PDF fica em `docs/FARE - Avaliação-Estágio-Ata-Banca-.pdf`.
-
