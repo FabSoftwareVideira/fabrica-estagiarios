@@ -274,6 +274,30 @@ test('perfil permite informar ou corrigir o curso para um único curso cadastrad
     assert.equal(alterado.status, 302);
     assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso, cursos[2]);
 });
+test('orientador pode corrigir o curso; outros professores e cursos inválidos são recusados', async () => {
+    const cursoInformatica = 'Curso Técnico em Informática Integrado ao Ensino Médio';
+    const semPermissao = await requisitar('/professor/aluno/1/curso', {
+        user: 101, method: 'POST', body: { curso: cursoInformatica },
+    });
+    assert.equal(semPermissao.status, 302);
+    assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso,
+        'Curso Técnico de Agropecuária Integrado ao Ensino Médio');
+
+    const invalido = await requisitar('/professor/aluno/1/curso', {
+        user: 102, method: 'POST', body: { curso: 'Curso não cadastrado' },
+    });
+    assert.equal(invalido.status, 302);
+    assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso,
+        'Curso Técnico de Agropecuária Integrado ao Ensino Médio');
+
+    const atualizado = await requisitar('/professor/aluno/1/curso', {
+        user: 102, method: 'POST', body: { curso: cursoInformatica },
+    });
+    assert.equal(atualizado.status, 302);
+    assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso, cursoInformatica);
+    const detalhes = await requisitar('/professor/aluno/1', { user: 102 });
+    assert.match(await detalhes.text(), /Corrigir curso do estudante/);
+});
 test('supervisor externo só vê estudantes atribuídos e não acessa funções de professor', async () => {
     await db.exec(`UPDATE alunos SET supervisor_id=105 WHERE usuario_id=1;
         UPDATE alunos SET orientador_id=105 WHERE usuario_id=2;`);

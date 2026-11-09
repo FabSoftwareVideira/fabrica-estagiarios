@@ -271,7 +271,35 @@ router.get('/aluno/:id', async (req, res) => {
         faa,
         fare,
         facRascunho,
+        cursos: CURSOS,
     });
+});
+
+router.post('/aluno/:id/curso', async (req, res) => {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
+    if (!aluno) {
+        setFlash(req, 'error', 'Aluno não encontrado.');
+        return res.redirect('/professor/dashboard');
+    }
+    if (Number(aluno.orientador_id) !== Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Apenas o professor orientador pode alterar o curso do estudante.');
+        return res.redirect(`/professor/aluno/${aluno.usuario_id}`);
+    }
+
+    const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
+    if (!ehCurso(curso)) {
+        setFlash(req, 'error', 'Selecione um dos cursos técnicos disponíveis.');
+        return res.redirect(`/professor/aluno/${aluno.usuario_id}`);
+    }
+
+    try {
+        await alunosModel.atualizarCurso(aluno.usuario_id, curso);
+        setFlash(req, 'success', 'Curso do estudante atualizado.');
+    } catch (err) {
+        console.error('[professor/aluno/curso] erro ao atualizar curso:', err.message);
+        setFlash(req, 'error', 'Não foi possível atualizar o curso do estudante. Tente novamente.');
+    }
+    return res.redirect(`/professor/aluno/${aluno.usuario_id}`);
 });
 
 router.get('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {

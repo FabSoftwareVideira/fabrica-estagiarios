@@ -69,7 +69,23 @@
             <dl class="summary-details">
                 <div>
                     <dt>Curso</dt>
-                    <dd><%= aluno.curso || 'Não informado' %></dd>
+                    <dd>
+                        <%= aluno.curso || 'Não informado' %>
+                        <% if (ehOrientador) { %>
+                            <form action="/professor/aluno/<%= aluno.usuario_id %>/curso" method="POST" class="form-grid" style="margin-top: 10px;">
+                                <div class="form-field">
+                                    <label for="curso">Corrigir curso do estudante</label>
+                                    <select id="curso" name="curso" required>
+                                        <option value="">Selecione o curso</option>
+                                        <% cursos.forEach((curso) => { %>
+                                            <option value="<%= curso %>" <%= aluno.curso === curso ? 'selected' : '' %>><%= curso %></option>
+                                        <% }) %>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-secondary btn-sm">Atualizar curso</button>
+                            </form>
+                        <% } %>
+                    </dd>
                 </div>
                 <div>
                     <dt>Supervisor</dt>
