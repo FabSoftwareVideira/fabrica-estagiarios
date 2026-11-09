@@ -52,7 +52,9 @@
                     <label for="carga">Carga Horária Total</label>
                     <input type="number" id="carga" name="carga_horaria" min="1" placeholder="Ex.: 60" value="60" required>
 
-                <div class="button-group">
+                    <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {} }) %>
+
+                    <div class="button-group">
                     <button type="submit" class="btn-success">Aprovar Cadastro</button>
                     <a href="/professor/dashboard" class="btn btn-secondary">Cancelar</a>
                 </div>

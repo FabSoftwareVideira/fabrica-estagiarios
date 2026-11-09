@@ -1,0 +1,25 @@
+<fieldset class="horario-trabalho-campos">
+    <legend>Dias e horários de trabalho</legend>
+    <p class="text-muted">Selecione os dias planejados e informe um período contínuo de até 6 horas por dia. Domingo não pode ser selecionado.</p>
+    <div class="horario-trabalho-grade">
+        <% diasTrabalho.forEach((dia) => { %>
+            <% const horario = horarioTrabalho[String(dia.id)] || {}; %>
+            <div class="horario-trabalho-dia">
+                <label class="horario-trabalho-selecao">
+                    <input type="checkbox" name="dias_trabalho" value="<%= dia.id %>" <%= horario.inicio && horario.fim ? 'checked' : '' %>>
+                    <%= dia.nome %>
+                </label>
+                <div class="form-grid form-grid-2">
+                    <div class="form-field">
+                        <label for="horario_inicio_<%= dia.id %>">Entrada</label>
+                        <input type="time" id="horario_inicio_<%= dia.id %>" name="horario_inicio_<%= dia.id %>" value="<%= horario.inicio || '' %>">
+                    </div>
+                    <div class="form-field">
+                        <label for="horario_fim_<%= dia.id %>">Saída</label>
+                        <input type="time" id="horario_fim_<%= dia.id %>" name="horario_fim_<%= dia.id %>" value="<%= horario.fim || '' %>">
+                    </div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+</fieldset>

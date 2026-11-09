@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/scripts/runMigrations.js && nodemon src/server.js",
+    "seed:dev": "node src/scripts/seedDev.js",
     "email:weekly": "node src/scripts/enviarRelatorioSemanalSupervisores.js",
     "email:reminders": "node src/scripts/enviarLembretesAtividades.js",
     "demo": "node src/scripts/demo.js",

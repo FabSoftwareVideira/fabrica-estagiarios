@@ -17,6 +17,7 @@ const faresModel = require('../models/fares');
 const { gerarFarePdf } = require('../services/farePdf');
 const { montarContexto, dadosParaPdf } = require('../services/ataDados');
 const { formatarHora } = require('../utils/datas');
+const { DIAS_TRABALHO } = require('../utils/horarioTrabalho');
 
 router.use(requireRole('aluno'));
 
@@ -162,6 +163,8 @@ router.get('/dashboard', async (req, res) => {
         encerrado: Boolean(aluno.encerrado_em),
         fareSalva: aluno.encerrado_em ? await faresModel.buscarPorAluno(req.session.user.id) : null,
         calendario: dadosCalendario(atividades),
+        horariosTrabalho: aluno.horario_trabalho || {},
+        diasTrabalho: DIAS_TRABALHO,
         hoje: dataLocalIso(),
     });
 });
@@ -410,6 +413,8 @@ router.get('/nova-atividade', requireEmAndamento, async (req, res) => {
     res.render('aluno_nova_atividade', {
         formData,
         calendario: dadosCalendario(atividades),
+        horariosTrabalho: req.aluno.horario_trabalho || {},
+        diasTrabalho: DIAS_TRABALHO,
         hoje: dataLocalIso(),
     });
 });
@@ -464,11 +469,15 @@ router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
         );
     }
 
-    // não é permitido registrar horas em finais de semana
+    if (!dataIsoValida(data)) {
+        return redirecionarNovaAtividadeComErro(req, res, 'Informe uma data válida.', formData);
+    }
+
+    // Atividades podem ser registradas em qualquer dia, exceto domingo.
     const diaSemana = new Date(data + 'T12:00:00').getDay();
-    if (diaSemana === 0 || diaSemana === 6) {
+    if (diaSemana === 0) {
         return redirecionarNovaAtividadeComErro(
-            req, res, 'Não é possível registrar horas em fins de semana (sábado e domingo).', formData
+            req, res, 'Não é possível registrar atividades aos domingos.', formData
         );
     }
 

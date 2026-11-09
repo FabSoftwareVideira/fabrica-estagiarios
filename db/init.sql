@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS alunos (
     supervisor_id   INTEGER REFERENCES usuarios(id),
     orientador_id   INTEGER REFERENCES usuarios(id),
     carga_horaria   INTEGER NOT NULL DEFAULT 60,
+    horario_trabalho JSONB NOT NULL DEFAULT '{}'::jsonb,
     arquivado       BOOLEAN NOT NULL DEFAULT false,
     encerrado_em    TIMESTAMP,
     criado_em       TIMESTAMP NOT NULL DEFAULT NOW()

@@ -13,6 +13,7 @@ const faresModel = require('../models/fares');
 const { gerarFapoPdf } = require('../services/fapoPdf');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
+const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTrabalho');
 
 router.use(requireRole('professor'));
 
@@ -57,7 +58,7 @@ router.get('/dashboard', async (req, res) => {
     const isAdmin = req.session.user.cargo === 'admin';
     const aba = isAdmin
         ? (req.query.aba === 'administracao' ? 'administracao' : 'alunos')
-        : (req.query.aba === 'supervisionados' ? 'supervisionados' : 'orientandos');
+        : 'alunos';
 
     if (aba === 'administracao') {
         return res.render('professor_dashboard', {
@@ -103,8 +104,7 @@ router.get('/dashboard', async (req, res) => {
         status,
         busca,
         arquivados,
-        orientadorId: !isAdmin && aba === 'orientandos' ? req.session.user.id : null,
-        supervisorId: !isAdmin && aba === 'supervisionados' ? req.session.user.id : null,
+        professorId: isAdmin ? null : req.session.user.id,
         limite: TAMANHO_PAGINA,
         offset: (pagina - 1) * TAMANHO_PAGINA,
         ordenarPor: campoOrdenacao,
@@ -210,6 +210,7 @@ router.get('/aluno/:id', async (req, res) => {
 
     res.render('professor_aluno', {
         aluno,
+        diasTrabalho: DIAS_TRABALHO,
         atividades,
         professores,
         podeGerarFapo,
@@ -353,6 +354,15 @@ router.post('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
+    const { horarioTrabalho, erro: erroHorario } = validarHorarioTrabalho(
+        req.body.dias_trabalho,
+        req.body
+    );
+    if (erroHorario) {
+        setFlash(req, 'error', erroHorario);
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
     // "concluido" só é atribuído automaticamente pelo modelo quando as horas
     // validadas atingem a carga horária; aqui o professor só alterna entre
     // lista de espera e em andamento.
@@ -369,6 +379,7 @@ router.post('/aluno/:id', async (req, res) => {
         supervisorId: supervisor_id || null,
         orientadorId: orientador_id || null,
         cargaHoraria: Number(carga_horaria),
+        horarioTrabalho,
     });
 
     setFlash(req, 'success', 'Estágio atualizado com sucesso.');
@@ -437,11 +448,16 @@ router.get('/cadastro-aluno/:id', async (req, res) => {
     }
 
     const professores = await usuariosModel.listarProfessores();
-    res.render('professor_cadastro_aluno', { aluno, professores });
+    res.render('professor_cadastro_aluno', { aluno, professores, diasTrabalho: DIAS_TRABALHO });
 });
 
 router.post('/cadastro-aluno/:id', async (req, res) => {
     const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
+    const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
+    if (!aluno || aluno.status !== 'lista_espera') {
+        setFlash(req, 'error', 'Solicitação não encontrada ou já avaliada.');
+        return res.redirect('/professor/dashboard');
+    }
 
     if (!empresa || !empresa.trim()) {
         setFlash(req, 'error', 'Informe a empresa onde o aluno está realizando o estágio.');
@@ -450,6 +466,15 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
 
     if (!carga_horaria) {
         setFlash(req, 'error', 'Preencha a carga horária.');
+        return res.redirect('/professor/cadastro-aluno/' + req.params.id);
+    }
+
+    const { horarioTrabalho, erro: erroHorario } = validarHorarioTrabalho(
+        req.body.dias_trabalho,
+        req.body
+    );
+    if (erroHorario) {
+        setFlash(req, 'error', erroHorario);
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
@@ -466,6 +491,7 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
         supervisorId: supervisor_id || null,
         orientadorId: orientador_id || null,
         cargaHoraria: Number(carga_horaria),
+        horarioTrabalho,
     });
 
     setFlash(req, 'success', 'Cadastro aprovado! O aluno já pode registrar atividades.');
@@ -482,12 +508,12 @@ router.get('/arquivados', (req, res) => {
 });
 
 router.post('/aluno/:id/arquivar', async (req, res) => {
-    const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
-    if (!aluno || aluno.arquivado || aluno.status === 'concluido') {
+    const admin = req.session.user.cargo === 'admin';
+    const arquivado = await alunosModel.arquivar(req.params.id, admin);
+    if (!arquivado) {
         setFlash(req, 'error', 'Esse aluno não pode ser arquivado.');
         return res.redirect(req.headers.referer || '/professor/dashboard');
     }
-    await alunosModel.arquivar(req.params.id);
     setFlash(req, 'success', 'Aluno arquivado com sucesso.');
     res.redirect(req.headers.referer || '/professor/dashboard');
 });

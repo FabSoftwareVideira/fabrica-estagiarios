@@ -319,6 +319,14 @@ input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-
 
 fieldset { border: 0; min-width: 0; }
 fieldset:disabled { opacity: 1; }
+.horario-trabalho-campos { margin: 20px 0; }
+.horario-trabalho-campos legend { font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+.horario-trabalho-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.horario-trabalho-dia { padding: 12px; border: 1px solid var(--borda-suave); border-radius: var(--raio-campo); }
+.horario-trabalho-selecao { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; cursor: pointer; }
+.horario-trabalho-dia .form-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+.horario-trabalho-dia label:not(.horario-trabalho-selecao) { font-size: 13px; }
+.horario-trabalho-dia input[type="time"] { min-width: 0; padding: 8px; }
 
 /* ===========================
    Status (chips)
@@ -424,7 +432,7 @@ html.alto-contraste .proximo-passo { background: #000; border-color: #ffd700; }
    Abas
 =========================== */
 
-.tabs, .dashboard-tab-list { display: flex; gap: 4px; border-bottom: 2px solid var(--borda-suave); margin-bottom: 18px; overflow-x: auto; }
+.tabs, .dashboard-tab-list { display: flex; gap: 4px; border-bottom: 2px solid var(--borda-suave); margin-bottom: 18px; overflow-x: auto; overflow-y: hidden; }
 .tab, .dashboard-tab {
   display: inline-flex; align-items: center; min-height: 46px; padding: 0 20px; font: inherit; font-weight: 700; font-size: 15px;
   color: var(--texto-suave); background: transparent; border: 0; border-bottom: 4px solid transparent; border-radius: 0;
@@ -624,6 +632,7 @@ html.alto-contraste .cal-titulo { color: #ffd700; }
 .cal-dia.fora { visibility: hidden; }
 .cal-dia.fim-semana { background: repeating-linear-gradient(135deg, #f3f4f6 0 5px, #fafafa 5px 10px); color: #9aa0aa; cursor: not-allowed; }
 .cal-dia.fim-semana:hover { border-color: var(--borda-suave); color: #9aa0aa; background: repeating-linear-gradient(135deg, #f3f4f6 0 5px, #fafafa 5px 10px); }
+.cal-dia.dia-planejado:not(.fim-semana):not(.selecionado) { border: 2px dashed var(--verde-700); }
 .cal-dia.hoje { box-shadow: inset 0 0 0 2px var(--azul-700); }
 .cal-dia.selecionado { background: var(--azul-700); border-color: var(--azul-700); color: #fff; }
 .cal-dia.selecionado:hover { background: var(--azul-800); color: #fff; }
@@ -639,6 +648,7 @@ html.alto-contraste .cal-titulo { color: #ffd700; }
 .lg-pendente { background: var(--azul-100); border: 1px solid var(--azul-700); }
 .lg-invalida { background: var(--vermelho-600); border-radius: 50% !important; }
 .lg-fim { background: repeating-linear-gradient(135deg, #e5e7eb 0 3px, #fafafa 3px 6px); border: 1px solid var(--borda); }
+.lg-horario { background: var(--superficie); border: 2px dashed var(--verde-700); }
 
 .dia-resumo { background: var(--azul-50); border-radius: var(--raio-campo); padding: 12px 14px; margin: 4px 0 16px; border-left: 4px solid var(--azul-700); }
 .dia-resumo strong::first-letter { text-transform: uppercase; }

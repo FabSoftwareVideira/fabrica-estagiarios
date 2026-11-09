@@ -28,6 +28,10 @@ open http://localhost:3000
 
 No modo de desenvolvimento, o Docker Compose inicia o Mailpit. Os e-mails enviados pela aplicação são capturados localmente e podem ser vistos em [http://localhost:8025](http://localhost:8025); o serviço SMTP fica acessível apenas pela rede interna do Compose. Os parâmetros do Mailpit vêm das variáveis `DEV_SMTP_*` no `.env` (com padrão seguro `mailpit:1025`) e sobrescrevem as variáveis `SMTP_*`, então credenciais SMTP reais já existentes no `.env` não serão usadas pelo container de desenvolvimento. Mantenha `DEV_SMTP_HOST=mailpit` para que os e-mails de teste não sejam enviados a destinatários reais.
 
+Para preencher o banco de desenvolvimento com dados fictícios, execute `docker compose exec -T estagiarios-web npm run seed:dev`. O seed idempotente cria 12 estudantes vinculados a três supervisores e três orientadores, além de atividades de exemplo. Na tela de login, abra **Acessos de desenvolvimento** para entrar como estudante (`estudante04@example.test`), supervisor (`supervisora1@example.test`) ou orientador (`orientador1@example.test`). Essas contas só autenticam em desenvolvimento; os endereços `.test` são fictícios.
+
+Ao aprovar o cadastro do estudante, informe os dias e o horário contínuo planejado para cada dia (até 6 horas). A escala é mostrada no calendário e no formulário de atividades como referência, mas não limita os registros: o estudante pode registrar atividades em qualquer dia, exceto domingo, respeitando o limite de 6 horas por dia.
+
 ## Login com Google
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto, configure a tela de consentimento OAuth e crie um cliente OAuth do tipo **Aplicativo da Web**.

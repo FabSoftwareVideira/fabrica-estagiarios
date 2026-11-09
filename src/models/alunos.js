@@ -61,11 +61,14 @@ const CONDICOES_STATUS = {
     concluido: "a.status = 'concluido'",
 };
 
-async function listar({ status, busca, arquivados, limite, offset, ordenarPor, direcao, orientadorId, supervisorId }) {
+async function listar({ status, busca, arquivados, limite, offset, ordenarPor, direcao, orientadorId, supervisorId, professorId }) {
     const valores = [Boolean(arquivados)];
     const filtros = ['a.arquivado = $1'];
 
-    if (orientadorId != null) {
+    if (professorId != null) {
+        valores.push(professorId);
+        filtros.push(`(a.orientador_id = $${valores.length} OR a.supervisor_id = $${valores.length})`);
+    } else if (orientadorId != null) {
         valores.push(orientadorId);
         filtros.push(`a.orientador_id = $${valores.length}`);
     }
@@ -125,7 +128,7 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
     return { alunos: rows, total: contagemRows[0].total };
 }
 
-async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orientadorId, cargaHoraria }) {
+async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orientadorId, cargaHoraria, horarioTrabalho }) {
     // "concluido" nunca é definido manualmente: só quando as horas validadas
     // atingem a carga horária. Qualquer outro status é tratado como em andamento.
     const statusSolicitado = status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
@@ -144,21 +147,28 @@ async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orie
              empresa = $6,
              supervisor_id = $3,
              orientador_id = $4,
-             carga_horaria = $5
+             carga_horaria = $5,
+             horario_trabalho = $7::jsonb
          WHERE usuario_id = $1
          RETURNING *`,
-        [usuarioId, statusSolicitado, supervisorId || null, orientadorId || null, cargaHoraria, empresaNormalizada]
+        [usuarioId, statusSolicitado, supervisorId || null, orientadorId || null, cargaHoraria, empresaNormalizada, JSON.stringify(horarioTrabalho)]
     );
     return rows[0];
 }
 
-// só arquiva quem está na lista de espera ou em andamento
-async function arquivar(usuarioId) {
-    await pool.query(
+// professores comuns arquivam apenas quem está na lista de espera ou encerrou;
+// administradores podem arquivar em qualquer etapa.
+async function arquivar(usuarioId, admin = false) {
+    const { rows } = await pool.query(
         `UPDATE alunos SET arquivado = true
-         WHERE usuario_id = $1 AND status IN ('lista_espera', 'em_andamento')`,
-        [usuarioId]
+         WHERE usuario_id = $1
+           AND arquivado = false
+           AND ($2::boolean OR status = 'lista_espera'
+                OR (status = 'concluido' AND encerrado_em IS NOT NULL))
+         RETURNING usuario_id`,
+        [usuarioId, admin]
     );
+    return rows.length > 0;
 }
 
 async function desarquivar(usuarioId) {

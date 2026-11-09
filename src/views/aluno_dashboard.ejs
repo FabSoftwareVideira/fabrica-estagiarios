@@ -138,8 +138,8 @@
                 <div class="atividade-layout">
                     <div class="card">
                         <h2>Calendário</h2>
-                        <p class="text-muted" style="margin-bottom: 12px;">Toque em um dia para ver as atividades dele.</p>
-                        <%- include('partials/calendario', { dados: calendario, modo: 'ver', hoje, selecionado: '', podeRegistrar: emAndamento }) %>
+                        <p class="text-muted" style="margin-bottom: 12px;">Toque em um dia para ver as atividades. Você pode registrar de segunda a sábado, mesmo fora dos dias planejados; domingo não permite registro.</p>
+                        <%- include('partials/calendario', { dados: calendario, modo: 'ver', hoje, selecionado: '', podeRegistrar: emAndamento, horariosTrabalho }) %>
                         <div class="dia-resumo" data-cal-painel aria-live="polite" hidden></div>
                     </div>
 

@@ -212,9 +212,13 @@
                     <label for="carga">Carga Horária Total</label>
                     <input type="number" id="carga" name="carga_horaria" min="1" value="<%= aluno.carga_horaria %>">
 
+                    <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {} }) %>
+
                     <div class="button-group form-actions">
                         <button type="submit">Salvar Alterações</button>
-                        <button type="submit" formaction="/professor/aluno/<%= aluno.usuario_id %>/arquivar" formnovalidate class="btn-secondary">Arquivar</button>
+                        <% if (user.cargo === 'admin' || aluno.status === 'lista_espera' || (aluno.status === 'concluido' && aluno.encerrado_em)) { %>
+                            <button type="submit" formaction="/professor/aluno/<%= aluno.usuario_id %>/arquivar" formnovalidate class="btn-secondary">Arquivar</button>
+                        <% } %>
                     </div>
                 </form>
             </details>

@@ -2,6 +2,7 @@ const { test, before, after, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const ejs = require('ejs');
 const { PGlite } = require('@electric-sql/pglite');
 const express = require('express');
 const { pool } = require('../src/config/database');
@@ -46,7 +47,7 @@ before(async () => {
     app.use(express.urlencoded({ extended: true }));
     app.use((req, res, next) => {
         const id = Number(req.headers['x-test-user'] || 101);
-        req.session = { user: { id, nome: id === 101 ? 'Supervisor Teste' : 'Usuário Teste', tipo: id === 1 ? 'aluno' : 'professor', cargo: 'comum' } };
+        req.session = { user: { id, nome: id === 101 ? 'Supervisor Teste' : 'Usuário Teste', tipo: id === 1 ? 'aluno' : 'professor', cargo: req.headers['x-test-cargo'] === 'admin' ? 'admin' : 'comum' } };
         next();
     });
     app.use(require('../src/middleware/auth').attachUser);
@@ -154,9 +155,143 @@ test('HTML do lembrete escapa dados do estudante', () => {
     assert.doesNotMatch(html, /<script>/); assert.match(html, /A &amp; B/);
 });
 
-async function requisitar(rota, { user = 101, body, method = 'GET' } = {}) {
-    return fetch(url + rota, { method, redirect: 'manual', headers: { 'x-test-user': String(user), ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) }, body: body ? new URLSearchParams(body) : undefined });
+async function requisitar(rota, { user = 101, cargo, body, method = 'GET' } = {}) {
+    const parametros = new URLSearchParams();
+    Object.entries(body || {}).forEach(([chave, valor]) => {
+        (Array.isArray(valor) ? valor : [valor]).forEach((item) => parametros.append(chave, item));
+    });
+    return fetch(url + rota, { method, redirect: 'manual', headers: { 'x-test-user': String(user), ...(cargo ? { 'x-test-cargo': cargo } : {}), ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) }, body: body ? parametros : undefined });
 }
+test('dashboard unifica orientandos e supervisionados na mesma tabela', async () => {
+    await db.exec(`UPDATE alunos SET orientador_id=101 WHERE usuario_id=2;
+        UPDATE alunos SET supervisor_id=103, orientador_id=101 WHERE usuario_id=3;`);
+
+    const todos = await requisitar('/professor/dashboard?f=1');
+    assert.equal(todos.status, 200);
+    const todosHtml = await todos.text();
+    assert.doesNotMatch(todosHtml, /aria-label="Filtrar por papel"/);
+    assert.doesNotMatch(todosHtml, /name="papel"/);
+    assert.match(todosHtml, /Orientando/);
+    assert.match(todosHtml, /Supervisionado/);
+    assert.match(todosHtml, /href="\/professor\/aluno\/1"/);
+    assert.match(todosHtml, /href="\/professor\/aluno\/2"/);
+    assert.match(todosHtml, /href="\/professor\/aluno\/3"/);
+    assert.doesNotMatch(todosHtml, /href="\/professor\/dashboard\?aba=orientandos"/);
+    assert.doesNotMatch(todosHtml, /href="\/professor\/dashboard\?aba=supervisionados"/);
+
+    const legado = await requisitar('/professor/dashboard?f=1&papel=orientando');
+    const legadoHtml = await legado.text();
+    assert.match(legadoHtml, /href="\/professor\/aluno\/1"/);
+    assert.match(legadoHtml, /href="\/professor\/aluno\/2"/);
+    assert.match(legadoHtml, /href="\/professor\/aluno\/3"/);
+});
+test('aprovação e edição salvam a escala semanal e rejeitam jornadas acima de 6 horas', async () => {
+    await db.exec("UPDATE alunos SET status='lista_espera' WHERE usuario_id=1");
+    const resposta = await requisitar('/professor/cadastro-aluno/1', {
+        method: 'POST',
+        body: {
+            empresa: 'Empresa Exemplo',
+            carga_horaria: '60',
+            dias_trabalho: ['1', '6'],
+            horario_inicio_1: '08:00',
+            horario_fim_1: '12:00',
+            horario_inicio_6: '09:00',
+            horario_fim_6: '14:00',
+        },
+    });
+    assert.equal(resposta.status, 302);
+    assert.deepEqual((await consultar('SELECT horario_trabalho FROM alunos WHERE usuario_id=1')).rows[0].horario_trabalho, {
+        1: { inicio: '08:00', fim: '12:00' },
+        6: { inicio: '09:00', fim: '14:00' },
+    });
+    const dashboard = await requisitar('/aluno/dashboard?aba=atividades', { user: 1 });
+    assert.equal(dashboard.status, 200);
+    assert.match(await dashboard.text(), /Dia planejado/);
+    const novaAtividade = await requisitar('/aluno/nova-atividade', { user: 1 });
+    assert.equal(novaAtividade.status, 200);
+    assert.match(await novaAtividade.text(), /Segunda-feira, 08:00–12:00/);
+
+    await requisitar('/professor/aluno/1', {
+        method: 'POST',
+        body: {
+            empresa: 'Empresa Exemplo',
+            carga_horaria: '60',
+            dias_trabalho: ['2'],
+            horario_inicio_2: '08:00',
+            horario_fim_2: '14:01',
+        },
+    });
+    assert.deepEqual((await consultar('SELECT horario_trabalho FROM alunos WHERE usuario_id=1')).rows[0].horario_trabalho, {
+        1: { inicio: '08:00', fim: '12:00' },
+        6: { inicio: '09:00', fim: '14:00' },
+    });
+});
+test('registro de atividade permite sábado e rejeita domingo', async () => {
+    const sábado = await requisitar('/aluno/nova-atividade', {
+        user: 1,
+        method: 'POST',
+        body: {
+            data: '2026-11-14',
+            hora_inicio: '09:00',
+            hora_fim: '12:00',
+            descricao: 'Atividade de sábado',
+        },
+    });
+    assert.equal(sábado.status, 302);
+    assert.equal((await consultar("SELECT COUNT(*)::int AS total FROM atividades WHERE aluno_id=1 AND data='2026-11-14'")).rows[0].total, 1);
+
+    const domingo = await requisitar('/aluno/nova-atividade', {
+        user: 1,
+        method: 'POST',
+        body: {
+            data: '2026-11-15',
+            hora_inicio: '09:00',
+            hora_fim: '12:00',
+            descricao: 'Atividade de domingo',
+        },
+    });
+    assert.equal(domingo.status, 302);
+    assert.equal((await consultar("SELECT COUNT(*)::int AS total FROM atividades WHERE aluno_id=1 AND data='2026-11-15'")).rows[0].total, 0);
+});
+test('dashboard só exibe arquivamento para status permitidos, exceto para admins', async () => {
+    const renderAcoes = (status, encerradoEm, cargo = 'comum') => ejs.renderFile(
+        path.join(raiz, 'src/views/partials/aluno_acoes.ejs'),
+        { a: { usuario_id: 1, status, encerrado_em: encerradoEm, arquivado: false }, user: { id: 101, cargo }, icone: () => '' }
+    );
+    for (const [status, encerradoEm, cargo, esperado] of [
+        ['lista_espera', null, 'comum', true],
+        ['em_andamento', null, 'comum', false],
+        ['concluido', null, 'comum', false],
+        ['concluido', '2026-11-09', 'comum', true],
+        ['em_andamento', null, 'admin', true],
+    ]) {
+        const html = await renderAcoes(status, encerradoEm, cargo);
+        assert.equal(html.includes('/arquivar'), esperado, `${cargo}: ${status}, encerrado=${Boolean(encerradoEm)}`);
+    }
+});
+test('arquivamento: professor comum só arquiva lista de espera ou estágio encerrado; admin pode arquivar qualquer status', async () => {
+    await db.exec(`UPDATE alunos SET status='lista_espera' WHERE usuario_id=2;
+        UPDATE alunos SET status='concluido' WHERE usuario_id IN (3,4,6);
+        UPDATE alunos SET encerrado_em=NOW() WHERE usuario_id=4;`);
+
+    for (const id of [1, 3]) {
+        const resposta = await requisitar(`/professor/aluno/${id}/arquivar`, { method: 'POST' });
+        assert.equal(resposta.status, 302);
+        assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=$1', [id])).rows[0].arquivado, false);
+    }
+
+    for (const id of [2, 4]) {
+        const resposta = await requisitar(`/professor/aluno/${id}/arquivar`, { method: 'POST' });
+        assert.equal(resposta.status, 302);
+        assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=$1', [id])).rows[0].arquivado, true);
+    }
+
+    for (const id of [5, 6]) {
+        const resposta = await requisitar(`/professor/aluno/${id}/arquivar`, { method: 'POST', cargo: 'admin' });
+        assert.equal(resposta.status, 302);
+        assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=$1', [id])).rows[0].arquivado, true);
+    }
+});
 test('FAC: supervisor preenche, persiste notas e média; aluno e orientador consultam PDF', async () => {
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
     assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 302);

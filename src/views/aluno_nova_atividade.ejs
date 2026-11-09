@@ -23,7 +23,7 @@
         <div class="page-head">
             <div>
                 <h1>Registrar atividade</h1>
-                <p>Escolha o dia no calendário e conte o que você fez.</p>
+                <p>Escolha o dia no calendário e conte o que você fez. O registro é permitido de segunda a sábado, mesmo fora da escala planejada.</p>
             </div>
         </div>
 
@@ -34,13 +34,25 @@
                     dados: calendario,
                     modo: 'selecionar',
                     hoje,
-                    selecionado: formData.data || ''
+                    selecionado: formData.data || '',
+                    horariosTrabalho
                 }) %>
                 <div class="dia-resumo" data-cal-painel aria-live="polite" hidden></div>
             </section>
 
             <section class="card">
                 <h2>Dados da atividade</h2>
+                <% if (Object.keys(horariosTrabalho).length > 0) { %>
+                    <p class="aviso aviso-info">
+                        <strong>Sua escala planejada:</strong>
+                        <%= diasTrabalho.filter((dia) => horariosTrabalho[String(dia.id)])
+                            .map((dia) => `${dia.nome}, ${horariosTrabalho[String(dia.id)].inicio}–${horariosTrabalho[String(dia.id)].fim}`)
+                            .join(' · ') %>.
+                        Você pode registrar em qualquer dia de segunda a sábado, até 6 horas no total por dia.
+                    </p>
+                <% } else { %>
+                    <p class="text-muted">A escala de trabalho ainda não foi informada. Você pode registrar em qualquer dia de segunda a sábado, até 6 horas no total por dia.</p>
+                <% } %>
                 <form action="/aluno/nova-atividade" method="POST">
                     <label for="data">Dia</label>
                     <input type="date" id="data" name="data" required value="<%= formData.data || '' %>">
@@ -68,7 +80,7 @@
                         <strong>Antes de salvar</strong>
                         <ul>
                             <li>Registre só o que você realmente fez.</li>
-                            <li>Fins de semana não contam. Cada dia vai até 6 horas.</li>
+                            <li>Domingos não aceitam registro. Cada dia, inclusive sábado, vai até 6 horas.</li>
                             <li>As horas só entram no total depois que o supervisor validar.</li>
                         </ul>
                     </div>

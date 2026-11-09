@@ -23,8 +23,12 @@
         <span><i class="lg-validada"></i> Horas validadas</span>
         <span><i class="lg-pendente"></i> Aguardando validação</span>
         <span><i class="lg-invalida"></i> Invalidada</span>
-        <span><i class="lg-fim"></i> Fim de semana</span>
+        <% if (typeof horariosTrabalho !== 'undefined' && Object.keys(horariosTrabalho).length > 0) { %>
+            <span><i class="lg-horario"></i> Dia planejado</span>
+        <% } %>
+        <span><i class="lg-fim"></i> Domingo (sem registro)</span>
     </div>
 
     <script type="application/json" data-cal-dados><%- JSON.stringify(dados).replace(/</g, '\\u003c') %></script>
+    <script type="application/json" data-cal-horarios><%- JSON.stringify(typeof horariosTrabalho !== 'undefined' ? horariosTrabalho : {}).replace(/</g, '\\u003c') %></script>
 </div>

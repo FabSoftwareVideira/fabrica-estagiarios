@@ -42,6 +42,29 @@ const USUARIOS_DEV = {
         avatarUrl: null,
         tipo: 'aluno',
     },
+    supervisorSeed: {
+        nome: 'Marina Supervisora de Teste',
+        email: 'supervisora1@example.test',
+        googleId: 'dev-google-supervisora-seed',
+        avatarUrl: null,
+        tipo: 'professor',
+        cargo: 'comum',
+    },
+    orientadorSeed: {
+        nome: 'Carlos Orientador de Teste',
+        email: 'orientador1@example.test',
+        googleId: 'dev-google-orientador-seed',
+        avatarUrl: null,
+        tipo: 'professor',
+        cargo: 'comum',
+    },
+    alunoSeed: {
+        nome: 'Estudante de Teste 04',
+        email: 'estudante04@example.test',
+        googleId: 'dev-google-aluno-seed',
+        avatarUrl: null,
+        tipo: 'aluno',
+    },
 };
 
 async function entrarComo(tipo, req, res) {
@@ -93,5 +116,8 @@ async function entrarComo(tipo, req, res) {
 router.get('/professor', apenasDev, (req, res) => entrarComo('professor', req, res));
 router.get('/professor-admin', apenasDev, (req, res) => entrarComo('professorAdmin', req, res));
 router.get('/aluno', apenasDev, (req, res) => entrarComo('aluno', req, res));
+router.get('/supervisor-seed', apenasDev, (req, res) => entrarComo('supervisorSeed', req, res));
+router.get('/orientador-seed', apenasDev, (req, res) => entrarComo('orientadorSeed', req, res));
+router.get('/aluno-seed', apenasDev, (req, res) => entrarComo('alunoSeed', req, res));
 
 module.exports = router;

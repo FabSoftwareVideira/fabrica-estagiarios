@@ -211,6 +211,7 @@ function formatarNumero(valor, casas = 2) {
 
 function iniciarCalendario(el) {
     const dados = JSON.parse(el.querySelector('[data-cal-dados]').textContent || '[]');
+    const horariosTrabalho = JSON.parse(el.querySelector('[data-cal-horarios]').textContent || '{}');
     const modo = el.dataset.modo;
     const hoje = el.dataset.hoje;
     const podeRegistrar = el.dataset.podeRegistrar === '1';
@@ -234,7 +235,7 @@ function iniciarCalendario(el) {
 
     const iso = (ano, mes, dia) => `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
     const dataDe = (texto) => { const [a, m, d] = texto.split('-').map(Number); return new Date(a, m - 1, d); };
-    const ehFimDeSemana = (data) => data.getDay() === 0 || data.getDay() === 6;
+    const ehDomingo = (data) => data.getDay() === 0;
     const formatarHoras = (h) => String(Number(h.toFixed(2))).replace('.', ',');
 
     let selecionado = el.dataset.selecionado || (campoData && campoData.value) || '';
@@ -255,17 +256,23 @@ function iniciarCalendario(el) {
         forte.textContent = nome;
         linha.append(forte);
 
-        const fimDeSemana = ehFimDeSemana(data);
+        const domingo = ehDomingo(data);
+        const horarioPlanejado = horariosTrabalho[String(data.getDay())];
         const horas = dia ? dia.horas : 0;
         const restam = Math.max(0, 6 - horas);
-        if (fimDeSemana) {
-            linha.append(' — fim de semana: não dá para registrar horas.');
+        if (domingo) {
+            linha.append(' — domingo: não dá para registrar horas.');
         } else if (!dia) {
             linha.append(' — nenhuma atividade ainda. Você pode registrar até 6h.');
         } else if (restam === 0) {
             linha.append(` — ${formatarHoras(horas)}h registradas. O limite de 6h do dia foi atingido.`);
         } else {
             linha.append(` — ${formatarHoras(horas)}h registradas, restam ${formatarHoras(restam)}h.`);
+        }
+        if (horarioPlanejado) {
+            linha.append(` Horário planejado: ${horarioPlanejado.inicio}–${horarioPlanejado.fim}.`);
+        } else if (!domingo && Object.keys(horariosTrabalho).length > 0) {
+            linha.append(' Este dia não está na escala planejada; ainda assim, o registro é permitido.');
         }
         painel.append(linha);
 
@@ -285,7 +292,7 @@ function iniciarCalendario(el) {
             painel.append(lista);
         }
 
-        if (modo === 'ver' && podeRegistrar && !fimDeSemana && restam > 0) {
+        if (modo === 'ver' && podeRegistrar && !domingo && restam > 0) {
             const link = document.createElement('a');
             link.href = `/aluno/nova-atividade?data=${selecionado}`;
             link.className = 'btn btn-success btn-sm';
@@ -338,12 +345,14 @@ function iniciarCalendario(el) {
             const chave = iso(ano, mes, d);
             const data = new Date(ano, mes, d);
             const dia = porDia.get(chave);
-            const fim = ehFimDeSemana(data);
+            const domingo = ehDomingo(data);
+            const horarioPlanejado = horariosTrabalho[String(data.getDay())];
 
             const botao = document.createElement('button');
             botao.type = 'button';
             botao.className = 'cal-dia';
-            if (fim) botao.classList.add('fim-semana');
+            if (domingo) botao.classList.add('fim-semana');
+            if (horarioPlanejado) botao.classList.add('dia-planejado');
             if (chave === hoje) botao.classList.add('hoje');
             if (chave === selecionado) botao.classList.add('selecionado');
             if (dia && dia.validada) botao.classList.add('tem-validada');
@@ -361,10 +370,12 @@ function iniciarCalendario(el) {
             }
 
             const longa = data.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
-            botao.setAttribute('aria-label', `${longa}${dia ? `, ${formatarHoras(dia.horas)} horas registradas` : ''}${fim ? ', fim de semana' : ''}`);
+            const escala = horarioPlanejado ? `, horário planejado ${horarioPlanejado.inicio} às ${horarioPlanejado.fim}` : '';
+            botao.title = horarioPlanejado ? `Horário planejado: ${horarioPlanejado.inicio}–${horarioPlanejado.fim}` : '';
+            botao.setAttribute('aria-label', `${longa}${dia ? `, ${formatarHoras(dia.horas)} horas registradas` : ''}${escala}${domingo ? ', domingo, não permite registro' : ''}`);
             botao.setAttribute('aria-pressed', String(chave === selecionado));
 
-            if (fim && modo === 'selecionar') {
+            if (domingo && modo === 'selecionar') {
                 botao.setAttribute('aria-disabled', 'true');
             } else {
                 botao.addEventListener('click', () => {

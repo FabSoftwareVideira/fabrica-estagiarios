@@ -32,35 +32,32 @@
                 </button>
             </form>
         <% } %>
-    <% } else if (a.status === 'lista_espera') { %>
-        <a href="/professor/cadastro-aluno/<%= a.usuario_id %>" class="btn btn-success btn-icon" title="Aprovar" aria-label="Aprovar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-        </a>
-        <form action="/professor/aluno/<%= a.usuario_id %>/arquivar" method="POST">
-            <button type="submit" class="btn-secondary btn-icon" title="Arquivar" aria-label="Arquivar">
+    <% } else { %>
+        <% if (a.status === 'lista_espera') { %>
+            <a href="/professor/cadastro-aluno/<%= a.usuario_id %>" class="btn btn-success btn-icon" title="Aprovar" aria-label="Aprovar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polyline points="21 8 21 21 3 21 3 8"></polyline>
-                    <rect x="1" y="3" width="22" height="5"></rect>
-                    <line x1="10" y1="12" x2="14" y2="12"></line>
+                    <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-            </button>
-        </form>
-    <% } else if (a.status === 'em_andamento') { %>
-        <form action="/professor/aluno/<%= a.usuario_id %>/arquivar" method="POST">
-            <button type="submit" class="btn-secondary btn-icon" title="Arquivar" aria-label="Arquivar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polyline points="21 8 21 21 3 21 3 8"></polyline>
-                    <rect x="1" y="3" width="22" height="5"></rect>
-                    <line x1="10" y1="12" x2="14" y2="12"></line>
-                </svg>
-            </button>
-        </form>
-    <% } else if (a.status === 'concluido' && Number(a.orientador_id) === Number(user.id)) { %>
-        <% const rotuloAta = a.encerrado_em ? 'Ver ata da banca' : 'Preencher ata da banca'; %>
-        <a href="/professor/aluno/<%= a.usuario_id %>/fare" class="btn <%= a.encerrado_em ? 'btn-secondary' : 'btn-success' %> btn-icon" title="<%= rotuloAta %>" aria-label="<%= rotuloAta %>">
-            <%- icone('arquivo') %>
-        </a>
+            </a>
+        <% } %>
+
+        <% if (user.cargo === 'admin' || a.status === 'lista_espera' || (a.status === 'concluido' && a.encerrado_em)) { %>
+            <form action="/professor/aluno/<%= a.usuario_id %>/arquivar" method="POST">
+                <button type="submit" class="btn-secondary btn-icon" title="Arquivar" aria-label="Arquivar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                        <rect x="1" y="3" width="22" height="5"></rect>
+                        <line x1="10" y1="12" x2="14" y2="12"></line>
+                    </svg>
+                </button>
+            </form>
+        <% } %>
+
+        <% if (a.status === 'concluido' && Number(a.orientador_id) === Number(user.id)) { %>
+            <% const rotuloAta = a.encerrado_em ? 'Ver ata da banca' : 'Preencher ata da banca'; %>
+            <a href="/professor/aluno/<%= a.usuario_id %>/fare" class="btn <%= a.encerrado_em ? 'btn-secondary' : 'btn-success' %> btn-icon" title="<%= rotuloAta %>" aria-label="<%= rotuloAta %>">
+                <%- icone('arquivo') %>
+            </a>
+        <% } %>
     <% } %>
 </div>

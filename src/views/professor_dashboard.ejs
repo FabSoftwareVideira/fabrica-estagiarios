@@ -22,11 +22,6 @@
                         <a href="/professor/dashboard" class="tab <%= aba === 'alunos' ? 'active' : '' %>">Alunos</a>
                         <a href="/professor/dashboard?aba=administracao"
                             class="tab <%= aba === 'administracao' ? 'active' : '' %>">Administração</a>
-                    <% } else { %>
-                        <a href="/professor/dashboard?aba=orientandos"
-                            class="tab <%= aba === 'orientandos' ? 'active' : '' %>">Meus orientandos</a>
-                        <a href="/professor/dashboard?aba=supervisionados"
-                            class="tab <%= aba === 'supervisionados' ? 'active' : '' %>">Meus supervisionados</a>
                     <% } %>
                 </div>
 
@@ -162,11 +157,16 @@
                                                 Nome <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('nome') %></span>
                                             </a>
                                         </th>
-                                        <th aria-sort="<%= estadoOrdenacao('supervisor') %>">
-                                            <a href="<%= montarOrdenacao('supervisor') %>" class="th-sort">
-                                                Supervisor <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('supervisor') %></span>
-                                            </a>
-                                        </th>
+                                        <% if (user.cargo === 'admin') { %>
+                                            <th aria-sort="<%= estadoOrdenacao('supervisor') %>">
+                                                <a href="<%= montarOrdenacao('supervisor') %>" class="th-sort">
+                                                    Supervisor <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('supervisor') %></span>
+                                                </a>
+                                            </th>
+                                        <% } else { %>
+                                            <th>Papel</th>
+                                            <th>Orientador / Supervisor</th>
+                                        <% } %>
                                         <th aria-sort="<%= estadoOrdenacao('horas') %>">
                                             <a href="<%= montarOrdenacao('horas') %>" class="th-sort">
                                                 Horas <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('horas') %></span>
@@ -183,7 +183,7 @@
                                 <tbody>
                                     <% if (alunos.length === 0) { %>
                                         <tr>
-                                            <td colspan="5">
+                                            <td colspan="<%= user.cargo === 'admin' ? 5 : 6 %>">
                                                 <%= filtros.arquivados
                                                     ? 'Nenhum aluno arquivado encontrado.'
                                                     : 'Nenhum aluno encontrado com os filtros atuais.' %>
@@ -193,7 +193,19 @@
                                         <% alunos.forEach((a) => { %>
                                             <tr>
                                                 <td><a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a></td>
-                                                <td><%= a.supervisor_nome || '—' %></td>
+                                                <% if (user.cargo === 'admin') { %>
+                                                    <td><%= a.supervisor_nome || '—' %></td>
+                                                <% } else { %>
+                                                    <td>
+                                                        <% if (Number(a.orientador_id) === Number(user.id)) { %>
+                                                            <span class="status status-progress">Orientando</span>
+                                                        <% } %>
+                                                        <% if (Number(a.supervisor_id) === Number(user.id)) { %>
+                                                            <span class="status status-completed">Supervisionado</span>
+                                                        <% } %>
+                                                    </td>
+                                                    <td>Orientador: <%= a.orientador_nome || '—' %><br>Supervisor: <%= a.supervisor_nome || '—' %></td>
+                                                <% } %>
                                                 <td>
                                                     <%= Number(a.horas_realizadas) %> / <%= a.carga_horaria %>h
                                                     <% if (Number(a.horas_pendentes) > 0) { %>
