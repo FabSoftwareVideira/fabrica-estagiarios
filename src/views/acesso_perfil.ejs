@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escolha seu perfil · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    <main id="conteudo" class="container">
+        <%- include('partials/flash') %>
+        <div class="page-head">
+            <div>
+                <h1>Como você deseja acessar?</h1>
+                <p>Seu e-mail não é institucional. Escolha o perfil adequado para continuar.</p>
+            </div>
+        </div>
+
+        <div class="action-grid">
+            <section class="card">
+                <h2>Sou estudante</h2>
+                <p>Continue para cadastrar sua matrícula e acessar o acompanhamento do estágio.</p>
+                <form action="/acesso/perfil" method="POST">
+                    <input type="hidden" name="tipo" value="aluno">
+                    <button type="submit">Continuar como estudante</button>
+                </form>
+            </section>
+
+            <section class="card">
+                <h2>Sou supervisor externo</h2>
+                <p>Solicite acesso para acompanhar estudantes vinculados à sua empresa. Um professor precisa aprovar a solicitação.</p>
+                <form action="/acesso/perfil" method="POST">
+                    <input type="hidden" name="tipo" value="supervisor">
+                    <label for="empresa">Empresa/entidade</label>
+                    <input id="empresa" name="empresa" type="text" maxlength="200" required>
+                    <label for="funcao">Cargo ou função</label>
+                    <input id="funcao" name="funcao" type="text" maxlength="150" required>
+                    <button type="submit" class="btn-success">Solicitar acesso como supervisor</button>
+                </form>
+            </section>
+        </div>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

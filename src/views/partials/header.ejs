@@ -18,7 +18,7 @@
 
 <header class="site-header">
     <div class="header-inner">
-        <a href="<%= user ? (user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard') : '/' %>" class="brand">
+        <a href="<%= user ? (user.cargo === 'supervisor' && !user.supervisorAprovado ? '/supervisor/pendente' : (user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard')) : '/' %>" class="brand">
             <img src="/img/logo-ifc-videira.png" alt="Instituto Federal Catarinense, Campus Videira" class="brand-logo" width="110" height="44">
             <span class="brand-text">Controle de Estágio<small>Cursos Técnicos Integrados ao Ensino Médio</small></span>
         </a>
@@ -37,6 +37,7 @@
             <% if (user) { %>
                 <% const ativo = (condicao) => (condicao ? 'active' : ''); %>
                 <% const atual = (condicao) => (condicao ? 'aria-current="page"' : ''); %>
+                <% if (!(user.cargo === 'supervisor' && !user.supervisorAprovado)) { %>
                 <div class="nav-links">
                     <% if (user.tipo === 'aluno') { %>
                         <% const noDash = currentPath === '/aluno/dashboard'; %>
@@ -48,12 +49,15 @@
                         <% const emFichas = currentPath === '/professor/fichas' || currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/(fare|fapo|fac|banca)/.test(currentPath); %>
                         <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
                         <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> Alunos</a>
-                        <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
+                        <% if (user.cargo !== 'supervisor' && currentPath !== '/supervisor/pendente') { %>
+                            <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
+                        <% } %>
                         <% if (user.cargo === 'admin') { %>
                             <a href="/professor/dashboard?aba=administracao" class="nav-link <%= ativo(emAdmin) %>"><%- icone('escudo') %> Administração</a>
                         <% } %>
                     <% } %>
                 </div>
+                <% } %>
 
                 <div class="nav-user">
                     <a href="/perfil" class="nav-user-profile" title="Meu perfil">

@@ -32,7 +32,10 @@
             <form action="/professor/cadastro-aluno/<%= aluno.usuario_id %>" method="POST">
                 <label for="supervisor">Supervisor <span class="text-muted">(opcional — pode definir depois)</span></label>
                 <select id="supervisor" name="supervisor_id">
-                    <option value="">Selecione um professor</option>
+                    <option value="">Selecione um supervisor</option>
+                    <% supervisores.forEach((p) => { %>
+                        <option value="<%= p.id %>"><%= p.nome %></option>
+                    <% }) %>
                     <% professores.forEach((p) => { %>
                         <option value="<%= p.id %>"><%= p.nome %></option>
                     <% }) %>

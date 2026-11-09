@@ -16,7 +16,10 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 CREATE TABLE IF NOT EXISTS professores (
     usuario_id  INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
-    cargo       VARCHAR(20) NOT NULL DEFAULT 'comum' CHECK (cargo IN ('comum', 'admin')),
+    cargo       VARCHAR(20) NOT NULL DEFAULT 'comum' CHECK (cargo IN ('comum', 'admin', 'supervisor')),
+    aprovado    BOOLEAN NOT NULL DEFAULT true,
+    empresa_externa TEXT,
+    funcao_externa  TEXT,
     receber_relatorio_semanal BOOLEAN NOT NULL DEFAULT true,
     criado_em   TIMESTAMP NOT NULL DEFAULT NOW()
 );

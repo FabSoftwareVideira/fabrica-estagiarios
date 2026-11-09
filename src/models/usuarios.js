@@ -49,7 +49,20 @@ async function vincularGoogleId(usuarioId, googleId, avatarUrl) {
 
 async function listarProfessores() {
     const { rows } = await pool.query(
-        "SELECT id, nome, email FROM usuarios WHERE tipo = 'professor' ORDER BY nome"
+        `SELECT u.id, u.nome, u.email FROM usuarios u
+         JOIN professores p ON p.usuario_id = u.id
+         WHERE u.tipo = 'professor' AND p.cargo <> 'supervisor' AND p.aprovado = true
+         ORDER BY u.nome`
+    );
+    return rows;
+}
+
+async function listarSupervisores() {
+    const { rows } = await pool.query(
+        `SELECT u.id, u.nome, u.email FROM usuarios u
+         JOIN professores p ON p.usuario_id = u.id
+         WHERE u.tipo = 'professor' AND p.cargo = 'supervisor' AND p.aprovado = true
+         ORDER BY u.nome`
     );
     return rows;
 }
@@ -90,6 +103,7 @@ module.exports = {
     vincularGithubId,
     vincularGoogleId,
     listarProfessores,
+    listarSupervisores,
     confirmarNome,
     atualizarPerfil,
     atualizarAvatar,

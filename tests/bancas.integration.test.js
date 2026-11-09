@@ -42,7 +42,8 @@ beforeEach(async () => {
     await db.exec(`TRUNCATE usuarios CASCADE;
         INSERT INTO usuarios (id,nome,email,tipo,nome_confirmado)
         SELECT n, 'Professor ' || n, n || '@example.test','professor',true FROM generate_series(101,106) n;
-        INSERT INTO professores (usuario_id) SELECT n FROM generate_series(101,106) n;
+        INSERT INTO professores (usuario_id,cargo)
+        SELECT n, CASE WHEN n=106 THEN 'admin' ELSE 'comum' END FROM generate_series(101,106) n;
         INSERT INTO usuarios (id,nome,email,tipo,nome_confirmado) VALUES
         (201,'Ana Teste','ana@example.test','aluno',true),(202,'Bruno Teste','bruno@example.test','aluno',true);
         INSERT INTO alunos (usuario_id,supervisor_id,orientador_id,status) VALUES (201,102,101,'concluido'),(202,102,104,'concluido');`);

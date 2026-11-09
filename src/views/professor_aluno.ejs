@@ -79,7 +79,7 @@
 
         </section>
 
-        <% if (encerrado) { %>
+        <% if (encerrado && user.cargo !== 'supervisor') { %>
             <div class="aviso aviso-ok" role="status">
                 <%- icone('check') %>
                 <div>
@@ -143,7 +143,7 @@
         <% } %>
 
         <% if (encerrado) { %>
-        <% } else if (aluno.arquivado) { %>
+        <% } else if (aluno.arquivado && user.cargo !== 'supervisor') { %>
             <div class="card archived-banner">
                 <div>
                     <h2>Estágio arquivado</h2>
@@ -159,7 +159,7 @@
                     <a href="/professor/arquivados" class="btn btn-secondary">Voltar</a>
                 </div>
             </div>
-        <% } else { %>
+        <% } else if (user.cargo !== 'supervisor') { %>
             <details class="card details-card">
                 <summary>
                     <span class="details-title">
@@ -192,7 +192,10 @@
 
                     <label for="supervisor">Supervisor</label>
                     <select id="supervisor" name="supervisor_id">
-                        <option value="">Selecione um professor</option>
+                        <option value="">Selecione um supervisor</option>
+                        <% supervisores.forEach((p) => { %>
+                            <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
+                        <% }) %>
                         <% professores.forEach((p) => { %>
                             <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
                         <% }) %>

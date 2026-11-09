@@ -6,7 +6,7 @@
         </svg>
     </a>
 
-    <% if (a.arquivado) { %>
+    <% if (user.cargo !== 'supervisor' && a.arquivado) { %>
         <form action="/professor/aluno/<%= a.usuario_id %>/desarquivar" method="POST">
             <button type="submit" class="btn-secondary btn-icon" title="Desarquivar" aria-label="Desarquivar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -32,7 +32,7 @@
                 </button>
             </form>
         <% } %>
-    <% } else { %>
+    <% } else if (user.cargo !== 'supervisor') { %>
         <% if (a.status === 'lista_espera') { %>
             <a href="/professor/cadastro-aluno/<%= a.usuario_id %>" class="btn btn-success btn-icon" title="Aprovar" aria-label="Aprovar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aguardando aprovação · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    <main id="conteudo" class="container">
+        <section class="card">
+            <h1>Acesso de supervisor em análise</h1>
+            <p>Seu pedido foi recebido. Um professor precisa aprovar seu acesso antes que você possa acompanhar estudantes ou preencher avaliações.</p>
+            <% if (typeof supervisor !== 'undefined') { %>
+                <dl class="summary-details">
+                    <div><dt>Empresa/entidade</dt><dd><%= supervisor.empresa_externa || 'Não informada' %></dd></div>
+                    <div><dt>Cargo ou função</dt><dd><%= supervisor.funcao_externa || 'Não informada' %></dd></div>
+                </dl>
+            <% } %>
+            <p>Você poderá entrar novamente nesta página para consultar o status. Após a aprovação, os estudantes vinculados a você aparecerão no painel.</p>
+        </section>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

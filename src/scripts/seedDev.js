@@ -12,11 +12,16 @@ const orientadores = [
     { nome: 'André Orientador de Teste', email: 'orientador3@example.test' },
 ];
 
+const supervisorExterno = {
+    nome: 'Alex Supervisor Externo de Teste',
+    email: 'supervisor.externo@example.test',
+};
+
 const estudantes = Array.from({ length: 12 }, (_, indice) => ({
     nome: `Estudante de Teste ${String(indice + 1).padStart(2, '0')}`,
     email: `estudante${String(indice + 1).padStart(2, '0')}@example.test`,
     matricula: `TESTE${String(indice + 1).padStart(4, '0')}`,
-    supervisor: indice % supervisores.length,
+    supervisor: indice < 3 ? 'externo' : indice % supervisores.length,
     orientador: indice % orientadores.length,
     status: indice < 2 ? 'lista_espera' : 'em_andamento',
 }));
@@ -54,6 +59,15 @@ async function executar() {
             idsSupervisores.push(id);
         }
 
+        const idSupervisorExterno = await criarUsuario(client, { ...supervisorExterno, tipo: 'professor' });
+        await client.query(
+            `INSERT INTO professores (usuario_id, cargo, aprovado)
+             VALUES ($1, 'supervisor', true)
+             ON CONFLICT (usuario_id) DO UPDATE
+             SET cargo = 'supervisor', aprovado = true`,
+            [idSupervisorExterno]
+        );
+
         const idsOrientadores = [];
         for (const usuario of orientadores) {
             const id = await criarUsuario(client, { ...usuario, tipo: 'professor' });
@@ -89,7 +103,9 @@ async function executar() {
                     id,
                     estudante.matricula,
                     estudante.status,
-                    idsSupervisores[estudante.supervisor],
+                    estudante.supervisor === 'externo'
+                        ? idSupervisorExterno
+                        : idsSupervisores[estudante.supervisor],
                     idsOrientadores[estudante.orientador],
                     JSON.stringify({
                         1: { inicio: '08:00', fim: '12:00' },
@@ -120,7 +136,7 @@ async function executar() {
         await client.query('COMMIT');
         console.log(
             `[seed-dev] ${estudantes.length} estudantes, ${supervisores.length} supervisores e ` +
-            `${orientadores.length} orientadores preparados. Seed pode ser executado novamente.`
+            `${orientadores.length} orientadores e um supervisor externo preparados. Seed pode ser executado novamente.`
         );
     } catch (erro) {
         await client.query('ROLLBACK');

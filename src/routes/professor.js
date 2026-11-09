@@ -17,6 +17,38 @@ const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTraba
 
 router.use(requireRole('professor'));
 
+router.use(async (req, res, next) => {
+    const user = req.session.user;
+    const perfil = await professoresModel.buscarPorUsuarioId(user.id);
+    if (!perfil) return res.redirect('/login');
+
+    user.cargo = perfil.cargo;
+    user.supervisorAprovado = perfil.aprovado;
+    if (perfil.cargo !== 'supervisor') return next();
+    if (!perfil.aprovado) return res.redirect('/supervisor/pendente');
+
+    const caminhoPermitido = (req.method === 'GET' && [
+        '/dashboard',
+        '/completar-cadastro',
+    ].includes(req.path))
+        || (req.method === 'POST' && req.path === '/completar-cadastro')
+        || (req.method === 'GET' && /^\/aluno\/\d+$/.test(req.path))
+        || (req.method === 'POST' && /^\/aluno\/\d+\/atividade\/\d+\/(validar|invalidar)$/.test(req.path))
+        || (/^\/aluno\/\d+\/fac(?:\/pdf)?$/.test(req.path) && ['GET', 'POST'].includes(req.method))
+        || (req.method === 'GET' && /^\/aluno\/\d+\/(ficha-acompanhamento|faa\/pdf)$/.test(req.path));
+    if (!caminhoPermitido) return res.redirect('/professor/dashboard');
+
+    const alunoMatch = req.path.match(/^\/aluno\/(\d+)/);
+    if (alunoMatch) {
+        const aluno = await alunosModel.buscarPorUsuarioId(alunoMatch[1]);
+        if (!aluno || Number(aluno.supervisor_id) !== Number(user.id)) {
+            return res.status(403).send('Você não tem acesso a este estudante.');
+        }
+    }
+
+    next();
+});
+
 // completar-cadastro fica ANTES do requireNomeConfirmado de propósito:
 // é justamente a rota que resolve a pendência (nome incompleto vindo do GitHub).
 router.get('/completar-cadastro', async (req, res) => {
@@ -56,6 +88,7 @@ const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'ence
 
 router.get('/dashboard', async (req, res) => {
     const isAdmin = req.session.user.cargo === 'admin';
+    const isSupervisor = req.session.user.cargo === 'supervisor';
     const aba = isAdmin
         ? (req.query.aba === 'administracao' ? 'administracao' : 'alunos')
         : 'alunos';
@@ -75,7 +108,7 @@ router.get('/dashboard', async (req, res) => {
     }
 
     const busca = (req.query.q || '').trim();
-    const arquivados = req.query.arquivados === '1';
+    const arquivados = !isSupervisor && req.query.arquivados === '1';
     const campoOrdenacao = CAMPOS_ORDENACAO.includes(req.query.ordenar) ? req.query.ordenar : null;
     const direcao = req.query.dir === 'desc' ? 'desc' : 'asc';
     const ordenacao = { campo: campoOrdenacao, direcao };
@@ -104,7 +137,8 @@ router.get('/dashboard', async (req, res) => {
         status,
         busca,
         arquivados,
-        professorId: isAdmin ? null : req.session.user.id,
+        professorId: isAdmin || isSupervisor ? null : req.session.user.id,
+        supervisorId: isSupervisor ? req.session.user.id : null,
         limite: TAMANHO_PAGINA,
         offset: (pagina - 1) * TAMANHO_PAGINA,
         ordenarPor: campoOrdenacao,
@@ -127,9 +161,23 @@ router.get('/dashboard', async (req, res) => {
         totalPaginas,
         tamanhoPagina: TAMANHO_PAGINA,
         filtros,
+        supervisoresPendentes: isSupervisor ? [] : await professoresModel.listarSupervisoresPendentes(),
         filtroPersonalizado: Boolean(filtroEnviado),
         ordenacao,
     });
+});
+
+router.post('/supervisores/:id/aprovar', async (req, res) => {
+    if (req.session.user.cargo === 'supervisor') {
+        return res.status(403).send('Somente um professor da instituição pode aprovar supervisores externos.');
+    }
+    const aprovado = await professoresModel.aprovarSupervisor(req.params.id);
+    if (!aprovado) {
+        setFlash(req, 'error', 'Solicitação não encontrada ou já aprovada.');
+    } else {
+        setFlash(req, 'success', 'Supervisor aprovado. Ele poderá acessar os estudantes vinculados a ele.');
+    }
+    res.redirect('/professor/dashboard');
 });
 
 function dataLocalIso(data = new Date()) {
@@ -192,9 +240,10 @@ router.get('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/dashboard');
     }
 
-    const [atividades, professores, fapo, faa, fare, fac] = await Promise.all([
+    const [atividades, professores, supervisores, fapo, faa, fare, fac] = await Promise.all([
         atividadesModel.listarPorAluno(req.params.id),
         usuariosModel.listarProfessores(),
+        usuariosModel.listarSupervisores(),
         faposModel.buscarPorAluno(req.params.id),
         faasModel.buscarPorAluno(req.params.id),
         faresModel.buscarPorAluno(req.params.id),
@@ -213,6 +262,7 @@ router.get('/aluno/:id', async (req, res) => {
         diasTrabalho: DIAS_TRABALHO,
         atividades,
         professores,
+        supervisores,
         podeGerarFapo,
         fac,
         ehSupervisor: Number(aluno.supervisor_id) === Number(req.session.user.id),
@@ -332,6 +382,24 @@ router.get('/aluno/:id/fapo/pdf', requireOrientadorFapo, async (req, res) => {
     }
 });
 
+async function validarResponsaveis(supervisorId, orientadorId) {
+    const [supervisor, orientador] = await Promise.all([
+        supervisorId ? professoresModel.buscarPorUsuarioId(supervisorId) : null,
+        orientadorId ? professoresModel.buscarPorUsuarioId(orientadorId) : null,
+    ]);
+
+    if (supervisorId && (!supervisor || !supervisor.aprovado)) {
+        return 'Selecione um supervisor aprovado.';
+    }
+    if (orientadorId && (!orientador || !orientador.aprovado || orientador.cargo === 'supervisor')) {
+        return 'O orientador deve ser um professor da instituição.';
+    }
+    if (supervisorId && orientadorId && Number(supervisorId) === Number(orientadorId)) {
+        return 'Supervisor e orientador não podem ser a mesma pessoa.';
+    }
+    return null;
+}
+
 router.post('/aluno/:id', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
@@ -368,8 +436,9 @@ router.post('/aluno/:id', async (req, res) => {
     // lista de espera e em andamento.
     const status = req.body.status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
 
-    if (supervisor_id && orientador_id && supervisor_id === orientador_id) {
-        setFlash(req, 'error', 'Supervisor e orientador não podem ser o mesmo professor.');
+    const erroResponsaveis = await validarResponsaveis(supervisor_id, orientador_id);
+    if (erroResponsaveis) {
+        setFlash(req, 'error', erroResponsaveis);
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
@@ -447,8 +516,11 @@ router.get('/cadastro-aluno/:id', async (req, res) => {
         return res.redirect('/professor/dashboard');
     }
 
-    const professores = await usuariosModel.listarProfessores();
-    res.render('professor_cadastro_aluno', { aluno, professores, diasTrabalho: DIAS_TRABALHO });
+    const [professores, supervisores] = await Promise.all([
+        usuariosModel.listarProfessores(),
+        usuariosModel.listarSupervisores(),
+    ]);
+    res.render('professor_cadastro_aluno', { aluno, professores, supervisores, diasTrabalho: DIAS_TRABALHO });
 });
 
 router.post('/cadastro-aluno/:id', async (req, res) => {
@@ -480,8 +552,9 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
 
     // supervisor e orientador podem ficar em branco aqui e ser
     // definidos/trocados depois na tela de editar aluno
-    if (supervisor_id && orientador_id && supervisor_id === orientador_id) {
-        setFlash(req, 'error', 'Supervisor e orientador não podem ser o mesmo professor.');
+    const erroResponsaveis = await validarResponsaveis(supervisor_id, orientador_id);
+    if (erroResponsaveis) {
+        setFlash(req, 'error', erroResponsaveis);
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
@@ -644,7 +717,10 @@ router.post('/professores/:id/cargo', requireAdmin, async (req, res) => {
         return res.redirect('/professor/professores');
     }
     const cargo = req.body.cargo === 'admin' ? 'admin' : 'comum';
-    await professoresModel.definirCargo(req.params.id, cargo);
+    if (!await professoresModel.definirCargo(req.params.id, cargo)) {
+        setFlash(req, 'error', 'O cargo deste usuário não pode ser alterado por esta tela.');
+        return res.redirect('/professor/professores');
+    }
     setFlash(req, 'success', 'Cargo atualizado com sucesso.');
     res.redirect('/professor/professores');
 });

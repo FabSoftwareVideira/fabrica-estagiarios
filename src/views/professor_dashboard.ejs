@@ -49,6 +49,25 @@
                         </div>
                     </div>
                 <% } else { %>
+                    <% if (user.cargo !== 'supervisor' && typeof supervisoresPendentes !== 'undefined' && supervisoresPendentes.length) { %>
+                        <section class="card" aria-labelledby="solicitacoes-supervisores">
+                            <h2 id="solicitacoes-supervisores">Solicitações de supervisores externos</h2>
+                            <p>Confira a identidade do solicitante antes de aprovar. A aprovação libera somente as funções de supervisor.</p>
+                            <div class="lista-cartoes">
+                                <% supervisoresPendentes.forEach((supervisor) => { %>
+                                    <article class="orientando">
+                                        <div>
+                                            <h3><%= supervisor.nome %></h3>
+                                            <p class="meta"><%= supervisor.email %> · <%= supervisor.empresa_externa || 'Empresa não informada' %> · <%= supervisor.funcao_externa || 'Função não informada' %></p>
+                                        </div>
+                                        <form action="/professor/supervisores/<%= supervisor.id %>/aprovar" method="POST">
+                                            <button type="submit" class="btn-success">Aprovar supervisor</button>
+                                        </form>
+                                    </article>
+                                <% }) %>
+                            </div>
+                        </section>
+                    <% } %>
                     <div class="card filters-card">
                         <form action="/professor/dashboard" method="GET" class="filters-form">
                             <input type="hidden" name="f" value="1">
@@ -94,14 +113,15 @@
                                         <span>Encerrado</span>
                                     </label>
 
-                                    <span class="filter-pills-sep"></span>
-
-                                    <label class="filter-pill filter-pill-archived">
-                                        <input type="checkbox" name="arquivados" value="1"
-                                            <%= filtros.arquivados ? 'checked' : '' %>
-                                            data-auto-submit>
-                                        <span>Arquivados</span>
-                                    </label>
+                                    <% if (user.cargo !== 'supervisor') { %>
+                                        <span class="filter-pills-sep"></span>
+                                        <label class="filter-pill filter-pill-archived">
+                                            <input type="checkbox" name="arquivados" value="1"
+                                                <%= filtros.arquivados ? 'checked' : '' %>
+                                                data-auto-submit>
+                                            <span>Arquivados</span>
+                                        </label>
+                                    <% } %>
                                 </div>
                             </div>
                         </form>

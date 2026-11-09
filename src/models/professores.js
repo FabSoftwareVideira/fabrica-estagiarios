@@ -10,14 +10,53 @@ async function buscarPorUsuarioId(usuarioId) {
     return rows[0] || null;
 }
 
-async function criar({ usuarioId, cargo = 'comum' }) {
+async function criar({ usuarioId, cargo = 'comum', aprovado = true }) {
     const { rows } = await pool.query(
-        `INSERT INTO professores (usuario_id, cargo, receber_relatorio_semanal)
-         VALUES ($1, $2, true)
+        `INSERT INTO professores (usuario_id, cargo, aprovado, receber_relatorio_semanal)
+         VALUES ($1, $2, $3, true)
          RETURNING *`,
-        [usuarioId, cargo]
+        [usuarioId, cargo, aprovado]
     );
     return rows[0];
+}
+
+async function solicitarAcessoSupervisor(usuarioId, empresa, funcao) {
+    const { rows } = await pool.query(
+        `WITH candidato AS (
+            UPDATE usuarios
+            SET tipo = 'professor'
+            WHERE id = $1 AND tipo = 'aluno'
+              AND RIGHT(LOWER(email), LENGTH('@ifc.edu.br')) <> '@ifc.edu.br'
+              AND NOT EXISTS (SELECT 1 FROM alunos WHERE usuario_id = $1)
+            RETURNING id
+        )
+        INSERT INTO professores
+            (usuario_id, cargo, aprovado, empresa_externa, funcao_externa, receber_relatorio_semanal)
+        SELECT id, 'supervisor', false, $2, $3, false FROM candidato
+        RETURNING usuario_id`,
+        [usuarioId, empresa, funcao]
+    );
+    return rows.length > 0;
+}
+
+async function listarSupervisoresPendentes() {
+    const { rows } = await pool.query(
+        `SELECT p.usuario_id AS id, u.nome, u.email, p.empresa_externa, p.funcao_externa
+         FROM professores p
+         JOIN usuarios u ON u.id = p.usuario_id
+         WHERE p.cargo = 'supervisor' AND p.aprovado = false
+         ORDER BY u.nome`
+    );
+    return rows;
+}
+
+async function aprovarSupervisor(usuarioId) {
+    const { rowCount } = await pool.query(
+        `UPDATE professores SET aprovado = true
+         WHERE usuario_id = $1 AND cargo = 'supervisor' AND aprovado = false`,
+        [usuarioId]
+    );
+    return rowCount > 0;
 }
 
 // lista todos os professores, exceto o usuário logado (pra ninguém se
@@ -27,7 +66,7 @@ async function listarExceto(usuarioIdAtual) {
         `SELECT p.usuario_id, p.cargo, u.nome, u.email
          FROM professores p
          JOIN usuarios u ON u.id = p.usuario_id
-         WHERE p.usuario_id != $1
+         WHERE p.usuario_id != $1 AND p.cargo <> 'supervisor'
          ORDER BY u.nome ASC`,
         [usuarioIdAtual]
     );
@@ -35,7 +74,11 @@ async function listarExceto(usuarioIdAtual) {
 }
 
 async function definirCargo(usuarioId, cargo) {
-    await pool.query('UPDATE professores SET cargo = $2 WHERE usuario_id = $1', [usuarioId, cargo]);
+    const { rowCount } = await pool.query(
+        "UPDATE professores SET cargo = $2 WHERE usuario_id = $1 AND cargo <> 'supervisor'",
+        [usuarioId, cargo]
+    );
+    return rowCount > 0;
 }
 
 async function definirRecebimentoRelatorio(usuarioId, receber) {
@@ -53,6 +96,9 @@ async function excluir(usuarioId) {
 module.exports = {
     buscarPorUsuarioId,
     criar,
+    solicitarAcessoSupervisor,
+    listarSupervisoresPendentes,
+    aprovarSupervisor,
     listarExceto,
     definirCargo,
     definirRecebimentoRelatorio,

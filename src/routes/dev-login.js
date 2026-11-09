@@ -50,6 +50,14 @@ const USUARIOS_DEV = {
         tipo: 'professor',
         cargo: 'comum',
     },
+    supervisorExternoSeed: {
+        nome: 'Alex Supervisor Externo de Teste',
+        email: 'supervisor.externo@example.test',
+        googleId: 'dev-google-supervisor-externo-seed',
+        avatarUrl: null,
+        tipo: 'professor',
+        cargo: 'supervisor',
+    },
     orientadorSeed: {
         nome: 'Carlos Orientador de Teste',
         email: 'orientador1@example.test',
@@ -88,8 +96,15 @@ async function entrarComo(tipo, req, res) {
     if (dados.tipo === 'professor') {
         const existente = await professoresModel.buscarPorUsuarioId(usuario.id);
         if (!existente) {
-            await professoresModel.criar({ usuarioId: usuario.id, cargo: dados.cargo });
+            await professoresModel.criar({
+                usuarioId: usuario.id,
+                cargo: dados.cargo,
+                aprovado: true,
+            });
         } else if (existente.cargo !== dados.cargo) {
+            if (dados.cargo === 'supervisor') {
+                throw new Error('A conta de teste de supervisor externo já existe com outro cargo. Reexecute o seed dev para corrigi-la.');
+            }
             await professoresModel.definirCargo(usuario.id, dados.cargo);
         }
     }
@@ -107,6 +122,7 @@ async function entrarComo(tipo, req, res) {
     if (usuarioAtualizado.tipo === 'professor') {
         const prof = await professoresModel.buscarPorUsuarioId(usuarioAtualizado.id);
         req.session.user.cargo = prof ? prof.cargo : 'comum';
+        req.session.user.supervisorAprovado = prof ? prof.aprovado : true;
         return res.redirect('/professor/dashboard');
     }
 
@@ -117,6 +133,7 @@ router.get('/professor', apenasDev, (req, res) => entrarComo('professor', req, r
 router.get('/professor-admin', apenasDev, (req, res) => entrarComo('professorAdmin', req, res));
 router.get('/aluno', apenasDev, (req, res) => entrarComo('aluno', req, res));
 router.get('/supervisor-seed', apenasDev, (req, res) => entrarComo('supervisorSeed', req, res));
+router.get('/supervisor-externo-seed', apenasDev, (req, res) => entrarComo('supervisorExternoSeed', req, res));
 router.get('/orientador-seed', apenasDev, (req, res) => entrarComo('orientadorSeed', req, res));
 router.get('/aluno-seed', apenasDev, (req, res) => entrarComo('alunoSeed', req, res));
 

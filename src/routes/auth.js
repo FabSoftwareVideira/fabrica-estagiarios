@@ -28,6 +28,9 @@ function tipoPorEmail(email) {
 
 router.get('/login', (req, res) => {
     if (req.session.user) {
+        if (req.session.user.cargo === 'supervisor' && !req.session.user.supervisorAprovado) {
+            return res.redirect('/supervisor/pendente');
+        }
         return res.redirect(req.session.user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard');
     }
     res.redirect('/');
@@ -227,9 +230,11 @@ router.get('/auth/github/callback', async (req, res) => {
         }
 
         let cargo = null;
+        let supervisorAprovado = true;
         if (usuario.tipo === 'professor') {
             const professor = await professores.buscarPorUsuarioId(usuario.id);
             cargo = professor ? professor.cargo : 'comum';
+            supervisorAprovado = professor ? professor.aprovado : true;
         }
 
         req.session.user = {
@@ -238,13 +243,21 @@ router.get('/auth/github/callback', async (req, res) => {
             email: usuario.email,
             tipo: usuario.tipo,
             cargo,
+            supervisorAprovado,
             avatarEmoji: usuario.avatar_emoji || null,
         };
 
         if (usuario.tipo === 'professor') {
+            if (cargo === 'supervisor' && !supervisorAprovado) {
+                return res.redirect('/supervisor/pendente');
+            }
             return res.redirect('/professor/dashboard');
         }
         // requireAlunoCompleto cuida de redirecionar pra completar-cadastro se faltar matrícula
+        const emailConta = usuario.email.toLowerCase();
+        if (!emailConta.endsWith(DOMINIO_PROFESSOR) && !await alunos.buscarPorUsuarioId(usuario.id)) {
+            return res.redirect('/acesso/perfil');
+        }
         res.redirect('/aluno/dashboard');
     } catch (err) {
         console.error('[auth/github/callback] erro:', err.message);
@@ -345,9 +358,11 @@ router.get('/auth/google/callback', async (req, res) => {
         }
 
         let cargo = null;
+        let supervisorAprovado = true;
         if (usuario.tipo === 'professor') {
             const professor = await professores.buscarPorUsuarioId(usuario.id);
             cargo = professor ? professor.cargo : 'comum';
+            supervisorAprovado = professor ? professor.aprovado : true;
         }
 
         req.session.user = {
@@ -356,11 +371,19 @@ router.get('/auth/google/callback', async (req, res) => {
             email: usuario.email,
             tipo: usuario.tipo,
             cargo,
+            supervisorAprovado,
             avatarEmoji: usuario.avatar_emoji || null,
         };
 
         if (usuario.tipo === 'professor') {
+            if (cargo === 'supervisor' && !supervisorAprovado) {
+                return res.redirect('/supervisor/pendente');
+            }
             return res.redirect('/professor/dashboard');
+        }
+        const emailConta = usuario.email.toLowerCase();
+        if (!emailConta.endsWith(DOMINIO_PROFESSOR) && !await alunos.buscarPorUsuarioId(usuario.id)) {
+            return res.redirect('/acesso/perfil');
         }
         res.redirect('/aluno/dashboard');
     } catch (err) {
