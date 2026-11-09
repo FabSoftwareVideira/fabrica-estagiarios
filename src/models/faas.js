@@ -29,7 +29,8 @@ async function salvar({
     dataAssinatura,
 }) {
     const { rows } = await pool.query(
-        `INSERT INTO faas (
+        `WITH saved AS (
+         INSERT INTO faas (
              aluno_id, empresa, periodo, notas, atividades,
              respostas, comentarios, data_assinatura
          )
@@ -43,7 +44,11 @@ async function salvar({
              comentarios = EXCLUDED.comentarios,
              data_assinatura = EXCLUDED.data_assinatura,
              atualizado_em = NOW()
-         RETURNING *`,
+         RETURNING *
+         ), removido AS (
+             DELETE FROM fichas_rascunhos WHERE aluno_id = $1 AND tipo = 'FAA'
+         )
+         SELECT * FROM saved`,
         [
             alunoId,
             empresa,

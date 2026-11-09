@@ -20,6 +20,7 @@
                 <a class="btn btn-secondary" href="/professor/aluno/<%= aluno.usuario_id %>/fac/pdf"><%- icone('baixar') %> Baixar PDF</a>
             </div>
         <% } %>
+        <% if (rascunhoSalvo) { %><div class="aviso aviso-info" role="status">Rascunho da FAC salvo em <%= dataBr(rascunhoSalvo.atualizado_em) %>. Continue o preenchimento quando quiser.</div><% } %>
         <% if (!aluno.curso) { %><p class="aviso aviso-info">O estudante ainda não selecionou o curso em seu perfil; a FAC fica bloqueada até essa informação ser preenchida.</p><% } else if (!podeEditar) { %><p class="aviso aviso-info">Consulta da avaliação. O supervisor pode preenchê-la após o cumprimento das horas, enquanto o estágio estiver aberto e não arquivado.</p><% } %>
         <% if (erros.length) { %><div class="flash flash-error" role="alert"><ul><% erros.forEach((erro) => { %><li><%= erro %></li><% }) %></ul></div><% } %>
         <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/fac">
@@ -48,7 +49,12 @@
                     </div>
                     <p class="form-note">Após salvar, baixe a ficha para assinatura do supervisor e ciência do estudante e do orientador.</p>
                 </section>
-                <% if (podeEditar) { %><button type="submit">Salvar avaliação</button><% } %>
+                <% if (podeEditar) { %>
+                    <div class="button-group form-actions">
+                        <button type="submit" name="acao" value="rascunho" class="btn-secondary" formnovalidate>Salvar rascunho</button>
+                        <button type="submit">Salvar avaliação</button>
+                    </div>
+                <% } %>
             </fieldset>
         </form>
         <div class="form-actions"><a class="btn btn-secondary" href="/professor/fichas">Voltar às fichas</a></div>

@@ -6,6 +6,7 @@ const usuariosModel = require('../models/usuarios');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
 const facsModel = require('../models/facs');
+const fichasRascunhosModel = require('../models/fichasRascunhos');
 const bancasModel = require('../models/bancas');
 const { SITUACOES_BANCA } = require('../utils/bancas');
 const { gerarFacPdf } = require('../services/facPdf');
@@ -143,6 +144,7 @@ router.get('/dashboard', async (req, res) => {
     const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
     const fapoSalva = await faposModel.buscarPorAluno(req.session.user.id);
     const faaSalva = await faasModel.buscarPorAluno(req.session.user.id);
+    const faaRascunho = await fichasRascunhosModel.buscar(req.session.user.id, 'FAA');
 
     const horasRealizadas = Number(aluno.horas_realizadas);
     const horasPendentes = Number(aluno.horas_pendentes);
@@ -158,6 +160,7 @@ router.get('/dashboard', async (req, res) => {
         banca: await bancasModel.buscarPorAluno(req.session.user.id),
         situacoesBanca: SITUACOES_BANCA,
         faaSalva,
+        faaRascunho,
         horasRealizadas,
         horasPendentes,
         cargaHoraria,
@@ -174,6 +177,7 @@ router.get('/dashboard', async (req, res) => {
 
 router.get('/faa', requireEstagioConcluido, async (req, res) => {
     const faaSalva = await faasModel.buscarPorAluno(req.session.user.id);
+    const rascunhoSalvo = await fichasRascunhosModel.buscar(req.session.user.id, 'FAA');
     const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
     const validadas = atividades
         .filter((a) => a.status_validacao === 'validada')
@@ -190,12 +194,13 @@ router.get('/faa', requireEstagioConcluido, async (req, res) => {
     res.render('aluno_faa', {
         aluno: req.aluno,
         faaSalva,
-        periodo: faaSalva ? faaSalva.periodo : periodoSugerido,
-        atividadesTexto: faaSalva ? faaSalva.atividades : '',
-        comentarios: faaSalva ? faaSalva.comentarios : '',
-        dataAssinatura: faaSalva ? dataParaInput(faaSalva.data_assinatura) : dataLocalIso(),
-        notasSalvas: faaSalva ? faaSalva.notas : [],
-        respostasSalvas: faaSalva ? faaSalva.respostas : [],
+        rascunhoSalvo,
+        periodo: rascunhoSalvo?.dados.periodo ?? faaSalva?.periodo ?? periodoSugerido,
+        atividadesTexto: rascunhoSalvo?.dados.atividades ?? faaSalva?.atividades ?? '',
+        comentarios: rascunhoSalvo?.dados.comentarios ?? faaSalva?.comentarios ?? '',
+        dataAssinatura: rascunhoSalvo?.dados.data_assinatura ?? (faaSalva ? dataParaInput(faaSalva.data_assinatura) : dataLocalIso()),
+        notasSalvas: rascunhoSalvo?.dados.notas ?? faaSalva?.notas ?? [],
+        respostasSalvas: rascunhoSalvo?.dados.respostas ?? faaSalva?.respostas ?? [],
         somenteLeitura: Boolean(req.aluno.encerrado_em),
     });
 });
@@ -206,12 +211,32 @@ router.post('/faa', requireEstagioConcluido, async (req, res) => {
         return res.redirect('/aluno/dashboard?aba=fichas');
     }
 
-    const acao = req.body.acao === 'salvar' ? 'salvar' : 'salvar_pdf';
+    const acao = ['salvar', 'rascunho'].includes(req.body.acao) ? req.body.acao : 'salvar_pdf';
     // a empresa é a cadastrada no estágio pelo professor, nunca digitada pelo aluno
     const empresa = (req.aluno.empresa || '').trim();
 
     if (!empresa) {
         setFlash(req, 'error', 'A empresa/concedente não foi cadastrada pelo professor do estágio.');
+        return res.redirect('/aluno/faa');
+    }
+
+    if (acao === 'rascunho') {
+        const campo = (valor, limite = 5000) => typeof valor === 'string' ? valor.slice(0, limite) : '';
+        const dados = {
+            periodo: campo(req.body.periodo, 80),
+            atividades: campo(req.body.atividades),
+            comentarios: campo(req.body.comentarios, 1500),
+            data_assinatura: campo(req.body.data_assinatura, 10),
+            notas: Array.from({ length: 10 }, (_, i) => campo(req.body[`nota_${i + 1}`], 10)),
+            respostas: Array.from({ length: 7 }, (_, i) => campo(req.body[`q_${i + 1}`], 20)),
+        };
+        try {
+            await fichasRascunhosModel.salvar(req.session.user.id, 'FAA', dados);
+            setFlash(req, 'success', 'Rascunho da FAA salvo. Você poderá continuar o preenchimento mais tarde.');
+        } catch (err) {
+            console.error('[aluno/faa] erro ao salvar rascunho:', err.message);
+            setFlash(req, 'error', 'Não foi possível salvar o rascunho da FAA. Tente novamente.');
+        }
         return res.redirect('/aluno/faa');
     }
 

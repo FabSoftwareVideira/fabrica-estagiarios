@@ -8,6 +8,7 @@ const relatorioSemanalModel = require('../models/relatorioSemanal');
 const { executar: enviarRelatorioSemanal } = require('../scripts/enviarRelatorioSemanalSupervisores');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
+const fichasRascunhosModel = require('../models/fichasRascunhos');
 const facsModel = require('../models/facs');
 const faresModel = require('../models/fares');
 const { gerarFapoPdf } = require('../services/fapoPdf');
@@ -234,7 +235,7 @@ router.get('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/dashboard');
     }
 
-    const [atividades, professores, supervisores, fapo, faa, fare, fac] = await Promise.all([
+    const [atividades, professores, supervisores, fapo, faa, fare, fac, fapoRascunho, facRascunho] = await Promise.all([
         atividadesModel.listarPorAluno(req.params.id),
         usuariosModel.listarProfessores(),
         usuariosModel.listarSupervisores(),
@@ -242,6 +243,8 @@ router.get('/aluno/:id', async (req, res) => {
         faasModel.buscarPorAluno(req.params.id),
         faresModel.buscarPorAluno(req.params.id),
         facsModel.buscarPorAluno(req.params.id),
+        fichasRascunhosModel.buscar(req.params.id, 'FAPO'),
+        fichasRascunhosModel.buscar(req.params.id, 'FAC'),
     ]);
 
     const ehOrientador = Number(aluno.orientador_id) === Number(req.session.user.id);
@@ -264,26 +267,45 @@ router.get('/aluno/:id', async (req, res) => {
         ehOrientador,
         encerrado,
         fapo,
+        fapoRascunho,
         faa,
         fare,
+        facRascunho,
     });
 });
 
 router.get('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
     const fapoSalva = await faposModel.buscarPorAluno(req.params.id);
+    const rascunhoSalvo = await fichasRascunhosModel.buscar(req.params.id, 'FAPO');
 
     res.render('professor_fapo', {
         aluno: req.aluno,
         fapoSalva,
-        nota: fapoSalva ? Number(fapoSalva.nota) : '',
-        comentarios: fapoSalva ? fapoSalva.comentarios : '',
-        dataAssinatura: fapoSalva ? dataParaInput(fapoSalva.data_assinatura) : dataLocalIso(),
+        rascunhoSalvo,
+        nota: rascunhoSalvo?.dados.nota ?? (fapoSalva ? Number(fapoSalva.nota) : ''),
+        comentarios: rascunhoSalvo?.dados.comentarios ?? fapoSalva?.comentarios ?? '',
+        dataAssinatura: rascunhoSalvo?.dados.data_assinatura ?? (fapoSalva ? dataParaInput(fapoSalva.data_assinatura) : dataLocalIso()),
         hoje: dataLocalIso(),
     });
 });
 
 router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
-    const acao = req.body.acao === 'salvar' ? 'salvar' : 'salvar_pdf';
+    const acao = ['salvar', 'rascunho'].includes(req.body.acao) ? req.body.acao : 'salvar_pdf';
+    if (acao === 'rascunho') {
+        const campo = (valor, limite = 1500) => typeof valor === 'string' ? valor.slice(0, limite) : '';
+        try {
+            await fichasRascunhosModel.salvar(req.params.id, 'FAPO', {
+                nota: campo(req.body.nota, 10),
+                comentarios: campo(req.body.comentarios),
+                data_assinatura: campo(req.body.data_assinatura, 10),
+            });
+            setFlash(req, 'success', 'Rascunho da FAPO salvo. Você poderá continuar o preenchimento mais tarde.');
+        } catch (err) {
+            console.error('[professor/fapo] erro ao salvar rascunho:', err.message);
+            setFlash(req, 'error', 'Não foi possível salvar o rascunho da FAPO. Tente novamente.');
+        }
+        return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
+    }
     const notaBruta = req.body.nota;
     const nota = Number(notaBruta);
     const comentarios = (req.body.comentarios || '').trim();

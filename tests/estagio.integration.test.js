@@ -8,6 +8,7 @@ const express = require('express');
 const { pool } = require('../src/config/database');
 const { executar, montarEmail } = require('../src/scripts/enviarLembretesAtividades');
 const facs = require('../src/models/facs');
+const fichasRascunhos = require('../src/models/fichasRascunhos');
 const { mediaFac } = require('../src/utils/fac');
 const { PDFDocument } = require('pdf-lib');
 const { gerarFacPdf } = require('../src/services/facPdf');
@@ -800,6 +801,85 @@ test('FAC: supervisor preenche, persiste notas e média; aluno e orientador cons
         const r = await requisitar(rota, { user }); assert.equal(r.status, 200, rota);
         assert.match(await r.text(), /FAC/);
     }
+});
+test('FAA permite salvar rascunho parcial e continuar após nova requisição', async () => {
+    await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
+    const salvamento = await requisitar('/aluno/faa', {
+        user: 1, method: 'POST',
+        body: { acao: 'rascunho', periodo: '01/09/2026 a 30/09/2026', atividades: 'Atendimento e organização', nota_1: '8.5' },
+    });
+    assert.equal(salvamento.status, 302);
+    assert.equal(await consultar('SELECT aluno_id FROM faas WHERE aluno_id=1').then((r) => r.rows.length), 0);
+    const rascunho = await fichasRascunhos.buscar(1, 'FAA');
+    assert.equal(rascunho.dados.periodo, '01/09/2026 a 30/09/2026');
+    assert.equal(rascunho.dados.notas[0], '8.5');
+    const tela = await requisitar('/aluno/faa', { user: 1 });
+    const html = await tela.text();
+    assert.equal(tela.status, 200);
+    assert.match(html, /value="01\/09\/2026 a 30\/09\/2026"/);
+    assert.match(html, /name="nota_1"[^>]*value="8\.5"/);
+    assert.match(html, /Salvar rascunho/);
+    const finalizacao = await requisitar('/aluno/faa', {
+        user: 1, method: 'POST',
+        body: {
+            acao: 'salvar',
+            periodo: '01/09/2026 a 30/09/2026',
+            atividades: 'Atendimento e organização',
+            data_assinatura: '2026-09-30',
+            comentarios: '',
+            ...Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`nota_${i + 1}`, '8'])),
+            ...Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`q_${i + 1}`, 'sim'])),
+        },
+    });
+    assert.equal(finalizacao.status, 302);
+    assert.equal(await fichasRascunhos.buscar(1, 'FAA'), null);
+});
+test('FAPO e FAC permitem salvar e retomar rascunhos parciais', async () => {
+    await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
+    const fapoPost = await requisitar('/professor/aluno/1/fapo', {
+        user: 102, method: 'POST',
+        body: { acao: 'rascunho', comentarios: 'Acompanhamento em andamento' },
+    });
+    assert.equal(fapoPost.status, 302);
+    assert.equal((await fichasRascunhos.buscar(1, 'FAPO')).dados.comentarios, 'Acompanhamento em andamento');
+    const fapoTela = await requisitar('/professor/aluno/1/fapo', { user: 102 });
+    assert.equal(fapoTela.status, 200);
+    assert.match(await fapoTela.text(), /Acompanhamento em andamento/);
+    const fapoFinal = await requisitar('/professor/aluno/1/fapo', {
+        user: 102, method: 'POST',
+        body: { acao: 'salvar', nota: '8.5', comentarios: 'Avaliação completa', data_assinatura: '2026-09-30' },
+    });
+    assert.equal(fapoFinal.status, 302);
+    assert.equal(await fichasRascunhos.buscar(1, 'FAPO'), null);
+
+    const facPost = await requisitar('/professor/aluno/1/fac', {
+        user: 101, method: 'POST',
+        body: { acao: 'rascunho', periodo: '01/09/2026 a 30/09/2026', nota_0: '7.5' },
+    });
+    assert.equal(facPost.status, 302);
+    assert.equal(await consultar('SELECT aluno_id FROM facs WHERE aluno_id=1').then((r) => r.rows.length), 0);
+    assert.equal((await fichasRascunhos.buscar(1, 'FAC')).dados.notas[0], '7.5');
+    const facTela = await requisitar('/professor/aluno/1/fac', { user: 101 });
+    assert.equal(facTela.status, 200);
+    assert.match(await facTela.text(), /value="7\.5"/);
+    const facFinal = await requisitar('/professor/aluno/1/fac', {
+        user: 101, method: 'POST', body: form(),
+    });
+    assert.equal(facFinal.status, 302);
+    assert.equal(await fichasRascunhos.buscar(1, 'FAC'), null);
+});
+test('rascunho da ata já é salvo no banco e pode ser continuado', async () => {
+    await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
+    const salvamento = await requisitar('/professor/aluno/1/fare', {
+        user: 102, method: 'POST',
+        body: { acao: 'salvar', periodo: '01/09/2026 a 30/09/2026', comentarios: 'Revisar banca', banca_1_1: '8' },
+    });
+    assert.equal(salvamento.status, 302);
+    const fare = (await consultar('SELECT periodo, comentarios, banca FROM fares WHERE aluno_id=1')).rows[0];
+    assert.equal(fare.periodo, '01/09/2026 a 30/09/2026');
+    assert.equal(fare.comentarios, 'Revisar banca');
+    assert.equal(fare.banca[0][0], 8);
+    assert.equal((await consultar('SELECT encerrado_em FROM alunos WHERE usuario_id=1')).rows[0].encerrado_em, null);
 });
 test('FAC: permissões, encerramento, arquivamento e dados inválidos bloqueiam alterações', async () => {
     assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 403);

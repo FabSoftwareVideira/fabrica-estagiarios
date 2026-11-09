@@ -38,6 +38,11 @@
                 <a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary"><%- icone('baixar') %> Baixar PDF</a>
             </div>
         <% } %>
+        <% if (rascunhoSalvo) { %>
+            <div class="aviso aviso-info" role="status">
+                Rascunho da FAPO salvo em <%= new Date(rascunhoSalvo.atualizado_em).toLocaleString('pt-BR') %>. Continue o preenchimento quando quiser.
+            </div>
+        <% } %>
 
         <form action="/professor/aluno/<%= aluno.usuario_id %>/fapo" method="POST">
             <section class="card">
@@ -60,6 +65,7 @@
             </section>
 
             <div class="button-group form-actions">
+                <button type="submit" name="acao" value="rascunho" class="btn-secondary" formnovalidate>Salvar rascunho</button>
                 <button type="submit" name="acao" value="salvar_pdf" class="btn-success">Salvar e baixar PDF</button>
                 <button type="submit" name="acao" value="salvar" class="btn-secondary">Salvar sem baixar</button>
                 <a href="/professor/fichas" class="btn btn-secondary">Voltar às fichas</a>

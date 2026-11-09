@@ -224,7 +224,7 @@
                             <% } %>
                         </article>
 
-                        <article class="ficha-item <%= faaSalva ? 'pronta' : '' %>">
+                        <article class="ficha-item <%= faaSalva || faaRascunho ? 'pronta' : '' %>">
                             <div class="ficha-item-head">
                                 <span class="ficha-icon"><%- icone('caneta') %></span>
                                 <div>
@@ -234,7 +234,7 @@
                             </div>
                             <% if (concluidoHoras && !encerrado) { %>
                                 <div class="button-group">
-                                    <a href="/aluno/faa" class="btn btn-success"><%- icone('caneta') %> <%= faaSalva ? 'Revisar' : 'Preencher' %></a>
+                                    <a href="/aluno/faa" class="btn btn-success"><%- icone('caneta') %> <%= faaSalva ? 'Revisar' : (faaRascunho ? 'Continuar rascunho' : 'Preencher') %></a>
                                     <% if (faaSalva) { %><a href="/aluno/faa/pdf" class="btn btn-secondary"><%- icone('baixar') %> PDF</a><% } %>
                                 </div>
                             <% } else if (encerrado) { %>

@@ -8,7 +8,7 @@ async function buscarPorAluno(alunoId) {
 
 async function salvar(alunoId, supervisor, dados) {
     // Também protege contra encerramento/troca de supervisor enquanto o formulário está aberto.
-    const { rowCount } = await pool.query(`INSERT INTO facs
+    const { rows } = await pool.query(`WITH saved AS (INSERT INTO facs
         (aluno_id, supervisor_id, supervisor_nome, empresa, curso, periodo, notas,
          atividades, comentarios, local_assinatura, data_assinatura)
         SELECT usuario_id, $2, $3, $4, curso, $6, $7::jsonb, $8, $9, $10, $11::date
@@ -19,10 +19,16 @@ async function salvar(alunoId, supervisor, dados) {
           empresa = EXCLUDED.empresa, curso = EXCLUDED.curso, periodo = EXCLUDED.periodo,
           notas = EXCLUDED.notas, atividades = EXCLUDED.atividades, comentarios = EXCLUDED.comentarios,
           local_assinatura = EXCLUDED.local_assinatura, data_assinatura = EXCLUDED.data_assinatura,
-          atualizado_em = NOW()`,
+          atualizado_em = NOW()
+        RETURNING aluno_id
+    ), removido AS (
+        DELETE FROM fichas_rascunhos
+        WHERE aluno_id IN (SELECT aluno_id FROM saved) AND tipo = 'FAC'
+    )
+    SELECT aluno_id FROM saved`,
     [alunoId, supervisor.id, supervisor.nome, dados.empresa, dados.curso, dados.periodo,
         JSON.stringify(dados.notas), dados.atividades, dados.comentarios, dados.local_assinatura, dados.data_assinatura]);
-    return rowCount > 0;
+    return rows.length > 0;
 }
 
 async function listarPorSupervisor(supervisorId) {

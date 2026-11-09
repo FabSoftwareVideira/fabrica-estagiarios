@@ -116,18 +116,18 @@
                     </li>
                     <% if (ehSupervisor || ehOrientador || user.cargo === 'admin') { %>
                         <li>
-                            <span class="doc-nome">FAC · Avaliação do supervisor<small><%= fac ? 'Média ' + fac.nota.toFixed(1).replace('.', ',') : 'Ainda não preenchida' %></small></span>
+                            <span class="doc-nome">FAC · Avaliação do supervisor<small><%= fac ? 'Média ' + fac.nota.toFixed(1).replace('.', ',') : (facRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
                             <span class="table-actions">
-                                <% if (fac || (ehSupervisor && aluno.status === 'concluido' && !encerrado && !aluno.arquivado)) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac" class="btn btn-secondary btn-sm"><%= ehSupervisor && !encerrado && !aluno.arquivado ? 'Preencher/editar' : 'Consultar' %></a><% } %>
+                                <% if (fac || (ehSupervisor && aluno.status === 'concluido' && !encerrado && !aluno.arquivado)) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac" class="btn btn-secondary btn-sm"><%= ehSupervisor && !encerrado && !aluno.arquivado ? (facRascunho && !fac ? 'Continuar rascunho' : 'Preencher/editar') : 'Consultar' %></a><% } %>
                                 <% if (fac) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
                             </span>
                         </li>
                     <% } %>
                     <% if (aluno.status === 'concluido') { %>
                         <li>
-                            <span class="doc-nome">FAPO · Avaliação do orientador<small><%= fapo ? 'Nota ' + String(fapo.nota).replace('.', ',') : 'Ainda não preenchida' %></small></span>
+                            <span class="doc-nome">FAPO · Avaliação do orientador<small><%= fapo ? 'Nota ' + String(fapo.nota).replace('.', ',') : (fapoRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
                             <span class="table-actions">
-                                <% if (podeGerarFapo) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo" class="btn btn-success btn-sm"><%- icone('caneta') %> <%= fapo ? 'Editar' : 'Preencher' %></a><% } %>
+                                <% if (podeGerarFapo) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo" class="btn btn-success btn-sm"><%- icone('caneta') %> <%= fapo ? 'Editar' : (fapoRascunho ? 'Continuar rascunho' : 'Preencher') %></a><% } %>
                                 <% if (fapo && ehOrientador) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
                             </span>
                         </li>

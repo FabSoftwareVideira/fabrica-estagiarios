@@ -18,14 +18,19 @@ async function buscarPorAluno(alunoId) {
 
 async function salvar({ alunoId, nota, comentarios, dataAssinatura }) {
     const { rows } = await pool.query(
-        `INSERT INTO fapos (aluno_id, nota, comentarios, data_assinatura)
+        `WITH saved AS (
+         INSERT INTO fapos (aluno_id, nota, comentarios, data_assinatura)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (aluno_id) DO UPDATE SET
              nota = EXCLUDED.nota,
              comentarios = EXCLUDED.comentarios,
              data_assinatura = EXCLUDED.data_assinatura,
              atualizado_em = NOW()
-         RETURNING *`,
+         RETURNING *
+         ), removido AS (
+             DELETE FROM fichas_rascunhos WHERE aluno_id = $1 AND tipo = 'FAPO'
+         )
+         SELECT * FROM saved`,
         [alunoId, nota, comentarios, dataAssinatura]
     );
     return normalizar(rows[0]);
