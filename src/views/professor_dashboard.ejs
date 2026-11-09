@@ -221,9 +221,6 @@
                                                 <td>
                                                     <% const st = estagioStatus(a); %>
                                                     <span class="status <%= st.classe %>"><%= st.label %></span>
-                                                    <% if (a.arquivado) { %>
-                                                        <span class="status status-archived">Arquivado</span>
-                                                    <% } %>
                                                 </td>
                                                 <td>
                                                     <%- include('partials/aluno_acoes', { a, user }) %>

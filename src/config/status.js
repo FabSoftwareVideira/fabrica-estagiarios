@@ -5,6 +5,9 @@
 function estagioStatus(aluno) {
     if (!aluno) return { chave: 'indefinido', label: '—', classe: 'status-waiting' };
 
+    if (aluno.arquivado) {
+        return { chave: 'arquivado', label: 'Arquivado', classe: 'status-archived' };
+    }
     if (aluno.status === 'lista_espera') {
         return { chave: 'lista_espera', label: 'Lista de espera', classe: 'status-waiting' };
     }
@@ -27,10 +30,9 @@ const ETAPAS = [
 
 // índice (0 a 3) da etapa atual
 function etapaAtual(aluno) {
-    const { chave } = estagioStatus(aluno);
-    if (chave === 'lista_espera') return 0;
-    if (chave === 'em_andamento') return 1;
-    if (chave === 'aguardando_banca') return 2;
+    if (!aluno || aluno.status === 'lista_espera') return 0;
+    if (aluno.status === 'em_andamento') return 1;
+    if (aluno.status === 'concluido' && !aluno.encerrado_em) return 2;
     return 3;
 }
 

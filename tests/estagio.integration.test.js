@@ -11,6 +11,7 @@ const facs = require('../src/models/facs');
 const { mediaFac } = require('../src/utils/fac');
 const { PDFDocument } = require('pdf-lib');
 const { gerarFacPdf } = require('../src/services/facPdf');
+const { estagioStatus, etapaAtual } = require('../src/config/status');
 
 let db, server, url;
 const banco = {
@@ -30,6 +31,15 @@ async function consultar(sql, params) {
 }
 const logger = { log() {}, error() {} };
 const raiz = path.join(__dirname, '..');
+test('status arquivado prevalece sobre o status operacional sem alterar a etapa do estágio', () => {
+    const aluno = { status: 'em_andamento', arquivado: true, encerrado_em: null };
+    assert.deepEqual(estagioStatus(aluno), {
+        chave: 'arquivado',
+        label: 'Arquivado',
+        classe: 'status-archived',
+    });
+    assert.equal(etapaAtual(aluno), 1);
+});
 const form = () => ({ empresa: 'Empresa Exemplo', curso: 'Técnico em Informática', periodo: '01/03/2026 a 01/04/2026',
     atividades: 'Desenvolvimento e testes de sistemas.', comentarios: 'Bom desempenho.',
     local_assinatura: 'Videira', data_assinatura: '2026-11-08',
