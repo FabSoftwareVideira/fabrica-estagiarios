@@ -1,0 +1,22 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Demonstração · Estágios</title>
+<script src="/js/theme.js"></script><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/theme.css">
+</head><body><%- include('partials/header') %>
+<main class="container" id="conteudo">
+    <div class="page-head"><div><h1>Demonstração dos recursos</h1><p>Dados fictícios em memória. Você pode acompanhar e testar os fluxos abaixo.</p></div></div>
+    <section class="card"><h2>Escolha o perfil</h2><p>Os formulários, validações, banco e PDFs usam o código da aplicação. A demonstração mantém usuários e mensagens separados dos dados reais.</p>
+        <div class="card-actions"><% [['orientador','Carlos · Orientador'],['supervisor','Marina · Supervisora'],['admin','Administração'],['ana','Ana · Estudante'],['bruno','Bruno · Estudante'],['carla','Carla · Estudante']].forEach(([id,nome]) => { %><form method="POST" action="/demo/entrar/<%= id %>"><button class="btn-secondary" type="submit"><%= nome %></button></form><% }) %></div>
+    </section>
+    <section class="card"><h2>Roteiro para acompanhar</h2><ol style="padding-left: 24px"><li>Como orientador, agende a banca de Ana e tente agendar Bruno no mesmo horário.</li><li>Remarque a banca e confira o novo horário no perfil de Ana.</li><li>Como supervisora, preencha a FAC e baixe o PDF. Confira a média na ata, com o orientador.</li><li>Alterne os temas no cabeçalho e navegue entre páginas.</li><li>Execute o lembrete abaixo duas vezes: a primeira captura a mensagem de Carla; a segunda não repete o envio.</li></ol>
+    </section>
+    <section class="card"><h2>Teste dos lembretes por e-mail</h2><p>O comando real de lembretes é executado com o transporte de e-mail em modo de captura local. Não há conexão com SMTP externo.</p>
+        <div class="table-wrap"><table><thead><tr><th>Estudante</th><th>Status</th><th>Dias sem atualizar</th><th>Lembrete enviado</th></tr></thead><tbody><% alunos.forEach((a) => { %><tr><td><%= a.nome %></td><td><%= a.status === 'concluido' ? 'Horas cumpridas' : 'Em andamento' %></td><td><%= a.dias %></td><td><%= a.enviado_em ? 'Sim — próximo permitido após 7 dias' : 'Não' %></td></tr><% }) %></tbody></table></div>
+        <form action="/demo/lembretes" method="POST" class="form-actions"><button type="submit">Executar verificação de lembretes</button></form>
+        <% if (resultado) { %><p class="aviso aviso-ok" role="status">Última execução: <%= resultado.enviados %> mensagem(ns) enviada(s) para a caixa local; <%= resultado.falhas %> falha(s).</p><% } %>
+    </section>
+    <section class="card"><h2>Caixa de e-mail local <span class="contagem"><%= mensagens.length %></span></h2>
+        <% if (!mensagens.length) { %><p class="empty-state">Nenhuma mensagem capturada ainda.</p><% } %>
+        <ul class="docs-lista"><% mensagens.forEach((m,i) => { %><li><span class="doc-nome"><%= m.subject %><small>Para: <%= m.to.map((p) => p.address).join(', ') %></small></span><a href="/demo/emails/<%= i %>" class="btn btn-secondary">Abrir mensagem</a></li><% }) %></ul>
+    </section>
+    <section class="card"><h2>PDF da avaliação</h2><p>Depois de salvar a FAC da Ana, confira o documento preenchido.</p><div class="card-actions"><a class="btn btn-secondary" href="/demo/fac/201/visualizar">Visualizar PDF da Ana</a></div></section>
+</main><%- include('partials/footer') %></body></html>

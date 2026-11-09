@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAC · Avaliação do supervisor</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [{ texto: 'Fichas', href: '/professor/fichas' }, { texto: aluno.nome, href: '/professor/aluno/' + aluno.usuario_id }, { texto: 'FAC' }] }) %>
+        <%- include('partials/flash') %>
+        <div class="page-head"><div><h1>FAC · Avaliação do supervisor</h1><p><%= aluno.nome %> · <%= aluno.empresa || 'Empresa não informada' %></p></div></div>
+        <% if (fac) { %>
+            <div class="faa-saved"><div><strong>Avaliação salva · Média <%= fac.nota.toFixed(1).replace('.', ',') %></strong>
+                <p>Atualizada em <%= dataBr(fac.atualizado_em) %></p></div>
+                <a class="btn btn-secondary" href="/professor/aluno/<%= aluno.usuario_id %>/fac/pdf"><%- icone('baixar') %> Baixar PDF</a>
+            </div>
+        <% } %>
+        <% if (!podeEditar) { %><p class="aviso aviso-info">Consulta da avaliação. O supervisor pode preenchê-la após o cumprimento das horas, enquanto o estágio estiver aberto e não arquivado.</p><% } %>
+        <% if (erros.length) { %><div class="flash flash-error" role="alert"><ul><% erros.forEach((erro) => { %><li><%= erro %></li><% }) %></ul></div><% } %>
+        <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/fac">
+            <fieldset <%= podeEditar ? '' : 'disabled' %>>
+                <section class="card">
+                    <h2>Dados do estágio</h2>
+                    <div class="form-grid">
+                        <% [['empresa', 'Empresa/entidade concedente', 200], ['curso', 'Curso', 150], ['periodo', 'Período do estágio', 80]].forEach(([campo, rotulo, limite]) => { %>
+                            <div class="form-field"><label for="<%= campo %>"><%= rotulo %></label><input type="text" id="<%= campo %>" name="<%= campo %>" maxlength="<%= limite %>" required value="<%= valores[campo] %>"></div>
+                        <% }) %>
+                    </div>
+                </section>
+                <section class="card"><h2>Aspectos avaliados</h2><p class="text-muted">Notas de 0 a 10. A média aritmética é calculada automaticamente, com uma casa decimal.</p>
+                    <% criterios.forEach(([titulo, descricao], i) => { %>
+                        <div class="faa-nota"><label for="nota_<%= i %>"><%= i + 1 %>. <%= titulo %><small class="text-muted"><%= descricao %></small></label>
+                            <input type="number" id="nota_<%= i %>" name="nota_<%= i %>" min="0" max="10" step="0.1" required value="<%= valores.notas[i] %>"></div>
+                    <% }) %>
+                </section>
+                <section class="card">
+                    <label for="atividades">Principais atividades executadas na empresa</label><textarea id="atividades" name="atividades" maxlength="1500" required><%= valores.atividades %></textarea>
+                    <label for="comentarios">Comentários/observações</label><textarea id="comentarios" name="comentarios" maxlength="1500"><%= valores.comentarios %></textarea>
+                    <div class="form-grid">
+                        <div class="form-field"><label for="local_assinatura">Local da assinatura</label><input type="text" id="local_assinatura" name="local_assinatura" maxlength="80" required value="<%= valores.local_assinatura %>"></div>
+                        <div class="form-field"><label for="data_assinatura">Data da assinatura</label><input type="date" id="data_assinatura" name="data_assinatura" required value="<%= valores.data_assinatura %>"></div>
+                    </div>
+                    <p class="form-note">Após salvar, baixe a ficha para assinatura do supervisor e ciência do estudante e do orientador.</p>
+                </section>
+                <% if (podeEditar) { %><button type="submit">Salvar avaliação</button><% } %>
+            </fieldset>
+        </form>
+        <div class="form-actions"><a class="btn btn-secondary" href="/professor/fichas">Voltar às fichas</a></div>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

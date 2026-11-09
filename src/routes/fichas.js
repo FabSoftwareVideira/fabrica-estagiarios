@@ -8,6 +8,8 @@ const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
+const facsModel = require('../models/facs');
+const bancasModel = require('../models/bancas');
 const faresModel = require('../models/fares');
 const { gerarFarePdf } = require('../services/farePdf');
 const { montarContexto, dadosParaPdf } = require('../services/ataDados');
@@ -28,6 +30,7 @@ router.get('/fichas', async (req, res) => {
     const orientandos = await faresModel.listarPorOrientador(req.session.user.id);
 
     res.render('professor_fichas', {
+        supervisionados: await facsModel.listarPorSupervisor(req.session.user.id),
         prontos: orientandos.filter((o) => o.status === 'concluido' && !o.encerrado_em),
         andamento: orientandos.filter((o) => o.status === 'em_andamento'),
         encerrados: orientandos.filter((o) => o.encerrado_em),
@@ -63,7 +66,9 @@ function requireOrientadorAta(req, res, next) {
 // ── Ata da banca (FARE) ──────────────────────────────────────────────────
 router.get('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, res) => {
     const { aluno } = req;
-    const { fapo, faa, fare, atividades } = await montarContexto(aluno);
+    const { fapo, faa, fare, atividades, fac } = await montarContexto(aluno);
+    const agendamento = await bancasModel.buscarPorAluno(aluno.usuario_id);
+    const bancaAtiva = agendamento && agendamento.situacao !== 'cancelada' ? agendamento : null;
     const rascunho = req.session.fareForm || null;
     delete req.session.fareForm;
 
@@ -72,15 +77,16 @@ router.get('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, r
         nota_fac: null,
         nota_faa_manual: null,
         banca: [[null, null, null], [null, null, null], [null, null, null]],
-        avaliador_1: '',
-        avaliador_2: '',
+        avaliador_1: bancaAtiva?.avaliador_1_nome || '',
+        avaliador_2: bancaAtiva?.avaliador_2_nome || '',
         resultado: null,
         corrigir_relatorio_ate: '',
         refazer_apresentacao_ate: '',
         comentarios: '',
-        data_ata: dataLocalIso(),
+        data_ata: bancaAtiva?.data || dataLocalIso(),
     };
     const valores = rascunho ? { ...base, ...rascunho } : base;
+    if (fac && !aluno.encerrado_em) valores.nota_fac = fac.nota;
     if (!valores.data_ata) valores.data_ata = dataLocalIso();
 
     res.render('professor_fare', {
@@ -88,6 +94,7 @@ router.get('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, r
         encerrado: Boolean(aluno.encerrado_em),
         fare,
         fapo,
+        fac,
         faa,
         notaFaa: faa ? notaDaFaa(faa) : null,
         valores,
@@ -133,6 +140,7 @@ router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, 
         return res.redirect(voltar);
     }
 
+    const fac = await facsModel.buscarPorAluno(aluno.usuario_id);
     const finalizar = req.body.acao === 'finalizar';
     const erros = [];
 
@@ -144,7 +152,7 @@ router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, 
 
     const valores = {
         periodo: String(req.body.periodo || '').trim().slice(0, 80),
-        nota_fac: lerNota(req.body.nota_fac, 'A nota da FAC', erros),
+        nota_fac: fac ? fac.nota : lerNota(req.body.nota_fac, 'A nota da FAC', erros),
         nota_faa_manual: lerNota(req.body.nota_faa_manual, 'A nota da FAA', erros),
         banca: CRITERIOS_BANCA.map((criterio, i) =>
             [1, 2, 3].map((n) => lerNota(req.body[`banca_${i + 1}_${n}`], `A nota de ${criterio.titulo.toLowerCase()} (N${n})`, erros))),

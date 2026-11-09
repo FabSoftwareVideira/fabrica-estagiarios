@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Meu estágio · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/theme.css">
 </head>
 <body>
 
@@ -33,6 +35,19 @@
             </div>
             <span class="status <%= st.classe %>"><%= st.label %></span>
         </div>
+
+        <% if (banca) { %>
+            <section class="card" aria-labelledby="minha-banca">
+                <div class="card-header"><h2 id="minha-banca">Sua banca de estágio</h2><span class="status <%= banca.situacao === 'cancelada' ? 'status-invalidated' : 'status-progress' %>"><%= situacoesBanca[banca.situacao] %></span></div>
+                <% if (banca.situacao === 'cancelada') { %><p>A banca foi cancelada. Aguarde um novo agendamento do orientador.</p>
+                <% } else { %>
+                    <p><strong><%= dataBr(banca.data) %> · <%= banca.hora_inicio %> às <%= banca.hora_fim %></strong> (horário de Brasília)</p>
+                    <p><strong>Local:</strong> <%= banca.sala %><% if (banca.link_reuniao) { %> · <a href="<%= banca.link_reuniao %>" target="_blank" rel="noopener noreferrer">Acessar reunião</a><% } %></p>
+                    <dl class="agenda-people"><div><dt>Orientador</dt><dd><%= banca.orientador_nome %></dd></div><div><dt>Avaliadores</dt><dd><%= banca.avaliador_1_nome %> e <%= banca.avaliador_2_nome %></dd></div></dl>
+                    <% if (banca.observacoes) { %><p class="text-muted"><%= banca.observacoes %></p><% } %>
+                <% } %>
+            </section>
+        <% } %>
 
         <% if (encerrado) { %>
             <div class="aviso aviso-ok" role="status">
@@ -215,6 +230,12 @@
                             <% } else { %>
                                 <span class="ficha-status text-muted"><%- icone('cadeado', 16) %> Disponível ao cumprir as horas</span>
                             <% } %>
+                        </article>
+
+                        <article class="ficha-item <%= facSalva ? 'pronta' : '' %>">
+                            <div class="ficha-item-head"><span class="ficha-icon"><%- icone('usuario') %></span><div><h3>FAC · Avaliação do supervisor</h3><p>Preenchida pelo supervisor do estágio.</p></div></div>
+                            <% if (facSalva) { %><a href="/aluno/fac/pdf" class="btn btn-success"><%- icone('baixar') %> Baixar PDF</a>
+                            <% } else { %><span class="ficha-status text-muted">Aguardando o supervisor</span><% } %>
                         </article>
 
                         <article class="ficha-item <%= fapoSalva && concluidoHoras ? 'pronta' : '' %>">

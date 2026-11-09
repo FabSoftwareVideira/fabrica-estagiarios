@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda de bancas · Controle de Estágio</title>
+    <script src="/js/theme.js"></script><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+<%- include('partials/header') %>
+<main id="conteudo" class="container">
+    <%- include('partials/flash') %>
+    <div class="page-head"><div><h1>Agenda de bancas</h1><p>Estudantes, avaliadores e salas em um só lugar. Horários de Brasília.</p></div>
+        <a class="btn btn-secondary" href="/professor/bancas/exportar.csv?<%= queryCsv %>"><%- icone('baixar') %> Exportar planilha</a>
+    </div>
+    <% if (disponiveis.length) { %>
+        <section class="card"><h2>Agendar uma banca</h2>
+            <form action="/professor/bancas/nova" method="GET" class="agenda-new">
+                <div class="form-field"><label for="aluno_id">Estudante com horas cumpridas</label><select id="aluno_id" name="aluno_id" required>
+                    <option value="">Selecione o estudante</option>
+                    <% disponiveis.forEach((a) => { %><option value="<%= a.usuario_id %>"><%= a.nome %> · <%= a.orientador_nome %></option><% }) %>
+                </select></div><button type="submit"><%- icone('mais') %> Agendar banca</button>
+            </form>
+        </section>
+    <% } %>
+    <form class="card agenda-filters" method="GET" action="/professor/bancas">
+        <div class="form-field"><label for="inicio">De</label><input type="date" id="inicio" name="inicio" value="<%= filtros.inicio %>"></div>
+        <div class="form-field"><label for="fim">Até</label><input type="date" id="fim" name="fim" value="<%= filtros.fim %>"></div>
+        <div class="form-field"><label for="situacao">Situação</label><select id="situacao" name="situacao"><option value="">Todas</option><% Object.entries(situacoes).forEach(([id, nome]) => { %><option value="<%= id %>" <%= filtros.situacao === id ? 'selected' : '' %>><%= nome %></option><% }) %></select></div>
+        <button type="submit" class="btn-secondary">Filtrar</button><a class="btn btn-ghost" href="/professor/bancas?inicio=&fim=&situacao=">Ver histórico</a>
+    </form>
+    <p class="text-muted agenda-count"><%= agenda.length %> banca(s) encontrada(s). Somente o orientador ou um administrador pode alterar o agendamento.</p>
+    <% if (!agenda.length) { %><section class="card"><h2>Nenhuma banca neste período</h2><p class="empty-state">Escolha um estudante acima para agendar ou ajuste os filtros para consultar outras datas.</p></section><% } %>
+    <div class="agenda-list">
+        <% agenda.forEach((b) => { %>
+            <article class="card agenda-card">
+                <div class="agenda-date"><%- icone('calendario') %><strong><%= dataBr(b.data) %></strong><span><%= b.hora_inicio %>–<%= b.hora_fim %></span><small>Brasília</small></div>
+                <div class="agenda-content">
+                    <div class="card-header"><h2><a href="/professor/aluno/<%= b.aluno_id %>"><%= b.aluno_nome %></a></h2><span class="status <%= b.situacao === 'cancelada' ? 'status-invalidated' : b.situacao === 'realizada' ? 'status-completed' : 'status-progress' %>"><%= situacoes[b.situacao] %></span></div>
+                    <p><strong>Local:</strong> <%= b.sala %><% if (b.link_reuniao) { %> · <a href="<%= b.link_reuniao %>" target="_blank" rel="noopener noreferrer">Acessar reunião</a><% } %></p>
+                    <dl class="agenda-people"><div><dt>Orientador</dt><dd><%= b.orientador_nome %></dd></div><div><dt>Avaliador 1</dt><dd><%= b.avaliador_1_nome %></dd></div><div><dt>Avaliador 2</dt><dd><%= b.avaliador_2_nome %></dd></div></dl>
+                    <% if (b.observacoes) { %><p class="text-muted"><%= b.observacoes %></p><% } %>
+                    <div class="card-actions"><a class="btn btn-secondary btn-sm" href="/professor/aluno/<%= b.aluno_id %>/banca">Detalhes / gerenciar</a><% if (Number(user.id) === Number(b.orientador_id)) { %><a class="btn btn-ghost btn-sm" href="/professor/aluno/<%= b.aluno_id %>/fare">Ata da banca</a><% } %></div>
+                </div>
+            </article>
+        <% }) %>
+    </div>
+</main>
+<%- include('partials/footer') %>
+</body></html>

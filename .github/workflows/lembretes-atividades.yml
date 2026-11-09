@@ -1,0 +1,16 @@
+name: Lembretes de atividades dos estudantes
+on:
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  enviar-lembretes:
+    runs-on: self-hosted
+    concurrency:
+      group: lembretes-atividades
+      cancel-in-progress: false
+    steps:
+      - name: Enviar lembretes pendentes
+        run: docker exec fabrica-estagiarios-web node src/scripts/enviarLembretesAtividades.js

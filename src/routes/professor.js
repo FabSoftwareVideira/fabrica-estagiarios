@@ -8,6 +8,7 @@ const relatorioSemanalModel = require('../models/relatorioSemanal');
 const { executar: enviarRelatorioSemanal } = require('../scripts/enviarRelatorioSemanalSupervisores');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
+const facsModel = require('../models/facs');
 const faresModel = require('../models/fares');
 const { gerarFapoPdf } = require('../services/fapoPdf');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
@@ -44,6 +45,8 @@ router.post('/completar-cadastro', async (req, res) => {
 
 router.use(requireNomeConfirmado);
 router.use(require('./fichas'));
+router.use(require('./fac'));
+router.use(require('./bancas'));
 
 const TAMANHO_PAGINA = 10;
 const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'concluido'];
@@ -189,12 +192,13 @@ router.get('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/dashboard');
     }
 
-    const [atividades, professores, fapo, faa, fare] = await Promise.all([
+    const [atividades, professores, fapo, faa, fare, fac] = await Promise.all([
         atividadesModel.listarPorAluno(req.params.id),
         usuariosModel.listarProfessores(),
         faposModel.buscarPorAluno(req.params.id),
         faasModel.buscarPorAluno(req.params.id),
         faresModel.buscarPorAluno(req.params.id),
+        facsModel.buscarPorAluno(req.params.id),
     ]);
 
     const ehOrientador = Number(aluno.orientador_id) === Number(req.session.user.id);
@@ -209,6 +213,8 @@ router.get('/aluno/:id', async (req, res) => {
         atividades,
         professores,
         podeGerarFapo,
+        fac,
+        ehSupervisor: Number(aluno.supervisor_id) === Number(req.session.user.id),
         podeValidarAtividades,
         ehOrientador,
         encerrado,

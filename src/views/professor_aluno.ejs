@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detalhes do Aluno</title>
+    <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
 </head>
 <body>
 
@@ -97,6 +99,9 @@
             <section class="card" aria-labelledby="titulo-docs">
                 <h2 id="titulo-docs">Documentos</h2>
                 <ul class="docs-lista">
+                    <% if (aluno.status === 'concluido') { %>
+                        <li><span class="doc-nome">Agendamento da banca<small>Data, sala e participantes</small></span><a href="/professor/aluno/<%= aluno.usuario_id %>/banca" class="btn btn-secondary btn-sm"><%- icone('calendario') %> Consultar / agendar</a></li>
+                    <% } %>
                     <li>
                         <span class="doc-nome">Ficha de acompanhamento<small>Atividades validadas e horas</small></span>
                         <a href="/professor/aluno/<%= aluno.usuario_id %>/ficha-acompanhamento" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a>
@@ -105,6 +110,15 @@
                         <span class="doc-nome">FAA · Autoavaliação<small><%= faa ? 'Preenchida pelo aluno' : 'Ainda não preenchida' %></small></span>
                         <% if (faa) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/faa/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
                     </li>
+                    <% if (ehSupervisor || ehOrientador || user.cargo === 'admin') { %>
+                        <li>
+                            <span class="doc-nome">FAC · Avaliação do supervisor<small><%= fac ? 'Média ' + fac.nota.toFixed(1).replace('.', ',') : 'Ainda não preenchida' %></small></span>
+                            <span class="table-actions">
+                                <% if (fac || (ehSupervisor && aluno.status === 'concluido' && !encerrado && !aluno.arquivado)) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac" class="btn btn-secondary btn-sm"><%= ehSupervisor && !encerrado && !aluno.arquivado ? 'Preencher/editar' : 'Consultar' %></a><% } %>
+                                <% if (fac) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
+                            </span>
+                        </li>
+                    <% } %>
                     <% if (aluno.status === 'concluido') { %>
                         <li>
                             <span class="doc-nome">FAPO · Avaliação do orientador<small><%= fapo ? 'Nota ' + String(fapo.nota).replace('.', ',') : 'Ainda não preenchida' %></small></span>

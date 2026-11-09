@@ -5,6 +5,10 @@ const atividadesModel = require('../models/atividades');
 const usuariosModel = require('../models/usuarios');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
+const facsModel = require('../models/facs');
+const bancasModel = require('../models/bancas');
+const { SITUACOES_BANCA } = require('../utils/bancas');
+const { gerarFacPdf } = require('../services/facPdf');
 const { gerarFaaPdf, formatarDataBr } = require('../services/faaPdf');
 const { gerarFichaAcompanhamentoPdf } = require('../services/fichaAcompanhamentoPdf');
 const { gerarFapoPdf } = require('../services/fapoPdf');
@@ -146,6 +150,9 @@ router.get('/dashboard', async (req, res) => {
         atividades,
         abaInicial: ['atividades', 'fichas'].includes(req.query.aba) ? req.query.aba : 'resumo',
         fapoSalva,
+        facSalva: await facsModel.buscarPorAluno(req.session.user.id),
+        banca: await bancasModel.buscarPorAluno(req.session.user.id),
+        situacoesBanca: SITUACOES_BANCA,
         faaSalva,
         horasRealizadas,
         horasPendentes,
@@ -292,6 +299,19 @@ router.get('/faa/pdf', requireEstagioConcluido, async (req, res) => {
         setFlash(req, 'error', 'Não foi possível gerar o PDF da FAA. Tente novamente.');
         return res.redirect('/aluno/faa');
     }
+});
+
+router.get('/fac/pdf', async (req, res) => {
+    const fac = await facsModel.buscarPorAluno(req.session.user.id);
+    if (!fac) {
+        setFlash(req, 'error', 'O supervisor ainda não preencheu a avaliação.');
+        return res.redirect('/aluno/dashboard?aba=fichas');
+    }
+    const bytes = await gerarFacPdf({ aluno: req.aluno, fac });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="FAC-${nomeBaseArquivo(req.aluno.nome)}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.send(Buffer.from(bytes));
 });
 
 router.get('/fapo/pdf', requireEstagioConcluido, async (req, res) => {

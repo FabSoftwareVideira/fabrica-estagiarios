@@ -26,6 +26,7 @@
   --superficie: #ffffff;
   --texto: #1f2937;
   --texto-suave: #4b5563;
+  --texto-botao: #fff;
   --borda: #cfd4dc;
   --borda-suave: #e6e8ec;
 
@@ -255,11 +256,11 @@ html.alto-contraste .card h2, html.alto-contraste .card h3 { color: #ffd700; }
 .btn, button, input[type="submit"] {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 44px; padding: 0 22px; font: inherit; font-weight: 700; font-size: 15px;
-  background: var(--azul-700); color: #fff; border: 2px solid var(--azul-700); border-radius: var(--raio-botao);
+  background: var(--azul-700); color: var(--texto-botao); border: 2px solid var(--azul-700); border-radius: var(--raio-botao);
   cursor: pointer; text-decoration: none; line-height: 1.2; text-align: center;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.btn:hover, button:hover { background: var(--azul-800); border-color: var(--azul-800); color: #fff; }
+.btn:hover, button:hover { background: var(--azul-800); border-color: var(--azul-800); color: var(--texto-botao); }
 .btn svg, button svg { width: 18px; height: 18px; flex: none; }
 
 .btn-success { background: var(--verde-600); border-color: var(--verde-600); }
@@ -293,7 +294,7 @@ html.alto-contraste label { color: #fff; }
 label:first-child { margin-top: 0; }
 .form-field label { margin-top: 0; }
 
-input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="time"],
+input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="time"], input[type="url"],
 input[type="number"], input[type="search"], select, textarea {
   width: 100%; min-height: 44px; padding: 10px 12px; font: inherit; color: var(--texto);
   background: var(--superficie); border: 1px solid #8a919c; border-radius: var(--raio-campo);
@@ -876,3 +877,28 @@ html.alto-contraste .public-flow-number { background: #1a1a1a; }
   .public-how { grid-template-columns: 1fr; gap: 14px; }
   .public-features { padding: 38px 0; }
 }
+
+/* Agenda de bancas */
+.agenda-new { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
+.agenda-new .form-field { flex: 1 1 320px; }
+.agenda-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; }
+.agenda-filters .form-field { flex: 1 1 160px; }
+.agenda-count { margin: 0 0 16px; }
+.agenda-fields { margin-top: 20px; }
+.agenda-card { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; }
+.agenda-date { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; background: var(--azul-50); color: var(--azul-900); border-radius: var(--raio-campo); padding: 20px 12px; }
+.agenda-date svg { width: 24px; height: 24px; margin-bottom: 6px; color: var(--azul-700); }
+.agenda-date small { margin: 0; color: var(--texto-suave); }
+.agenda-content { min-width: 0; overflow-wrap: anywhere; }
+.agenda-people { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 16px 0; }
+.agenda-people dt { font-size: 13px; color: var(--texto-suave); }
+.agenda-people dd { font-weight: 600; }
+@media (max-width: 720px) {
+  .agenda-card { grid-template-columns: 1fr; gap: 16px; }
+  .agenda-date { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 10px; }
+  .agenda-date svg { margin: 0; }
+  .agenda-new button { width: 100%; }
+}
+
+.demo-toolbar { display: flex; gap: 12px 24px; flex-wrap: wrap; justify-content: center; padding: 8px 16px; background: var(--amarelo-100); color: var(--amarelo-700); font-size: 13px; }
+.demo-toolbar a { color: inherit; font-weight: 600; }

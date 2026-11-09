@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fichas · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
 </head>
 <body>
 
@@ -15,11 +17,26 @@
 
         <div class="page-head">
             <div>
-                <h1>Fichas dos meus orientandos</h1>
-                <p>Preencha a FAPO, lance as notas da banca e emita a ata de cada aluno.</p>
+                <h1>Fichas de estágio</h1>
+                <p>Preencha as avaliações dos seus supervisionados e as fichas e atas dos seus orientandos.</p>
             </div>
+            <a class="btn btn-secondary" href="/professor/bancas"><%- icone('calendario') %> Agenda de bancas</a>
         </div>
 
+        <h2 class="secao-titulo">Avaliações dos meus supervisionados <span class="contagem"><%= supervisionados.length %></span></h2>
+        <% if (!supervisionados.length) { %><div class="card"><p class="empty-state">Nenhum estudante supervisionado.</p></div><% } %>
+        <div class="lista-cartoes">
+            <% supervisionados.forEach((aluno) => { %>
+                <article class="orientando"><div><h3><a href="/professor/aluno/<%= aluno.usuario_id %>"><%= aluno.nome %></a></h3><p class="meta"><%= aluno.empresa || 'Empresa não informada' %></p></div>
+                    <span><%= aluno.tem_fac ? 'FAC preenchida' : 'FAC pendente' %></span>
+                    <div class="orientando-acoes">
+                        <% if (aluno.status === 'concluido' || aluno.tem_fac) { %>
+                            <a class="btn btn-secondary btn-sm" href="/professor/aluno/<%= aluno.usuario_id %>/fac"><%= aluno.encerrado_em ? 'Consultar FAC' : (aluno.tem_fac ? 'Editar FAC' : 'Preencher FAC') %></a>
+                        <% } else { %><span class="text-muted">Disponível ao cumprir as horas</span><% } %>
+                    </div>
+                </article>
+            <% }) %>
+        </div>
         <% const rotuloResultado = RESULTADOS; %>
 
         <h2 class="secao-titulo">Prontos para a banca <span class="contagem"><%= prontos.length %></span></h2>
@@ -39,6 +56,7 @@
                             <span class="status <%= o.tem_ata ? 'status-progress' : 'status-banca' %>">Ata <%= o.tem_ata ? 'em rascunho' : 'a preencher' %></span>
                         </div>
                         <div class="orientando-acoes">
+                            <a href="/professor/aluno/<%= o.usuario_id %>/banca" class="btn btn-secondary btn-sm"><%- icone('calendario') %> Agendamento</a>
                             <a href="/professor/aluno/<%= o.usuario_id %>/fapo" class="btn btn-secondary btn-sm"><%- icone('caneta') %> FAPO</a>
                             <a href="/professor/aluno/<%= o.usuario_id %>/fare" class="btn btn-success btn-sm"><%- icone('arquivo') %> <%= o.tem_ata ? 'Continuar ata' : 'Preencher ata' %></a>
                         </div>

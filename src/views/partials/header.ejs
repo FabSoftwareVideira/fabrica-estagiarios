@@ -1,5 +1,7 @@
-<script>try { if (localStorage.getItem('contraste') === '1') document.documentElement.classList.add('alto-contraste'); } catch (e) {}</script>
 <a href="#conteudo" class="skip-link">Ir para o conteúdo</a>
+<% if (typeof demoMode !== 'undefined' && demoMode) { %>
+<div class="demo-toolbar"><strong>Demonstração · dados fictícios</strong><a href="/demo">Trocar perfil / caixa de e-mail local</a></div>
+<% } %>
 
 <div class="utility-bar">
     <div class="utility-inner">
@@ -21,6 +23,10 @@
             <span class="brand-text">Controle de Estágio<small>Cursos Técnicos Integrados ao Ensino Médio</small></span>
         </a>
 
+        <button type="button" class="btn-secondary btn-icon theme-toggle" data-theme-toggle aria-label="Ativar tema escuro" aria-pressed="false" title="Ativar tema escuro">
+            <span class="theme-moon" aria-hidden="true"><%- icone('lua') %></span>
+            <span class="theme-sun" aria-hidden="true"><%- icone('sol') %></span>
+        </button>
         <% if (user) { %>
             <button class="nav-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-principal">
                 <%- icone('menu') %> Menu
@@ -38,11 +44,8 @@
                         <a href="/aluno/dashboard" class="nav-link <%= ativo(noDash && aba !== 'atividades' && aba !== 'fichas') %>"><%- icone('home') %> Início</a>
                         <a href="/aluno/dashboard?aba=atividades" class="nav-link <%= ativo(noDash && aba === 'atividades') %>"><%- icone('lista') %> Atividades</a>
                         <a href="/aluno/dashboard?aba=fichas" class="nav-link <%= ativo((noDash && aba === 'fichas') || currentPath.startsWith('/aluno/faa')) %>"><%- icone('arquivo') %> Fichas</a>
-                        <% if (typeof alunoStatus !== 'undefined' && alunoStatus === 'em_andamento') { %>
-                            <a href="/aluno/nova-atividade" class="nav-link nav-link-cta <%= ativo(currentPath === '/aluno/nova-atividade') %>"><%- icone('mais') %> Nova atividade</a>
-                        <% } %>
                     <% } else { %>
-                        <% const emFichas = currentPath === '/professor/fichas' || /^\/professor\/aluno\/\d+\/(fare|fapo)/.test(currentPath); %>
+                        <% const emFichas = currentPath === '/professor/fichas' || currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/(fare|fapo|fac|banca)/.test(currentPath); %>
                         <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
                         <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> Alunos</a>
                         <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>

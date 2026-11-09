@@ -127,3 +127,87 @@ ON CONFLICT (email) DO NOTHING;
 INSERT INTO professores (usuario_id, cargo)
 SELECT id, 'admin' FROM usuarios WHERE email = 'fabricio.bizotto@ifc.edu.br'
 ON CONFLICT (usuario_id) DO NOTHING;
+
+-- Lembretes e ficha de avaliação do supervisor.
+-- O relógio do relatório mede a ação do estudante, não a data da atividade
+-- nem a validação feita pelo supervisor.
+ALTER TABLE alunos ADD COLUMN IF NOT EXISTS relatorio_atualizado_em TIMESTAMP;
+UPDATE alunos a SET relatorio_atualizado_em = GREATEST(a.criado_em,
+    (SELECT MAX(criado_em) FROM atividades WHERE aluno_id = a.usuario_id))
+WHERE relatorio_atualizado_em IS NULL;
+ALTER TABLE alunos ALTER COLUMN relatorio_atualizado_em SET DEFAULT NOW();
+ALTER TABLE alunos ALTER COLUMN relatorio_atualizado_em SET NOT NULL;
+
+CREATE OR REPLACE FUNCTION registrar_atualizacao_relatorio() RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE alunos SET relatorio_atualizado_em = NOW() WHERE usuario_id = NEW.aluno_id;
+    ELSIF (NEW.data, NEW.hora_inicio, NEW.hora_fim, NEW.horas, NEW.descricao)
+        IS DISTINCT FROM (OLD.data, OLD.hora_inicio, OLD.hora_fim, OLD.horas, OLD.descricao) THEN
+        UPDATE alunos SET relatorio_atualizado_em = NOW() WHERE usuario_id = NEW.aluno_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS atividades_atualizam_relatorio ON atividades;
+CREATE TRIGGER atividades_atualizam_relatorio AFTER INSERT OR UPDATE ON atividades
+FOR EACH ROW EXECUTE FUNCTION registrar_atualizacao_relatorio();
+
+CREATE OR REPLACE FUNCTION iniciar_prazo_relatorio() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status = 'em_andamento' AND
+       (OLD.status = 'lista_espera' OR (OLD.arquivado AND NOT NEW.arquivado)) THEN
+        NEW.relatorio_atualizado_em = NOW();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS alunos_iniciam_prazo_relatorio ON alunos;
+CREATE TRIGGER alunos_iniciam_prazo_relatorio BEFORE UPDATE ON alunos
+FOR EACH ROW EXECUTE FUNCTION iniciar_prazo_relatorio();
+
+CREATE TABLE IF NOT EXISTS lembretes_atividades (
+    aluno_id INTEGER PRIMARY KEY REFERENCES alunos(usuario_id) ON DELETE CASCADE,
+    enviado_em TIMESTAMP,
+    proximo_envio_em TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS facs (
+    aluno_id INTEGER PRIMARY KEY REFERENCES alunos(usuario_id) ON DELETE CASCADE,
+    supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    supervisor_nome TEXT NOT NULL,
+    empresa TEXT NOT NULL,
+    curso TEXT NOT NULL,
+    periodo TEXT NOT NULL,
+    notas JSONB NOT NULL CHECK (jsonb_typeof(notas) = 'array' AND jsonb_array_length(notas) = 10),
+    atividades TEXT NOT NULL,
+    comentarios TEXT NOT NULL DEFAULT '',
+    local_assinatura TEXT NOT NULL,
+    data_assinatura DATE NOT NULL,
+    criado_em TIMESTAMP NOT NULL DEFAULT NOW(),
+    atualizado_em TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Agenda de bancas
+CREATE TABLE IF NOT EXISTS bancas (
+    aluno_id INTEGER PRIMARY KEY REFERENCES alunos(usuario_id) ON DELETE CASCADE,
+    orientador_id INTEGER NOT NULL REFERENCES usuarios(id),
+    avaliador_1_id INTEGER NOT NULL REFERENCES usuarios(id),
+    avaliador_2_id INTEGER NOT NULL REFERENCES usuarios(id),
+    data DATE NOT NULL,
+    hora_inicio TIME NOT NULL,
+    hora_fim TIME NOT NULL,
+    sala VARCHAR(120) NOT NULL CHECK (length(trim(sala)) > 0),
+    link_reuniao TEXT NOT NULL DEFAULT '',
+    observacoes VARCHAR(1000) NOT NULL DEFAULT '',
+    situacao VARCHAR(20) NOT NULL DEFAULT 'agendada'
+        CHECK (situacao IN ('agendada', 'remarcada', 'cancelada', 'realizada')),
+    versao INTEGER NOT NULL DEFAULT 1,
+    atualizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    criado_em TIMESTAMP NOT NULL DEFAULT NOW(),
+    atualizado_em TIMESTAMP NOT NULL DEFAULT NOW(),
+    CHECK (hora_fim > hora_inicio),
+    CHECK (orientador_id <> avaliador_1_id AND orientador_id <> avaliador_2_id
+        AND avaliador_1_id <> avaliador_2_id)
+);
+CREATE INDEX IF NOT EXISTS idx_bancas_data ON bancas(data, hora_inicio);

@@ -3,27 +3,29 @@ const atividadesModel = require('../models/atividades');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
 const faresModel = require('../models/fares');
+const facsModel = require('../models/facs');
 const { notaDaFaa } = require('../utils/ata');
 const { periodoDasAtividades } = require('../utils/datas');
 
 async function montarContexto(aluno) {
-    const [fapo, faa, fare, atividades] = await Promise.all([
+    const [fapo, faa, fare, atividades, fac] = await Promise.all([
         faposModel.buscarPorAluno(aluno.usuario_id),
         faasModel.buscarPorAluno(aluno.usuario_id),
         faresModel.buscarPorAluno(aluno.usuario_id),
         atividadesModel.listarPorAluno(aluno.usuario_id),
+        facsModel.buscarPorAluno(aluno.usuario_id),
     ]);
-    return { fapo, faa, fare, atividades };
+    return { fapo, faa, fare, atividades, fac };
 }
 
-function dadosParaPdf({ aluno, fapo, faa, fare, atividades, orientadorNome }) {
+function dadosParaPdf({ aluno, fapo, faa, fare, atividades, fac, orientadorNome }) {
     const notaFaa = faa ? notaDaFaa(faa) : fare.nota_faa_manual;
     return {
         aluno,
         empresa: aluno.empresa || '',
         periodo: fare.periodo || periodoDasAtividades(atividades),
         horas: Number(aluno.horas_realizadas),
-        fac: fare.nota_fac,
+        fac: fac && !aluno.encerrado_em ? fac.nota : fare.nota_fac,
         fapo: fapo ? fapo.nota : null,
         faa: notaFaa,
         banca: fare.banca,

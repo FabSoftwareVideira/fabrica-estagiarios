@@ -125,7 +125,33 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## Encerramento do estágio e ata da banca (FARE)
 
-- O orientador abre **Fichas** no menu, preenche a FAPO e a ata da banca (nota da FAC, notas N1/N2/N3 de cada critério, avaliadores, resultado e comentários).
+- O orientador abre **Fichas** no menu, preenche a FAPO e a ata da banca (média da FAC salva pelo supervisor, ou nota da ficha em papel, notas N1/N2/N3 de cada critério, avaliadores, resultado e comentários).
 - A nota final é a soma de (nota x peso) dividida por 10. A FAA vem da ficha do aluno (ou é digitada se o aluno não preencheu) e a FAPO vem da ficha salva.
 - Ao **concluir o estágio** (`alunos.encerrado_em`), o aluno não registra mais atividades nem altera a FAA, e o supervisor não valida mais horas: só é possível consultar e imprimir. O orientador (ou admin) pode **reabrir** o estágio.
 - Migração: `db/migrations/014_ata_banca.sql` (coluna `encerrado_em` e tabela `fares`). O modelo do PDF fica em `docs/FARE - Avaliação-Estágio-Ata-Banca-.pdf`.
+
+## Lembretes de atividades para estudantes
+
+O workflow `.github/workflows/lembretes-atividades.yml` executa a verificação a cada hora no mesmo runner/container dos resumos semanais. Após o deploy, estudantes com estágio em andamento, não arquivado e não encerrado recebem um e-mail individual quando passam **mais de 5 dias completos** sem registrar ou atualizar atividades. O envio independe da programação do resumo semanal dos supervisores e reutiliza o serviço SMTP e as variáveis `APP_URL`/`SMTP_*` existentes.
+
+O prazo considera a data do registro/alteração, mesmo para atividades retroativas. Validações do supervisor não reiniciam a contagem. Para alunos sem atividades, considera-se o cadastro; ao sair da lista de espera ou desarquivar um estágio em andamento, o prazo recomeça. Na migração de dados existentes, usa-se o registro mais recente disponível (ou a criação do aluno); não há histórico de edições anterior à migração.
+
+Cada estudante recebe no máximo um lembrete a cada **7 dias**, enquanto continuar elegível. A mensagem inclui nome, matrícula, empresa, supervisor, orientador e carga horária conforme disponíveis, além do link para registrar atividades e horas. Um lock no PostgreSQL impede execuções simultâneas. O intervalo é reservado antes do SMTP para evitar duplicação se o processo parar após a aceitação; em falhas explícitas de SMTP, a tentativa é adiada por uma hora. Uma interrupção durante o envio pode adiar esse lembrete até a próxima janela de sete dias.
+
+Aplicar a migração `016_lembretes_atividades.sql` antes da primeira execução. Para executar a mesma verificação manualmente: `npm run email:reminders`. Esse comando respeita a elegibilidade e o intervalo, e **envia e-mails** usando o SMTP configurado. A programação automática depende de GitHub Actions ativo e runner disponível.
+
+## Temas claro e escuro
+
+O ícone de sol/lua no cabeçalho alterna o tema em todas as páginas, inclusive no celular e na página pública. Sem escolha salva, a interface acompanha `prefers-color-scheme`, inclusive mudanças durante a visita. A escolha manual é salva em `localStorage` e tem prioridade nas próximas visitas. O alto contraste continua disponível e tem prioridade visual. Para voltar ao comportamento automático, remova a chave `tema` do armazenamento local do navegador.
+
+## Avaliação do supervisor (FAC)
+
+Após o estudante cumprir as horas, o supervisor vinculado acessa **Fichas → Avaliações dos meus supervisionados** ou **Aluno → Documentos → FAC**. O formulário segue o modelo `docs/Ficha-de-Avaliacao-do-Estagiario-pela-Concedente.pdf`: dados do estágio, curso, período, dez critérios de 0 a 10, atividades, comentários, local e data. A média é calculada com uma casa decimal e usada automaticamente na ata; a nota manual continua disponível para fichas em papel quando não há FAC salva.
+
+Somente o supervisor vinculado pode alterar a FAC, enquanto o estágio estiver aberto e não arquivado. O aluno pode baixar sua própria ficha; orientador e administrador podem consultá-la e emitir o PDF. Após o encerramento, a ficha fica disponível para consulta/impressão. O PDF preserva os campos para assinaturas e ciência, e textos extensos continuam em anexo. A nota da FAC na ata encerrada mantém o valor salvo no encerramento.
+
+Aplicar a migração `017_ficha_supervisor.sql`. O modelo PDF deve acompanhar a versão implantada. O agendamento da banca permanece como melhoria futura em [docs/atualizacoes-futuras.md](docs/atualizacoes-futuras.md).
+
+## Testes
+
+Execute `npm ci` e `npm test`. Os testes usam PostgreSQL embarcado (PGlite) isolado em memória para validar migrações, prazo e intervalo dos lembretes, atualização de atividades, permissões HTTP, persistência da FAC, cálculo da ata e geração de PDF. O transporte de e-mail é substituído nos testes; nenhum e-mail real é enviado. Há também testes de preferência de tema e do resumo semanal existente.
