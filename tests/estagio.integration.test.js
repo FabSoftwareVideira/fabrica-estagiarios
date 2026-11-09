@@ -682,6 +682,31 @@ test('admin exclui contas sem vínculos e preserva as que têm dados associados'
     assert.equal((await consultar('SELECT id FROM usuarios WHERE id=11')).rows.length, 0);
     assert.equal((await consultar('SELECT usuario_id FROM alunos WHERE usuario_id=11')).rows.length, 0);
 });
+test('exclusão de aluno arquivado é exclusiva do admin e bloqueada se houver registros', async () => {
+    await db.exec(`UPDATE alunos SET arquivado=true WHERE usuario_id=1;
+        INSERT INTO atividades (aluno_id,data,horas,descricao) VALUES (1,'2026-11-08',1,'Registro associado');`);
+
+    const comoProfessor = await requisitar('/professor/aluno/1/excluir', {
+        user: 101, method: 'POST',
+    });
+    assert.equal(comoProfessor.status, 302);
+    assert.equal((await consultar('SELECT id FROM usuarios WHERE id=1')).rows.length, 1);
+    assert.equal((await consultar('SELECT id FROM atividades WHERE aluno_id=1')).rows.length, 1);
+
+    const comoAdmin = await requisitar('/professor/aluno/1/excluir', {
+        user: 104, method: 'POST',
+    });
+    assert.equal(comoAdmin.status, 302);
+    assert.equal((await consultar('SELECT id FROM usuarios WHERE id=1')).rows.length, 1);
+    assert.equal((await consultar('SELECT id FROM atividades WHERE aluno_id=1')).rows.length, 1);
+
+    await db.exec('DELETE FROM atividades WHERE aluno_id=1');
+    const semRegistro = await requisitar('/professor/aluno/1/excluir', {
+        user: 104, method: 'POST',
+    });
+    assert.equal(semRegistro.status, 302);
+    assert.equal((await consultar('SELECT id FROM usuarios WHERE id=1')).rows.length, 0);
+});
 test('FAC: supervisor preenche, persiste notas e média; aluno e orientador consultam PDF', async () => {
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
     assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 302);

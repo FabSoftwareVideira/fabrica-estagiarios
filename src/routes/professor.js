@@ -591,7 +591,14 @@ router.post('/aluno/:id/desarquivar', async (req, res) => {
 });
 
 router.post('/aluno/:id/excluir', requireAdmin, async (req, res) => {
-    await alunosModel.excluir(req.params.id);
+    const resultado = await usuariosModel.excluirSeSemVinculos(Number(req.params.id));
+    if (!resultado.excluido) {
+        setFlash(req, 'error', resultado.motivo === 'vinculado'
+            ? 'Este aluno possui registros ou vínculos associados e não pode ser excluído, mesmo arquivado. Remova os vínculos antes de tentar novamente.'
+            : 'Aluno não encontrado.');
+        return res.redirect('/professor/arquivados');
+    }
+
     setFlash(req, 'success', 'Aluno excluído definitivamente.');
     res.redirect('/professor/arquivados');
 });

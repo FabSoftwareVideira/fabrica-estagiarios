@@ -175,11 +175,6 @@ async function desarquivar(usuarioId) {
     await pool.query('UPDATE alunos SET arquivado = false WHERE usuario_id = $1', [usuarioId]);
 }
 
-async function excluir(usuarioId) {
-    // apaga o usuário (aluno + atividades somem junto via ON DELETE CASCADE)
-    await pool.query('DELETE FROM usuarios WHERE id = $1', [usuarioId]);
-}
-
 module.exports = {
     buscarPorUsuarioId,
     criar,
@@ -189,5 +184,4 @@ module.exports = {
     atualizarEstagio,
     arquivar,
     desarquivar,
-    excluir,
 };
