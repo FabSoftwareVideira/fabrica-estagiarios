@@ -389,6 +389,135 @@ test('registro de atividade permite sábado e rejeita domingo', async () => {
     assert.equal(domingo.status, 302);
     assert.equal((await consultar("SELECT COUNT(*)::int AS total FROM atividades WHERE aluno_id=1 AND data='2026-11-15'")).rows[0].total, 0);
 });
+test('estudante edita atividade e uma avaliação anterior volta para pendente', async () => {
+    await db.exec(`INSERT INTO atividades
+        (aluno_id,data,hora_inicio,hora_fim,horas,descricao,status_validacao,avaliado_por,avaliado_em)
+        VALUES (1,'2026-11-09','09:00','11:00',2,'Atividade original','validada',101,NOW());`);
+    const atividade = (await consultar("SELECT id FROM atividades WHERE aluno_id=1 AND descricao='Atividade original'")).rows[0];
+
+    const formulario = await requisitar(`/aluno/atividade/${atividade.id}/editar`, { user: 1 });
+    assert.equal(formulario.status, 200);
+    const html = await formulario.text();
+    assert.match(html, /Editar atividade/);
+    assert.match(html, /voltará para <strong>pendente/);
+    assert.match(html, new RegExp(`/aluno/atividade/${atividade.id}/editar`));
+
+    const salvar = await requisitar(`/aluno/atividade/${atividade.id}/editar`, {
+        user: 1,
+        method: 'POST',
+        body: {
+            data: '2026-11-10',
+            hora_inicio: '10:00',
+            hora_fim: '13:00',
+            descricao: 'Atividade atualizada',
+        },
+    });
+    assert.equal(salvar.status, 302);
+    const atualizada = await consultar(`SELECT data,hora_inicio,hora_fim,horas,descricao,status_validacao,
+        avaliado_por,avaliado_em FROM atividades WHERE id=$1`, [atividade.id]);
+    assert.deepEqual({
+        ...atualizada.rows[0],
+        data: atualizada.rows[0].data.toISOString().slice(0, 10),
+    }, {
+        data: '2026-11-10',
+        hora_inicio: '10:00:00',
+        hora_fim: '13:00:00',
+        horas: '3.00',
+        descricao: 'Atividade atualizada',
+        status_validacao: 'pendente',
+        avaliado_por: null,
+        avaliado_em: null,
+    });
+});
+test('estudante não edita atividade de outra conta nem depois de concluir ou arquivar o estágio', async () => {
+    await db.exec(`INSERT INTO atividades (aluno_id,data,hora_inicio,hora_fim,horas,descricao)
+        VALUES (1,'2026-11-09','09:00','11:00',2,'Atividade protegida');`);
+    const atividade = (await consultar("SELECT id FROM atividades WHERE aluno_id=1 AND descricao='Atividade protegida'")).rows[0];
+
+    const deOutroAluno = await requisitar(`/aluno/atividade/${atividade.id}/editar`, { user: 2 });
+    assert.equal(deOutroAluno.status, 302);
+    assert.equal(deOutroAluno.headers.get('location'), '/aluno/dashboard?aba=atividades');
+
+    await db.exec("UPDATE alunos SET status='concluido' WHERE usuario_id=1");
+    const concluido = await requisitar(`/aluno/atividade/${atividade.id}/editar`, { user: 1 });
+    assert.equal(concluido.status, 302);
+    assert.equal(concluido.headers.get('location'), '/aluno/dashboard');
+
+    await db.exec("UPDATE alunos SET status='em_andamento', arquivado=true WHERE usuario_id=1");
+    const arquivado = await requisitar(`/aluno/atividade/${atividade.id}/editar`, {
+        user: 1,
+        method: 'POST',
+        body: { data: '2026-11-10', hora_inicio: '10:00', hora_fim: '12:00', descricao: 'Alteração bloqueada' },
+    });
+    assert.equal(arquivado.status, 302);
+    const preservada = await consultar('SELECT descricao,status_validacao FROM atividades WHERE id=$1', [atividade.id]);
+    assert.equal(preservada.rows[0].descricao, 'Atividade protegida');
+    assert.equal(preservada.rows[0].status_validacao, 'pendente');
+});
+test('edição mantém limite de seis horas no dia', async () => {
+    await db.exec(`INSERT INTO atividades (aluno_id,data,hora_inicio,hora_fim,horas,descricao)
+        VALUES (1,'2026-11-09','08:00','10:00',2,'Atividade a editar'),
+               (1,'2026-11-10','08:00','12:00',4,'Outra atividade');`);
+    const atividade = (await consultar("SELECT id FROM atividades WHERE descricao='Atividade a editar'")).rows[0];
+    const resposta = await requisitar(`/aluno/atividade/${atividade.id}/editar`, {
+        user: 1,
+        method: 'POST',
+        body: { data: '2026-11-10', hora_inicio: '12:00', hora_fim: '15:00', descricao: 'Acima do limite' },
+    });
+    assert.equal(resposta.status, 302);
+    const semAlteracao = await consultar('SELECT data,descricao FROM atividades WHERE id=$1', [atividade.id]);
+    assert.equal(semAlteracao.rows[0].data.toISOString().slice(0, 10), '2026-11-09');
+    assert.equal(semAlteracao.rows[0].descricao, 'Atividade a editar');
+});
+test('estudante exclui atividade própria com ícone minimalista e remove as horas validadas', async () => {
+    await db.exec(`INSERT INTO atividades
+        (aluno_id,data,hora_inicio,hora_fim,horas,descricao,status_validacao,avaliado_por,avaliado_em)
+        VALUES (1,'2026-11-09','09:00','12:00',3,'Atividade a excluir','validada',101,NOW());`);
+    const atividade = (await consultar("SELECT id FROM atividades WHERE aluno_id=1 AND descricao='Atividade a excluir'")).rows[0];
+    const dashboard = await requisitar('/aluno/dashboard?aba=atividades', { user: 1 });
+    const html = await dashboard.text();
+    assert.match(html, new RegExp(`/aluno/atividade/${atividade.id}/excluir`));
+    assert.match(html, /aria-label="Excluir atividade/);
+    assert.match(html, /data-confirmar="Excluir esta atividade/);
+
+    const excluir = await requisitar(`/aluno/atividade/${atividade.id}/excluir`, {
+        user: 1,
+        method: 'POST',
+    });
+    assert.equal(excluir.status, 302);
+    assert.equal(excluir.headers.get('location'), '/aluno/dashboard?aba=atividades');
+    assert.equal((await consultar('SELECT id FROM atividades WHERE id=$1', [atividade.id])).rows.length, 0);
+    assert.equal((await consultar(`SELECT COALESCE(SUM(horas),0)::numeric AS total FROM atividades
+        WHERE aluno_id=1 AND status_validacao='validada'`)).rows[0].total, '0');
+});
+test('estudante não exclui atividade alheia ou após concluir ou arquivar o estágio', async () => {
+    await db.exec(`INSERT INTO atividades (aluno_id,data,hora_inicio,hora_fim,horas,descricao)
+        VALUES (1,'2026-11-09','09:00','11:00',2,'Atividade protegida');`);
+    const atividade = (await consultar("SELECT id FROM atividades WHERE aluno_id=1 AND descricao='Atividade protegida'")).rows[0];
+
+    const deOutroAluno = await requisitar(`/aluno/atividade/${atividade.id}/excluir`, {
+        user: 2,
+        method: 'POST',
+    });
+    assert.equal(deOutroAluno.status, 302);
+    assert.equal((await consultar('SELECT id FROM atividades WHERE id=$1', [atividade.id])).rows.length, 1);
+
+    await db.exec("UPDATE alunos SET status='concluido' WHERE usuario_id=1");
+    const concluido = await requisitar(`/aluno/atividade/${atividade.id}/excluir`, {
+        user: 1,
+        method: 'POST',
+    });
+    assert.equal(concluido.status, 302);
+    assert.equal((await consultar('SELECT id FROM atividades WHERE id=$1', [atividade.id])).rows.length, 1);
+
+    await db.exec("UPDATE alunos SET status='em_andamento', arquivado=true WHERE usuario_id=1");
+    const arquivado = await requisitar(`/aluno/atividade/${atividade.id}/excluir`, {
+        user: 1,
+        method: 'POST',
+    });
+    assert.equal(arquivado.status, 302);
+    assert.equal((await consultar('SELECT id FROM atividades WHERE id=$1', [atividade.id])).rows.length, 1);
+});
 test('dashboard só exibe arquivamento para status permitidos, exceto para admins', async () => {
     const renderAcoes = (status, encerradoEm, cargo = 'comum') => ejs.renderFile(
         path.join(raiz, 'src/views/partials/aluno_acoes.ejs'),

@@ -399,7 +399,7 @@ router.get('/ficha-acompanhamento', async (req, res) => {
 
 router.get('/atividades', (req, res) => res.redirect('/aluno/dashboard?aba=atividades'));
 
-// só acessível com o estágio em andamento (lista de espera / concluído são bloqueados)
+// Só acessível enquanto o estágio puder receber alterações.
 router.get('/nova-atividade', requireEmAndamento, async (req, res) => {
     const formData = req.session.novaAtividadeForm || {};
     delete req.session.novaAtividadeForm;
@@ -416,33 +416,68 @@ router.get('/nova-atividade', requireEmAndamento, async (req, res) => {
         horariosTrabalho: req.aluno.horario_trabalho || {},
         diasTrabalho: DIAS_TRABALHO,
         hoje: dataLocalIso(),
+        modoEdicao: false,
+        atividadeId: null,
     });
 });
 
-function redirecionarNovaAtividadeComErro(req, res, mensagem, formData) {
-    req.session.novaAtividadeForm = formData;
-    setFlash(req, 'error', mensagem);
-    return res.redirect('/aluno/nova-atividade');
+async function carregarAtividadeDoEstudante(req, res, next) {
+    const atividadeId = Number(req.params.id);
+    if (!Number.isSafeInteger(atividadeId) || atividadeId < 1) {
+        setFlash(req, 'error', 'Atividade inválida.');
+        return res.redirect('/aluno/dashboard?aba=atividades');
+    }
+    const atividade = await atividadesModel.buscarPorIdDoAluno(atividadeId, req.session.user.id);
+    if (!atividade) {
+        setFlash(req, 'error', 'Atividade não encontrada.');
+        return res.redirect('/aluno/dashboard?aba=atividades');
+    }
+    req.atividade = atividade;
+    next();
 }
 
-router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
-    const { data, hora_inicio, hora_fim, descricao } = req.body;
-    const formData = {
-        data: data || '',
-        hora_inicio: hora_inicio || '',
-        hora_fim: hora_fim || '',
-        descricao: descricao || '',
-    };
-    const descricaoNormalizada = (descricao || '').trim();
+router.get('/atividade/:id/editar', requireEmAndamento, carregarAtividadeDoEstudante, async (req, res) => {
+    const formData = req.session.editarAtividadeForm?.atividadeId === req.atividade.id
+        ? req.session.editarAtividadeForm
+        : {
+            data: dataParaInput(req.atividade.data),
+            hora_inicio: String(req.atividade.hora_inicio || '').slice(0, 5),
+            hora_fim: String(req.atividade.hora_fim || '').slice(0, 5),
+            descricao: req.atividade.descricao,
+        };
+    formData.status_validacao = req.atividade.status_validacao;
+    delete req.session.editarAtividadeForm;
+    const atividades = await atividadesModel.listarPorAluno(req.session.user.id);
+    res.render('aluno_nova_atividade', {
+        formData,
+        calendario: dadosCalendario(atividades),
+        horariosTrabalho: req.aluno.horario_trabalho || {},
+        diasTrabalho: DIAS_TRABALHO,
+        hoje: dataLocalIso(),
+        modoEdicao: true,
+        atividadeId: req.atividade.id,
+    });
+});
 
+function redirecionarAtividadeComErro(req, res, mensagem, formData, atividadeId = null) {
+    if (atividadeId) {
+        req.session.editarAtividadeForm = { ...formData, atividadeId };
+    } else {
+        req.session.novaAtividadeForm = formData;
+    }
+    setFlash(req, 'error', mensagem);
+    return res.redirect(atividadeId ? `/aluno/atividade/${atividadeId}/editar` : '/aluno/nova-atividade');
+}
+
+async function validarDadosAtividade(formData, alunoId, ignorarAtividadeId = null) {
+    const { data, hora_inicio, hora_fim } = formData;
+    const descricaoNormalizada = String(formData.descricao || '').trim();
     if (!data || !hora_inicio || !hora_fim || !descricaoNormalizada) {
-        return redirecionarNovaAtividadeComErro(req, res, 'Preencha todos os campos da atividade.', formData);
+        return { erro: 'Preencha todos os campos da atividade.' };
     }
 
     if (descricaoNormalizada.length > 140) {
-        return redirecionarNovaAtividadeComErro(
-            req, res, 'A descrição da atividade deve ter no máximo 140 caracteres.', formData
-        );
+        return { erro: 'A descrição da atividade deve ter no máximo 140 caracteres.' };
     }
 
     const minutosDoDia = (horario) => {
@@ -457,32 +492,26 @@ router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
     const inicioMinutos = minutosDoDia(hora_inicio);
     const fimMinutos = minutosDoDia(hora_fim);
     if (inicioMinutos === null || fimMinutos === null || fimMinutos <= inicioMinutos) {
-        return redirecionarNovaAtividadeComErro(
-            req, res, 'O horário final deve ser posterior ao horário inicial.', formData
-        );
+        return { erro: 'O horário final deve ser posterior ao horário inicial.' };
     }
 
     const horasCalculadas = Number(((fimMinutos - inicioMinutos) / 60).toFixed(2));
     if (horasCalculadas > 6) {
-        return redirecionarNovaAtividadeComErro(
-            req, res, 'Cada atividade pode ter no máximo 6 horas.', formData
-        );
+        return { erro: 'Cada atividade pode ter no máximo 6 horas.' };
     }
 
     if (!dataIsoValida(data)) {
-        return redirecionarNovaAtividadeComErro(req, res, 'Informe uma data válida.', formData);
+        return { erro: 'Informe uma data válida.' };
     }
 
     // Atividades podem ser registradas em qualquer dia, exceto domingo.
     const diaSemana = new Date(data + 'T12:00:00').getDay();
     if (diaSemana === 0) {
-        return redirecionarNovaAtividadeComErro(
-            req, res, 'Não é possível registrar atividades aos domingos.', formData
-        );
+        return { erro: 'Não é possível registrar atividades aos domingos.' };
     }
 
     // limite de 6 horas registradas por dia, somando as atividades já existentes
-    const totalDia = await atividadesModel.somarHorasDoDia(req.session.user.id, data);
+    const totalDia = await atividadesModel.somarHorasDoDia(alunoId, data, ignorarAtividadeId);
     if (totalDia + horasCalculadas > 6) {
         const disponivel = Math.max(0, 6 - totalDia);
         const mensagem =
@@ -490,21 +519,88 @@ router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
             (disponivel > 0
                 ? `Você já registrou ${totalDia}h nesta data; restam ${disponivel}h disponíveis.`
                 : `Você já registrou o máximo de 6h nesta data.`);
-        return redirecionarNovaAtividadeComErro(req, res, mensagem, formData);
+        return { erro: mensagem };
+    }
+
+    return { erro: null, horas: horasCalculadas, descricao: descricaoNormalizada };
+}
+
+function obterFormData(body) {
+    return {
+        data: typeof body.data === 'string' ? body.data : '',
+        hora_inicio: typeof body.hora_inicio === 'string' ? body.hora_inicio : '',
+        hora_fim: typeof body.hora_fim === 'string' ? body.hora_fim : '',
+        descricao: typeof body.descricao === 'string' ? body.descricao : '',
+    };
+}
+
+router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
+    const formData = obterFormData(req.body);
+    const validacao = await validarDadosAtividade(formData, req.session.user.id);
+    if (validacao.erro) {
+        return redirecionarAtividadeComErro(req, res, validacao.erro, formData);
     }
 
     await atividadesModel.criar({
         alunoId: req.session.user.id,
-        data,
-        horaInicio: hora_inicio,
-        horaFim: hora_fim,
-        horas: horasCalculadas,
-        descricao: descricaoNormalizada,
+        data: formData.data,
+        horaInicio: formData.hora_inicio,
+        horaFim: formData.hora_fim,
+        horas: validacao.horas,
+        descricao: validacao.descricao,
     });
 
     delete req.session.novaAtividadeForm;
     setFlash(req, 'success', 'Atividade registrada com sucesso.');
     res.redirect('/aluno/atividades');
+});
+
+router.post('/atividade/:id/editar', requireEmAndamento, carregarAtividadeDoEstudante, async (req, res) => {
+    const formData = {
+        ...obterFormData(req.body),
+        status_validacao: req.atividade.status_validacao,
+    };
+    const validacao = await validarDadosAtividade(formData, req.session.user.id, req.atividade.id);
+    if (validacao.erro) {
+        return redirecionarAtividadeComErro(req, res, validacao.erro, formData, req.atividade.id);
+    }
+
+    const resultado = await atividadesModel.atualizar({
+        atividadeId: req.atividade.id,
+        alunoId: req.session.user.id,
+        data: formData.data,
+        horaInicio: formData.hora_inicio,
+        horaFim: formData.hora_fim,
+        horas: validacao.horas,
+        descricao: validacao.descricao,
+    });
+    if (!resultado.atividade) {
+        const mensagem = resultado.motivo === 'limite_diario'
+            ? 'A soma das atividades deste dia ultrapassa o limite de 6 horas.'
+            : 'A atividade não pode mais ser alterada porque o estágio foi concluído, arquivado ou a atividade não foi encontrada.';
+        setFlash(req, 'error', mensagem);
+        return res.redirect('/aluno/dashboard?aba=atividades');
+    }
+
+    delete req.session.editarAtividadeForm;
+    setFlash(req, 'success', req.atividade.status_validacao === 'pendente'
+        ? 'Atividade atualizada.'
+        : 'Atividade atualizada e enviada novamente para avaliação do supervisor.');
+    res.redirect('/aluno/dashboard?aba=atividades');
+});
+
+router.post('/atividade/:id/excluir', requireEmAndamento, carregarAtividadeDoEstudante, async (req, res) => {
+    const resultado = await atividadesModel.excluir({
+        atividadeId: req.atividade.id,
+        alunoId: req.session.user.id,
+    });
+    if (!resultado.atividade) {
+        setFlash(req, 'error', 'A atividade não pode ser excluída porque o estágio foi concluído, arquivado ou a atividade não foi encontrada.');
+        return res.redirect('/aluno/dashboard?aba=atividades');
+    }
+
+    setFlash(req, 'success', 'Atividade excluída. As horas validadas foram removidas do total.');
+    res.redirect('/aluno/dashboard?aba=atividades');
 });
 
 module.exports = router;

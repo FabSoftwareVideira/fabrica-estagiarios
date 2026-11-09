@@ -87,13 +87,12 @@ function requireAdmin(req, res, next) {
     next();
 }
 
-// só deixa passar se o estágio do aluno logado estiver em andamento
-// (bloqueia quem está na lista de espera ou já concluiu)
+// Só deixa passar quando o estágio pode receber alterações.
 async function requireEmAndamento(req, res, next) {
     const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
 
-    if (!aluno || aluno.status !== 'em_andamento') {
-        setFlash(req, 'error', 'Você só pode registrar atividades enquanto o estágio estiver em andamento.');
+    if (!aluno || aluno.status !== 'em_andamento' || aluno.arquivado || aluno.encerrado_em) {
+        setFlash(req, 'error', 'Você só pode registrar ou alterar atividades enquanto o estágio estiver em andamento e não estiver arquivado ou encerrado.');
         return res.redirect('/aluno/dashboard');
     }
 

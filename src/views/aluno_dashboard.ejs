@@ -20,6 +20,7 @@
             const abaSelecionada = ['atividades', 'fichas'].includes(abaInicial) ? abaInicial : 'resumo';
             const primeiroNome = String(aluno.nome || '').trim().split(/\s+/)[0] || '';
             const emAndamento = aluno.status === 'em_andamento';
+            const podeAlterarAtividades = emAndamento && !aluno.arquivado && !aluno.encerrado_em;
             const concluidoHoras = aluno.status === 'concluido';
             const percentPendente = cargaHoraria > 0
                 ? Math.max(0, Math.min(100 - percentual, Math.round((horasPendentes / cargaHoraria) * 100)))
@@ -100,7 +101,7 @@
                         <p>Todas as fichas e a ata da banca estão prontas para impressão.</p>
                     <% } %>
                 </div>
-                <% if (emAndamento) { %>
+                <% if (podeAlterarAtividades) { %>
                     <a href="/aluno/nova-atividade" class="btn"><%- icone('mais') %> Nova atividade</a>
                 <% } else if (concluidoHoras && !encerrado) { %>
                     <a href="/aluno/faa" class="btn"><%- icone('caneta') %> <%= faaSalva ? 'Revisar a FAA' : 'Preencher a FAA' %></a>
@@ -139,7 +140,7 @@
                     <div class="card">
                         <h2>Calendário</h2>
                         <p class="text-muted" style="margin-bottom: 12px;">Toque em um dia para ver as atividades. Você pode registrar de segunda a sábado, mesmo fora dos dias planejados; domingo não permite registro.</p>
-                        <%- include('partials/calendario', { dados: calendario, modo: 'ver', hoje, selecionado: '', podeRegistrar: emAndamento, horariosTrabalho }) %>
+                        <%- include('partials/calendario', { dados: calendario, modo: 'ver', hoje, selecionado: '', podeRegistrar: podeAlterarAtividades, horariosTrabalho }) %>
                         <div class="dia-resumo" data-cal-painel aria-live="polite" hidden></div>
                     </div>
 
@@ -149,18 +150,18 @@
                                 <h2>Histórico</h2>
                                 <p class="text-muted"><%= atividades.length %> atividade(s) · validadas pelo seu supervisor</p>
                             </div>
-                            <% if (emAndamento) { %>
+                            <% if (podeAlterarAtividades) { %>
                                 <a href="/aluno/nova-atividade" class="btn btn-success btn-sm"><%- icone('mais') %> Nova atividade</a>
                             <% } %>
                         </div>
                         <div class="table-wrap">
                             <table>
                                 <thead>
-                                    <tr><th>Data</th><th>Horário</th><th>Descrição</th><th>Horas</th><th>Situação</th></tr>
+                                    <tr><th>Data</th><th>Horário</th><th>Descrição</th><th>Horas</th><th>Situação</th><th>Ações</th></tr>
                                 </thead>
                                 <tbody>
                                     <% if (atividades.length === 0) { %>
-                                        <tr><td colspan="5">Nenhuma atividade registrada ainda.</td></tr>
+                                        <tr><td colspan="6">Nenhuma atividade registrada ainda.</td></tr>
                                     <% } else { %>
                                         <% atividades.forEach((atividade) => { %>
                                             <tr data-dia="<%= dataIso(atividade.data) %>">
@@ -173,6 +174,20 @@
                                                 <td><%= atividade.descricao %></td>
                                                 <td><%= Number(atividade.horas) %>h</td>
                                                 <td><%- include('partials/status_atividade', { atividade }) %></td>
+                                                <td class="activity-actions">
+                                                    <% if (podeAlterarAtividades) { %>
+                                                        <div class="activity-action-group">
+                                                            <a href="/aluno/atividade/<%= atividade.id %>/editar" class="activity-action" title="Editar atividade" aria-label="Editar atividade de <%= dataBr(atividade.data) %>">
+                                                                <%- icone('caneta') %>
+                                                            </a>
+                                                            <form action="/aluno/atividade/<%= atividade.id %>/excluir" method="POST">
+                                                                <button type="submit" class="activity-action activity-action-danger" title="Excluir atividade" aria-label="Excluir atividade de <%= dataBr(atividade.data) %>" data-confirmar="Excluir esta atividade? A ação não pode ser desfeita e, se as horas estiverem validadas, elas serão removidas do total.">
+                                                                    <%- icone('lixeira') %>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    <% } else { %>—<% } %>
+                                                </td>
                                             </tr>
                                         <% }) %>
                                     <% } %>
@@ -277,7 +292,7 @@
         </section>
     </main>
 
-    <% if (emAndamento) { %>
+    <% if (podeAlterarAtividades) { %>
         <a href="/aluno/nova-atividade" class="btn fab" aria-label="Registrar nova atividade"><%- icone('mais') %> Atividade</a>
     <% } %>
 

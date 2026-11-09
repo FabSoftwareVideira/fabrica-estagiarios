@@ -16,14 +16,16 @@
         <%- include('partials/breadcrumb', { itens: [
             { texto: 'Início', href: '/aluno/dashboard' },
             { texto: 'Atividades', href: '/aluno/dashboard?aba=atividades' },
-            { texto: 'Nova atividade' }
+            { texto: modoEdicao ? 'Editar atividade' : 'Nova atividade' }
         ] }) %>
         <%- include('partials/flash') %>
 
         <div class="page-head">
             <div>
-                <h1>Registrar atividade</h1>
-                <p>Escolha o dia no calendário e conte o que você fez. O registro é permitido de segunda a sábado, mesmo fora da escala planejada.</p>
+                <h1><%= modoEdicao ? 'Editar atividade' : 'Registrar atividade' %></h1>
+                <p><%= modoEdicao
+                    ? 'Atualize a data, o horário e a descrição do que você realizou.'
+                    : 'Escolha o dia no calendário e conte o que você fez. O registro é permitido de segunda a sábado, mesmo fora da escala planejada.' %></p>
             </div>
         </div>
 
@@ -42,6 +44,11 @@
 
             <section class="card">
                 <h2>Dados da atividade</h2>
+                <% if (modoEdicao && formData.status_validacao && formData.status_validacao !== 'pendente') { %>
+                    <p class="aviso aviso-info">Ao salvar, esta atividade voltará para <strong>pendente</strong> e precisará ser avaliada pelo supervisor novamente.</p>
+                <% } else if (modoEdicao) { %>
+                    <p class="text-muted">Depois de salvar, a atividade permanecerá pendente até ser avaliada pelo supervisor.</p>
+                <% } %>
                 <% if (Object.keys(horariosTrabalho).length > 0) { %>
                     <p class="aviso aviso-info">
                         <strong>Sua escala planejada:</strong>
@@ -53,7 +60,7 @@
                 <% } else { %>
                     <p class="text-muted">A escala de trabalho ainda não foi informada. Você pode registrar em qualquer dia de segunda a sábado, até 6 horas no total por dia.</p>
                 <% } %>
-                <form action="/aluno/nova-atividade" method="POST">
+                <form action="<%= modoEdicao ? `/aluno/atividade/${atividadeId}/editar` : '/aluno/nova-atividade' %>" method="POST">
                     <label for="data">Dia</label>
                     <input type="date" id="data" name="data" required value="<%= formData.data || '' %>">
 
@@ -86,7 +93,7 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn-success"><%- icone('check') %> Salvar atividade</button>
+                        <button type="submit" class="btn-success"><%- icone('check') %> <%= modoEdicao ? 'Salvar alterações' : 'Salvar atividade' %></button>
                         <a href="/aluno/dashboard?aba=atividades" class="btn btn-secondary">Cancelar</a>
                     </div>
                 </form>

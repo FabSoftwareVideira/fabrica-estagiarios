@@ -296,6 +296,17 @@ button[disabled], .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed
 .user-action-danger:hover { color: var(--vermelho-600); background: var(--vermelho-100); border-color: var(--vermelho-100); }
 .user-action-positive { color: var(--verde-700); }
 .user-action-positive:hover { color: var(--verde-700); background: var(--verde-100); border-color: var(--verde-100); }
+.activity-action-group { display: flex; justify-content: flex-end; gap: 4px; }
+.activity-action-group form { display: flex; }
+.activity-action {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; min-width: 34px; min-height: 34px; padding: 0;
+  background: transparent; color: var(--texto-suave); border: 1px solid transparent; border-radius: 50%;
+}
+.activity-action svg { width: 16px; height: 16px; }
+.activity-action:hover { color: var(--azul-800); background: var(--azul-50); border-color: var(--borda); }
+.activity-action-danger { color: var(--vermelho-600); }
+.activity-action-danger:hover { color: var(--vermelho-600); background: var(--vermelho-100); border-color: var(--vermelho-100); }
 
 /* ===========================
    Formulários
