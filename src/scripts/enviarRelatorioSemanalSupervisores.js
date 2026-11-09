@@ -8,7 +8,7 @@ function montarEmail(supervisores, urlAplicacao) {
             const statusAtividades = quantidade > 0 ? `Sim (${quantidade})` : 'Não';
             const atividadesPendentes = Number(aluno.atividades_pendentes);
             const badgeAvaliacao = atividadesPendentes > 0
-                ? `<span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:bold;">${atividadesPendentes} pendente(s)</span>`
+                ? `<span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:bold;">${atividadesPendentes} pendente(s) — ${Number(aluno.horas_pendentes).toFixed(2)} h</span>`
                 : '<span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:bold;">Nenhuma pendente</span>';
             const linkAluno = `${urlAplicacao}/professor/aluno/${encodeURIComponent(aluno.aluno_id)}`;
 
@@ -16,6 +16,8 @@ function montarEmail(supervisores, urlAplicacao) {
                 <tr>
                     <td style="padding:10px;border-bottom:1px solid #e5e7eb;">${escaparHtml(aluno.aluno_nome)}</td>
                     <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${Number(aluno.horas_semana).toFixed(2)} h</td>
+                    <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${Number(aluno.horas_registradas).toFixed(2)} / ${Number(aluno.carga_horaria).toFixed(2)} h</td>
+                    <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${Number(aluno.horas_validadas).toFixed(2)} h</td>
                     <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${statusAtividades}</td>
                     <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;">${badgeAvaliacao}</td>
                     <td style="padding:10px;text-align:center;border-bottom:1px solid #e5e7eb;"><a href="${escaparHtml(linkAluno)}" style="color:#2563eb;">Ver detalhes</a></td>
@@ -28,8 +30,10 @@ function montarEmail(supervisores, urlAplicacao) {
                 <thead>
                     <tr style="background:#f9fafb;">
                         <th style="padding:10px;text-align:left;border-bottom:1px solid #d1d5db;">Estudante</th>
-                        <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Horas registradas</th>
-                        <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Preencheu atividades</th>
+                        <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Horas na semana</th>
+                        <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Registradas / carga total</th>
+                        <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Horas validadas</th>
+                        <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Atividades na semana</th>
                         <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Para avaliar</th>
                         <th style="padding:10px;text-align:center;border-bottom:1px solid #d1d5db;">Detalhes</th>
                     </tr>
@@ -46,7 +50,7 @@ function montarEmail(supervisores, urlAplicacao) {
                 <h2 style="margin-top:0;color:#111827;">Resumo semanal de estágio</h2>
                 <p>Resumo dos estudantes em estágio ativo nos últimos 7 dias:</p>
                 ${tabelasPorSupervisor}
-                <p style="margin-bottom:0;margin-top:24px;font-size:12px;color:#6b7280;">As horas mostram os registros não invalidados no período; atividades pendentes de validação estão incluídas.</p>
+                <p style="margin-bottom:0;margin-top:24px;font-size:12px;color:#6b7280;">As horas da semana e as atividades preenchidas consideram os últimos 7 dias. As horas registradas, validadas e pendentes de avaliação consideram todo o estágio. Horas registradas incluem atividades pendentes; somente horas validadas contam para cumprir a carga horária. Atividades invalidadas são excluídas.</p>
             </div>
         </body>
         </html>`;
@@ -56,10 +60,10 @@ function montarEmail(supervisores, urlAplicacao) {
         ...supervisores.flatMap((supervisor) => [
             '',
             `Supervisor: ${supervisor.nome}`,
-            ...supervisor.alunos.map((aluno) => `${aluno.aluno_nome}: ${Number(aluno.horas_semana).toFixed(2)} horas registradas; atividades preenchidas: ${Number(aluno.atividades_semana) > 0 ? `Sim (${aluno.atividades_semana})` : 'Não'}; para avaliar: ${Number(aluno.atividades_pendentes) > 0 ? `${aluno.atividades_pendentes} pendente(s)` : 'nenhuma pendente'} — ${urlAplicacao}/professor/aluno/${aluno.aluno_id}`),
+            ...supervisor.alunos.map((aluno) => `${aluno.aluno_nome}: ${Number(aluno.horas_semana).toFixed(2)} horas na semana; ${Number(aluno.horas_registradas).toFixed(2)} de ${Number(aluno.carga_horaria).toFixed(2)} horas registradas no estágio; ${Number(aluno.horas_validadas).toFixed(2)} horas validadas; atividades preenchidas na semana: ${Number(aluno.atividades_semana) > 0 ? `Sim (${aluno.atividades_semana})` : 'Não'}; para avaliar: ${Number(aluno.atividades_pendentes) > 0 ? `${aluno.atividades_pendentes} pendente(s), ${Number(aluno.horas_pendentes).toFixed(2)} horas` : 'nenhuma pendente'} — ${urlAplicacao}/professor/aluno/${aluno.aluno_id}`),
         ]),
         '',
-        'As horas incluem atividades pendentes de validação e excluem as invalidadas.',
+        'Horas registradas, validadas e pendentes de avaliação consideram todo o estágio. Horas registradas incluem atividades pendentes; somente horas validadas contam para cumprir a carga horária. Atividades invalidadas são excluídas.',
     ].join('\n');
 
     return { html, texto };
@@ -149,19 +153,27 @@ async function executar({ forcar = false } = {}) {
                 perfil_supervisor.receber_relatorio_semanal,
                 aluno.usuario_id AS aluno_id,
                 estudante.nome AS aluno_nome,
+                aluno.carga_horaria,
                 COALESCE(SUM(atividade.horas) FILTER (
                     WHERE atividade.data >= $1::date - INTERVAL '6 days'
                       AND atividade.data < $1::date + INTERVAL '1 day'
                       AND atividade.status_validacao <> 'invalidada'
                 ), 0) AS horas_semana,
+                COALESCE(SUM(atividade.horas) FILTER (
+                    WHERE atividade.status_validacao <> 'invalidada'
+                ), 0) AS horas_registradas,
+                COALESCE(SUM(atividade.horas) FILTER (
+                    WHERE atividade.status_validacao = 'validada'
+                ), 0) AS horas_validadas,
+                COALESCE(SUM(atividade.horas) FILTER (
+                    WHERE atividade.status_validacao = 'pendente'
+                ), 0) AS horas_pendentes,
                 COUNT(atividade.id) FILTER (
                     WHERE atividade.data >= $1::date - INTERVAL '6 days'
                       AND atividade.data < $1::date + INTERVAL '1 day'
                 )::int AS atividades_semana,
                 COUNT(atividade.id) FILTER (
-                    WHERE atividade.data >= $1::date - INTERVAL '6 days'
-                      AND atividade.data < $1::date + INTERVAL '1 day'
-                      AND atividade.status_validacao = 'pendente'
+                    WHERE atividade.status_validacao = 'pendente'
                 )::int AS atividades_pendentes
             FROM alunos aluno
             JOIN usuarios estudante ON estudante.id = aluno.usuario_id
@@ -172,7 +184,8 @@ async function executar({ forcar = false } = {}) {
               AND aluno.status = 'em_andamento'
               AND perfil_supervisor.receber_relatorio_semanal = true
             GROUP BY supervisor.id, supervisor.nome, supervisor.email,
-                     perfil_supervisor.receber_relatorio_semanal, aluno.usuario_id, estudante.nome
+                     perfil_supervisor.receber_relatorio_semanal, aluno.usuario_id,
+                     aluno.carga_horaria, estudante.nome
             ORDER BY supervisor.nome, estudante.nome
         `, [agoraLocal.data]);
 
@@ -189,7 +202,11 @@ async function executar({ forcar = false } = {}) {
             porSupervisor.get(row.supervisor_id).alunos.push({
                 aluno_id: row.aluno_id,
                 aluno_nome: row.aluno_nome,
+                carga_horaria: row.carga_horaria,
                 horas_semana: row.horas_semana,
+                horas_registradas: row.horas_registradas,
+                horas_validadas: row.horas_validadas,
+                horas_pendentes: row.horas_pendentes,
                 atividades_semana: row.atividades_semana,
                 atividades_pendentes: row.atividades_pendentes,
             });
