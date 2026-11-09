@@ -13,7 +13,15 @@ const { PDFDocument } = require('pdf-lib');
 const { gerarFacPdf } = require('../src/services/facPdf');
 
 let db, server, url;
-const banco = { connect: async () => ({ query: consultar, release() {} }) };
+const banco = {
+    connect: async () => ({
+        async query(sql, params) {
+            if (/^\s*(BEGIN|COMMIT|ROLLBACK)\s*;?\s*$/i.test(sql)) return { rows: [], rowCount: 0 };
+            return consultar(sql, params);
+        },
+        release() {},
+    }),
+};
 async function consultar(sql, params) {
     // PGlite é uma instância isolada; advisory locks são exercitados com mocks abaixo.
     if (/pg_(try_advisory_lock|advisory_unlock)/.test(sql)) return { rows: [{ adquirido: true }] };
@@ -503,6 +511,37 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
     });
     assert.equal(propriaConta.status, 302);
     assert.equal((await consultar('SELECT ativo FROM usuarios WHERE id=104')).rows[0].ativo, true);
+});
+test('admin exclui contas sem vínculos e preserva as que têm dados associados', async () => {
+    await db.exec(`INSERT INTO alunos (usuario_id) VALUES (11);
+        INSERT INTO atividades (aluno_id,data,horas,descricao) VALUES (1,'2026-11-08',1,'Registro associado');
+        UPDATE alunos SET supervisor_id=105 WHERE usuario_id=2;`);
+
+    const alunoVinculado = await requisitar('/professor/usuarios/1/excluir', {
+        user: 104, method: 'POST',
+    });
+    assert.equal(alunoVinculado.status, 302);
+    assert.equal((await consultar('SELECT id FROM usuarios WHERE id=1')).rows.length, 1);
+    assert.equal((await consultar('SELECT aluno_id FROM atividades WHERE aluno_id=1')).rows.length, 1);
+
+    const supervisorVinculado = await requisitar('/professor/usuarios/105/excluir', {
+        user: 104, method: 'POST',
+    });
+    assert.equal(supervisorVinculado.status, 302);
+    assert.equal((await consultar('SELECT id FROM usuarios WHERE id=105')).rows.length, 1);
+
+    const propriaConta = await requisitar('/professor/usuarios/104/excluir', {
+        user: 104, method: 'POST',
+    });
+    assert.equal(propriaConta.status, 302);
+    assert.equal((await consultar('SELECT id FROM usuarios WHERE id=104')).rows.length, 1);
+
+    const alunoSemVinculos = await requisitar('/professor/usuarios/11/excluir', {
+        user: 104, method: 'POST',
+    });
+    assert.equal(alunoSemVinculos.status, 302);
+    assert.equal((await consultar('SELECT id FROM usuarios WHERE id=11')).rows.length, 0);
+    assert.equal((await consultar('SELECT usuario_id FROM alunos WHERE usuario_id=11')).rows.length, 0);
 });
 test('FAC: supervisor preenche, persiste notas e média; aluno e orientador consultam PDF', async () => {
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);

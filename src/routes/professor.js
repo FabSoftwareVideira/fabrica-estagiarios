@@ -821,6 +821,37 @@ router.post('/usuarios/:id/ativo', requireAdmin, async (req, res) => {
     res.redirect('/professor/usuarios');
 });
 
+router.post('/usuarios/:id/excluir', requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) {
+        setFlash(req, 'error', 'Usuário inválido.');
+        return res.redirect('/professor/usuarios');
+    }
+    if (id === Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Você não pode excluir sua própria conta.');
+        return res.redirect('/professor/usuarios');
+    }
+    const alvo = await usuariosModel.buscarPorId(id);
+    if (!alvo) {
+        setFlash(req, 'error', 'Usuário não encontrado.');
+        return res.redirect('/professor/usuarios');
+    }
+    if (alvo.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase()) {
+        setFlash(req, 'error', 'A conta do administrador principal não pode ser excluída.');
+        return res.redirect('/professor/usuarios');
+    }
+
+    const resultado = await usuariosModel.excluirSeSemVinculos(id);
+    if (!resultado.excluido) {
+        setFlash(req, 'error', resultado.motivo === 'vinculado'
+            ? 'Este usuário possui dados ou vínculos associados e não pode ser excluído. Desative a conta para bloquear o acesso.'
+            : 'Usuário não encontrado.');
+        return res.redirect('/professor/usuarios');
+    }
+    setFlash(req, 'success', 'Usuário excluído com sucesso.');
+    res.redirect('/professor/usuarios');
+});
+
 router.post('/professores/:id/cargo', requireAdmin, async (req, res) => {
     if (Number(req.params.id) === req.session.user.id) {
         return res.redirect('/professor/usuarios');

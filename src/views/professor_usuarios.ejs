@@ -177,6 +177,9 @@
                                                         <input type="hidden" name="ativo" value="<%= usuario.ativo ? 'false' : 'true' %>">
                                                         <button type="submit" class="user-action <%= usuario.ativo ? 'user-action-danger' : 'user-action-positive' %>" title="<%= usuario.ativo ? 'Desativar conta' : 'Ativar conta' %>" aria-label="<%= usuario.ativo ? 'Desativar ' + usuario.nome : 'Ativar ' + usuario.nome %>" <%= usuario.ativo ? `data-confirmar="Desativar esta conta? As sessões abertas serão encerradas."` : '' %>><%- icone(usuario.ativo ? 'cadeado' : 'check') %></button>
                                                     </form>
+                                                    <form action="/professor/usuarios/<%= usuario.id %>/excluir" method="POST">
+                                                        <button type="submit" class="user-action user-action-danger" title="Excluir se não houver vínculos" aria-label="Excluir <%= usuario.nome %> se não houver dados vinculados" data-confirmar="Excluir permanentemente a conta de <%= usuario.nome %>? A exclusão só será permitida se não houver dados vinculados."><%- icone('lixeira') %></button>
+                                                    </form>
                                                 <% } %>
                                             </div>
                                         </td>

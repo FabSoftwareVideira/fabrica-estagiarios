@@ -162,6 +162,76 @@ async function definirAtivo(id, ativo) {
     return rowCount > 0;
 }
 
+async function excluirSeSemVinculos(id) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const usuario = await client.query(
+            'SELECT id FROM usuarios WHERE id = $1 FOR UPDATE',
+            [id]
+        );
+        if (!usuario.rows.length) {
+            await client.query('ROLLBACK');
+            return { excluido: false, motivo: 'nao_encontrado' };
+        }
+
+        await client.query('SELECT usuario_id FROM alunos WHERE usuario_id = $1 FOR UPDATE', [id]);
+        const { rows: referencias } = await client.query(
+            `SELECT filho_ns.nspname AS filho_schema, filho.relname AS filho_tabela,
+                    filho_col.attname AS filho_coluna,
+                    pai.relname AS pai_tabela, pai_col.attname AS pai_coluna
+             FROM pg_constraint fk
+             JOIN pg_class filho ON filho.oid = fk.conrelid
+             JOIN pg_namespace filho_ns ON filho_ns.oid = filho.relnamespace
+             JOIN pg_class pai ON pai.oid = fk.confrelid
+             JOIN pg_namespace pai_ns ON pai_ns.oid = pai.relnamespace
+             JOIN LATERAL unnest(fk.conkey) WITH ORDINALITY AS chaves_filho(attnum, ordem) ON true
+             JOIN LATERAL unnest(fk.confkey) WITH ORDINALITY AS chaves_pai(attnum, ordem)
+               ON chaves_pai.ordem = chaves_filho.ordem
+             JOIN pg_attribute filho_col ON filho_col.attrelid = filho.oid AND filho_col.attnum = chaves_filho.attnum
+             JOIN pg_attribute pai_col ON pai_col.attrelid = pai.oid AND pai_col.attnum = chaves_pai.attnum
+             WHERE fk.contype = 'f'
+               AND filho_ns.nspname = 'public' AND pai_ns.nspname = 'public'
+               AND pai.relname IN ('usuarios', 'alunos')
+               AND cardinality(fk.conkey) = 1 AND cardinality(fk.confkey) = 1`,
+        );
+
+        for (const referencia of referencias) {
+            const perfilProprio = referencia.pai_tabela === 'usuarios'
+                && ['alunos', 'professores'].includes(referencia.filho_tabela)
+                && referencia.filho_coluna === 'usuario_id';
+            if (perfilProprio) continue;
+
+            const relacao = referencia.pai_tabela === 'usuarios'
+                ? `SELECT EXISTS (
+                       SELECT 1 FROM "${referencia.filho_schema}"."${referencia.filho_tabela}" filho
+                       WHERE filho."${referencia.filho_coluna}" = $1
+                   ) AS existe`
+                : `SELECT EXISTS (
+                       SELECT 1
+                       FROM "${referencia.filho_schema}"."${referencia.filho_tabela}" filho
+                       JOIN public.alunos pai
+                         ON pai."${referencia.pai_coluna}" = filho."${referencia.filho_coluna}"
+                       WHERE pai.usuario_id = $1
+                   ) AS existe`;
+            const { rows } = await client.query(relacao, [id]);
+            if (rows[0].existe) {
+                await client.query('ROLLBACK');
+                return { excluido: false, motivo: 'vinculado' };
+            }
+        }
+
+        await client.query('DELETE FROM usuarios WHERE id = $1', [id]);
+        await client.query('COMMIT');
+        return { excluido: true };
+    } catch (erro) {
+        await client.query('ROLLBACK');
+        throw erro;
+    } finally {
+        client.release();
+    }
+}
+
 // casa uma conta que já existia (ex.: seed do admin, sem github_id ainda)
 // com o github_id assim que a pessoa loga pela primeira vez
 async function vincularGithubId(usuarioId, githubId, avatarUrl) {
@@ -240,6 +310,7 @@ module.exports = {
     contarSupervisoresPendentes,
     criarContaAdministrada,
     definirAtivo,
+    excluirSeSemVinculos,
     criar,
     vincularGithubId,
     vincularGoogleId,
