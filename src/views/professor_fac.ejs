@@ -20,14 +20,15 @@
                 <a class="btn btn-secondary" href="/professor/aluno/<%= aluno.usuario_id %>/fac/pdf"><%- icone('baixar') %> Baixar PDF</a>
             </div>
         <% } %>
-        <% if (!podeEditar) { %><p class="aviso aviso-info">Consulta da avaliação. O supervisor pode preenchê-la após o cumprimento das horas, enquanto o estágio estiver aberto e não arquivado.</p><% } %>
+        <% if (!aluno.curso) { %><p class="aviso aviso-info">O estudante ainda não selecionou o curso em seu perfil; a FAC fica bloqueada até essa informação ser preenchida.</p><% } else if (!podeEditar) { %><p class="aviso aviso-info">Consulta da avaliação. O supervisor pode preenchê-la após o cumprimento das horas, enquanto o estágio estiver aberto e não arquivado.</p><% } %>
         <% if (erros.length) { %><div class="flash flash-error" role="alert"><ul><% erros.forEach((erro) => { %><li><%= erro %></li><% }) %></ul></div><% } %>
         <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/fac">
             <fieldset <%= podeEditar ? '' : 'disabled' %>>
                 <section class="card">
                     <h2>Dados do estágio</h2>
                     <div class="form-grid">
-                        <% [['empresa', 'Empresa/entidade concedente', 200], ['curso', 'Curso', 150], ['periodo', 'Período do estágio', 80]].forEach(([campo, rotulo, limite]) => { %>
+                        <div class="form-field"><label>Curso do estudante</label><p class="form-note"><%= aluno.curso || 'Não informado. O estudante deve selecioná-lo no perfil antes de preencher a FAC.' %></p></div>
+                        <% [['empresa', 'Empresa/entidade concedente', 200], ['periodo', 'Período do estágio', 80]].forEach(([campo, rotulo, limite]) => { %>
                             <div class="form-field"><label for="<%= campo %>"><%= rotulo %></label><input type="text" id="<%= campo %>" name="<%= campo %>" maxlength="<%= limite %>" required value="<%= valores[campo] %>"></div>
                         <% }) %>
                     </div>

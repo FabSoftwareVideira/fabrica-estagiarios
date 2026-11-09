@@ -19,7 +19,7 @@ async function carregar(req, res, next) {
 
 function podeEditar(aluno, user) {
     return Number(aluno.supervisor_id) === Number(user.id) && aluno.status === 'concluido'
-        && !aluno.encerrado_em && !aluno.arquivado;
+        && !aluno.encerrado_em && !aluno.arquivado && Boolean(aluno.curso);
 }
 
 async function renderizar(req, res, valores, erros = []) {
@@ -28,8 +28,8 @@ async function renderizar(req, res, valores, erros = []) {
     res.render('professor_fac', {
         aluno: req.aluno, fac, erros, criterios: CRITERIOS_FAC,
         podeEditar: podeEditar(req.aluno, req.session.user),
-        valores: valores || (fac ? { ...fac, data_assinatura: dataParaInput(fac.data_assinatura) } : {
-            empresa: req.aluno.empresa || '', curso: '', periodo: periodoDasAtividades(registros),
+        valores: valores || (fac ? { ...fac, curso: req.aluno.curso || fac.curso, data_assinatura: dataParaInput(fac.data_assinatura) } : {
+            empresa: req.aluno.empresa || '', curso: req.aluno.curso || '', periodo: periodoDasAtividades(registros),
             notas: Array(10).fill(''), atividades: '', comentarios: '', local_assinatura: '', data_assinatura: dataLocalIso(),
         }),
     });
@@ -38,7 +38,7 @@ async function renderizar(req, res, valores, erros = []) {
 router.get('/aluno/:id/fac', carregar, (req, res) => renderizar(req, res));
 router.post('/aluno/:id/fac', carregar, async (req, res) => {
     if (!podeEditar(req.aluno, req.session.user)) return res.status(403).send('A avaliação não pode ser alterada.');
-    const { valores, erros } = lerFac(req.body);
+    const { valores, erros } = lerFac(req.body, req.aluno.curso);
     if (erros.length) return renderizar(req, res.status(422), valores, erros);
     if (!await facs.salvar(req.aluno.usuario_id, req.session.user, valores)) {
         return res.status(409).send('O estágio foi alterado. Atualize a página antes de continuar.');
@@ -52,7 +52,7 @@ router.get('/aluno/:id/fac/pdf', carregar, async (req, res) => {
         setFlash(req, 'error', 'Preencha a avaliação antes de gerar o PDF.');
         return res.redirect(`/professor/aluno/${req.aluno.usuario_id}/fac`);
     }
-    const bytes = await gerarFacPdf({ aluno: req.aluno, fac });
+    const bytes = await gerarFacPdf({ aluno: req.aluno, fac: { ...fac, curso: req.aluno.curso || fac.curso } });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="FAC-${nomeParaArquivo(req.aluno.nome)}.pdf"`);
     res.setHeader('Cache-Control', 'no-store, private');

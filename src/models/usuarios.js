@@ -124,7 +124,7 @@ async function contarSupervisoresPendentes() {
     return rows[0].total;
 }
 
-async function criarContaAdministrada({ nome, email, tipo, matricula, empresa, funcao }) {
+async function criarContaAdministrada({ nome, email, tipo, matricula, curso, empresa, funcao }) {
     const { rows } = await pool.query(
         `WITH novo_usuario AS (
             INSERT INTO usuarios (nome, email, tipo, nome_confirmado)
@@ -132,8 +132,8 @@ async function criarContaAdministrada({ nome, email, tipo, matricula, empresa, f
             RETURNING id
         ),
         novo_aluno AS (
-            INSERT INTO alunos (usuario_id, matricula)
-            SELECT id, $5 FROM novo_usuario WHERE $4 = 'aluno'
+            INSERT INTO alunos (usuario_id, matricula, curso)
+            SELECT id, $5, $8 FROM novo_usuario WHERE $4 = 'aluno'
             RETURNING usuario_id
         ),
         novo_professor AS (
@@ -149,7 +149,7 @@ async function criarContaAdministrada({ nome, email, tipo, matricula, empresa, f
             RETURNING usuario_id
         )
         SELECT id FROM novo_usuario`,
-        [nome, email, tipo === 'aluno' ? 'aluno' : 'professor', tipo, matricula || null, empresa || null, funcao || null]
+        [nome, email, tipo === 'aluno' ? 'aluno' : 'professor', tipo, matricula || null, empresa || null, funcao || null, curso || null]
     );
     return rows[0].id;
 }

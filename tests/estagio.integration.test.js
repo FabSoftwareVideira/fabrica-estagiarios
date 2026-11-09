@@ -72,6 +72,7 @@ before(async () => {
         next();
     });
     app.use(require('../src/middleware/auth').attachUser);
+    app.use(require('../src/routes/auth'));
     app.use('/professor', require('../src/routes/professor'));
     app.use('/acesso', require('../src/routes/acesso'));
     app.use('/supervisor', require('../src/routes/supervisor'));
@@ -97,8 +98,10 @@ beforeEach(async () => {
         VALUES (11,'Novo Usuário Externo','novo@example.test','aluno',true)
         ON CONFLICT (id) DO UPDATE SET nome=EXCLUDED.nome,email=EXCLUDED.email,tipo='aluno';
         SELECT setval(pg_get_serial_sequence('usuarios','id'), (SELECT MAX(id) FROM usuarios));
-        INSERT INTO alunos (usuario_id,supervisor_id,orientador_id,status,empresa,relatorio_atualizado_em)
-        SELECT n,101,102,'em_andamento','Empresa Exemplo',NOW() - INTERVAL '6 days' FROM generate_series(1,10) n;`);
+        INSERT INTO alunos (usuario_id,supervisor_id,orientador_id,status,empresa,relatorio_atualizado_em,curso)
+        SELECT n,101,102,'em_andamento','Empresa Exemplo',NOW() - INTERVAL '6 days',
+            'Curso Técnico de Agropecuária Integrado ao Ensino Médio'
+        FROM generate_series(1,10) n;`);
 });
 afterEach(async () => { await db.exec('ROLLBACK'); });
 after(async () => { if (server) await new Promise((resolve) => server.close(resolve)); await db?.close(); await pool.end(); });
@@ -214,6 +217,61 @@ test('dashboard unifica orientandos e supervisionados na mesma tabela', async ()
     assert.match(legadoHtml, /href="\/professor\/aluno\/1"/);
     assert.match(legadoHtml, /href="\/professor\/aluno\/2"/);
     assert.match(legadoHtml, /href="\/professor\/aluno\/3"/);
+});
+test('histórico de atividades do estudante fica ao lado do calendário e limita a descrição visualmente', async () => {
+    await db.exec("INSERT INTO atividades (aluno_id,data,horas,descricao) VALUES (1,'2026-11-09',2,'Descrição completa para validar o truncamento visual')");
+    const resposta = await requisitar('/aluno/dashboard?aba=atividades', { user: 1 });
+    assert.equal(resposta.status, 200);
+    const html = await resposta.text();
+    assert.match(html, /class="card atividade-calendario"/);
+    assert.match(html, /<div class="atividade-layout">[\s\S]*<div class="card atividade-calendario">[\s\S]*<section class="card atividade-historico">/);
+    assert.match(html, /<table class="activity-history-table">[\s\S]*<th>Descrição<\/th>/);
+    assert.match(html, /class="activity-description" title="/);
+});
+test('cadastro de estudante exige um curso válido e guarda apenas uma opção', async () => {
+    const cursos = require('../src/config/cursos').CURSOS;
+    const formulario = await requisitar('/aluno/completar-cadastro', { user: 11 });
+    assert.equal(formulario.status, 200);
+    const html = await formulario.text();
+    for (const curso of cursos) assert.ok(html.includes(curso));
+
+    const semCurso = await requisitar('/aluno/completar-cadastro', {
+        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: 'NOVO11', avatarEmoji: '🐱' },
+    });
+    assert.equal(semCurso.status, 302);
+    assert.equal((await consultar('SELECT usuario_id FROM alunos WHERE usuario_id=11')).rows.length, 0);
+
+    const cursoInvalido = await requisitar('/aluno/completar-cadastro', {
+        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: 'NOVO11', curso: 'Curso inventado', avatarEmoji: '🐱' },
+    });
+    assert.equal(cursoInvalido.status, 302);
+    assert.equal((await consultar('SELECT usuario_id FROM alunos WHERE usuario_id=11')).rows.length, 0);
+
+    const cursoEscolhido = cursos[1];
+    const cadastro = await requisitar('/aluno/completar-cadastro', {
+        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: 'NOVO11', curso: cursoEscolhido, avatarEmoji: '🐱' },
+    });
+    assert.equal(cadastro.status, 302);
+    assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=11')).rows[0].curso, cursoEscolhido);
+});
+test('perfil permite informar ou corrigir o curso para um único curso cadastrado', async () => {
+    const cursos = require('../src/config/cursos').CURSOS;
+    const pagina = await requisitar('/perfil', { user: 1 });
+    assert.equal(pagina.status, 200);
+    const html = await pagina.text();
+    for (const curso of cursos) assert.ok(html.includes(curso));
+
+    const invalido = await requisitar('/perfil', {
+        user: 1, method: 'POST', body: { nome: 'Estudante 1', matricula: 'TESTE1', curso: 'Curso inválido', avatarEmoji: '🐱' },
+    });
+    assert.equal(invalido.status, 302);
+    assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso, cursos[0]);
+
+    const alterado = await requisitar('/perfil', {
+        user: 1, method: 'POST', body: { nome: 'Estudante 1', matricula: 'TESTE1', curso: cursos[2], avatarEmoji: '🐱' },
+    });
+    assert.equal(alterado.status, 302);
+    assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso, cursos[2]);
 });
 test('supervisor externo só vê estudantes atribuídos e não acessa funções de professor', async () => {
     await db.exec(`UPDATE alunos SET supervisor_id=105 WHERE usuario_id=1;
@@ -584,7 +642,9 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
     assert.match(await segundaPagina.text(), /Supervisor Externo/);
     const cadastro = await requisitar('/professor/usuarios/novo', { user: 104 });
     assert.equal(cadastro.status, 200);
-    assert.match(await cadastro.text(), /data-admin-user-form/);
+    const cadastroHtml = await cadastro.text();
+    assert.match(cadastroHtml, /data-admin-user-form/);
+    for (const curso of require('../src/config/cursos').CURSOS) assert.ok(cadastroHtml.includes(curso));
 
     const paginaFiltrada = await requisitar('/professor/usuarios?tipo=aluno&situacao=ativo&ordenar=nome&dir=desc', { user: 104 });
     assert.equal(paginaFiltrada.status, 200);
@@ -595,7 +655,7 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
     assert.match(paginaFiltradaHtml, new RegExp(`de ${totalFiltrado.rows[0].total} usuários`));
 
     for (const [tipo, suffix, extra] of [
-        ['aluno', 'estudante', { matricula: 'ADM123' }],
+        ['aluno', 'estudante', { matricula: 'ADM123', curso: 'Curso Técnico em Informática Integrado ao Ensino Médio' }],
         ['professor', 'professor', {}],
         ['supervisor', 'supervisor', { empresa: 'Empresa Nova', funcao: 'Gestor de Estágio' }],
     ]) {
@@ -604,12 +664,15 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
             body: { nome: `Conta ${suffix}`, email: `${suffix}.novo@example.test`, tipo, ...extra },
         });
         assert.equal(resposta.status, 302);
-        const conta = await consultar(`SELECT u.id,u.tipo,u.ativo,p.cargo,p.aprovado,p.empresa_externa,p.funcao_externa,a.matricula
+        const conta = await consultar(`SELECT u.id,u.tipo,u.ativo,p.cargo,p.aprovado,p.empresa_externa,p.funcao_externa,a.matricula,a.curso
             FROM usuarios u LEFT JOIN professores p ON p.usuario_id=u.id
             LEFT JOIN alunos a ON a.usuario_id=u.id WHERE u.email=$1`, [`${suffix}.novo@example.test`]);
         assert.equal(conta.rows.length, 1);
         assert.equal(conta.rows[0].ativo, true);
-        if (tipo === 'aluno') assert.equal(conta.rows[0].matricula, 'ADM123');
+        if (tipo === 'aluno') {
+            assert.equal(conta.rows[0].matricula, 'ADM123');
+            assert.equal(conta.rows[0].curso, extra.curso);
+        }
         if (tipo === 'professor') assert.equal(conta.rows[0].cargo, 'comum');
         if (tipo === 'supervisor') {
             assert.equal(conta.rows[0].cargo, 'supervisor');
@@ -620,6 +683,19 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
             assert.equal(aprovado.status, 302);
         }
     }
+
+    const cursoInvalido = await requisitar('/professor/usuarios', {
+        user: 104, method: 'POST',
+        body: { nome: 'Curso inválido', email: 'curso.invalido@example.test', tipo: 'aluno', curso: 'Outro curso' },
+    });
+    assert.equal(cursoInvalido.status, 302);
+    assert.equal((await consultar("SELECT id FROM usuarios WHERE email='curso.invalido@example.test'")).rows.length, 0);
+    const cursoAusente = await requisitar('/professor/usuarios', {
+        user: 104, method: 'POST',
+        body: { nome: 'Curso ausente', email: 'curso.ausente@example.test', tipo: 'aluno' },
+    });
+    assert.equal(cursoAusente.status, 302);
+    assert.equal((await consultar("SELECT id FROM usuarios WHERE email='curso.ausente@example.test'")).rows.length, 0);
 
     const emailDuplicado = await requisitar('/professor/usuarios', {
         user: 104, method: 'POST',
@@ -712,6 +788,7 @@ test('FAC: supervisor preenche, persiste notas e média; aluno e orientador cons
     assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 302);
     const fac = await facs.buscarPorAluno(1);
     assert.equal(fac.nota, 8.5); assert.equal(fac.supervisor_nome, 'Supervisor Teste');
+    assert.equal(fac.curso, 'Curso Técnico de Agropecuária Integrado ao Ensino Médio');
     const tela = await requisitar('/professor/aluno/1/fac'); assert.equal(tela.status, 200);
     assert.match(await tela.text(), /Média 8,5/);
     for (const [rota, user] of [['/professor/aluno/1/fac/pdf', 102], ['/aluno/fac/pdf', 1]]) {
@@ -729,7 +806,7 @@ test('FAC: permissões, encerramento, arquivamento e dados inválidos bloqueiam 
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
     for (const user of [102, 103]) assert.equal((await requisitar('/professor/aluno/1/fac', { user, method: 'POST', body: form() })).status, 403);
     assert.equal((await requisitar('/professor/aluno/1/fac/pdf', { user: 103 })).status, 403);
-    for (const alteracao of [{ nota_0: '' }, { nota_1: '11' }, { nota_2: '-1' }, { nota_3: 'NaN' }, { nota_4: '1.55' }, { data_assinatura: '2026-02-30' }, { curso: '' }]) {
+    for (const alteracao of [{ nota_0: '' }, { nota_1: '11' }, { nota_2: '-1' }, { nota_3: 'NaN' }, { nota_4: '1.55' }, { data_assinatura: '2026-02-30' }, { atividades: '' }]) {
         assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: { ...form(), ...alteracao } })).status, 422);
     }
     assert.equal(await facs.buscarPorAluno(1), null);

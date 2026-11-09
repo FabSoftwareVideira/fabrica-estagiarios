@@ -1,4 +1,5 @@
 const { dataIsoValida } = require('./datas');
+const { ehCurso } = require('../config/cursos');
 
 const CRITERIOS_FAC = [
     ['Interesse', 'Preocupação para conhecer os aspectos relacionados ao trabalho/empresa.'],
@@ -18,12 +19,12 @@ function mediaFac(notas) {
     return Math.round(somaDecimos / 10) / 10;
 }
 
-function lerFac(body) {
+function lerFac(body, cursoAluno) {
     const erros = [];
-    const valores = {};
+    const valores = { curso: ehCurso(cursoAluno) ? cursoAluno : '' };
+    if (!valores.curso) erros.push('O estudante precisa informar o curso no perfil antes de preencher a FAC.');
     for (const [campo, rotulo, limite, obrigatorio] of [
-        ['empresa', 'Empresa', 200, true], ['curso', 'Curso', 150, true],
-        ['periodo', 'Período', 80, true], ['atividades', 'Atividades', 1500, true],
+        ['empresa', 'Empresa', 200, true], ['periodo', 'Período', 80, true], ['atividades', 'Atividades', 1500, true],
         ['comentarios', 'Comentários', 1500, false], ['local_assinatura', 'Local', 80, true],
     ]) {
         valores[campo] = typeof body[campo] === 'string' ? body[campo].trim() : '';

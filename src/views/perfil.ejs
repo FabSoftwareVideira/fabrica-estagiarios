@@ -41,6 +41,13 @@
                             <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
                             <input type="text" id="matricula" name="matricula" maxlength="30"
                                 value="<%= aluno ? (aluno.matricula || '') : '' %>">
+                            <label for="curso">Curso</label>
+                            <select id="curso" name="curso" required>
+                                <option value="">Selecione seu curso</option>
+                                <% cursos.forEach((curso) => { %>
+                                    <option value="<%= curso %>" <%= aluno && aluno.curso === curso ? 'selected' : '' %>><%= curso %></option>
+                                <% }) %>
+                            </select>
                         <% } %>
                         <%- include('partials/avatar-picker', { avatares, selectedAvatar: usuario.avatar_emoji || '' }) %>
 

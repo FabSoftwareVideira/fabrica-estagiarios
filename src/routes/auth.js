@@ -6,6 +6,7 @@ const professores = require('../models/professores');
 const { requireAuth, setFlash } = require('../middleware/auth');
 const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
+const { CURSOS, ehCurso } = require('../config/cursos');
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
@@ -43,13 +44,14 @@ router.get('/perfil', requireAuth, async (req, res) => {
     const professor = usuario.tipo === 'professor'
         ? await professores.buscarPorUsuarioId(usuario.id)
         : null;
-    res.render('perfil', { usuario, aluno, professor, avatares });
+    res.render('perfil', { usuario, aluno, professor, avatares, cursos: CURSOS });
 });
 
 router.post('/perfil', requireAuth, async (req, res) => {
     const nome = (req.body.nome || '').trim();
     const matriculaInformada = (req.body.matricula || '').trim();
     const matricula = matriculaInformada || null;
+    const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     const avatarEmoji = typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '';
 
     if (!nome) {
@@ -59,6 +61,10 @@ router.post('/perfil', requireAuth, async (req, res) => {
 
     if (!avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
         setFlash(req, 'error', 'Escolha um avatar para seu perfil.');
+        return res.redirect('/perfil');
+    }
+    if (req.session.user.tipo === 'aluno' && !ehCurso(curso)) {
+        setFlash(req, 'error', 'Selecione um dos cursos técnicos disponíveis.');
         return res.redirect('/perfil');
     }
 
@@ -82,7 +88,10 @@ router.post('/perfil', requireAuth, async (req, res) => {
 
         if (req.session.user.tipo === 'aluno') {
             const aluno = await alunos.buscarPorUsuarioId(req.session.user.id);
-            if (aluno) await alunos.atualizarMatricula(req.session.user.id, matricula);
+            if (aluno) {
+                await alunos.atualizarMatricula(req.session.user.id, matricula);
+                await alunos.atualizarCurso(req.session.user.id, curso);
+            }
         } else {
             await professores.definirRecebimentoRelatorio(
                 req.session.user.id,

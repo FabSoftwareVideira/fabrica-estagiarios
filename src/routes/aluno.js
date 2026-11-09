@@ -18,6 +18,7 @@ const { gerarFarePdf } = require('../services/farePdf');
 const { montarContexto, dadosParaPdf } = require('../services/ataDados');
 const { formatarHora } = require('../utils/datas');
 const { DIAS_TRABALHO } = require('../utils/horarioTrabalho');
+const { CURSOS, ehCurso } = require('../config/cursos');
 
 router.use(requireRole('aluno'));
 
@@ -30,15 +31,17 @@ router.get('/completar-cadastro', async (req, res) => {
         nomeAtual: req.session.user.nome,
         avatares,
         selectedAvatar: req.session.user.avatarEmoji || '',
+        cursos: CURSOS,
     });
 });
 
 router.post('/completar-cadastro', async (req, res) => {
     const matricula = (req.body.matricula || '').trim();
     const nome = (req.body.nome || '').trim();
+    const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     const avatarEmoji = typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '';
-    if (!matricula || !nome || !avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
-        setFlash(req, 'error', 'Informe seu nome completo, sua matrícula e escolha um avatar.');
+    if (!matricula || !nome || !ehCurso(curso) || !avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
+        setFlash(req, 'error', 'Informe seu nome completo, sua matrícula, escolha um curso e um avatar.');
         return res.redirect('/aluno/completar-cadastro');
     }
     try {
@@ -49,7 +52,7 @@ router.post('/completar-cadastro', async (req, res) => {
         req.session.user.nome = nome;
         req.session.user.avatarEmoji = avatarEmoji;
 
-        await alunosModel.criar({ usuarioId: req.session.user.id, matricula });
+        await alunosModel.criar({ usuarioId: req.session.user.id, matricula, curso });
         setFlash(req, 'success', 'Cadastro concluído! Você entrará na lista de espera até a aprovação de um professor.');
         res.redirect('/aluno/dashboard');
     } catch (err) {

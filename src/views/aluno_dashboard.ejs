@@ -126,6 +126,7 @@
                     <dl class="summary-details">
                         <div><dt>Aluno</dt><dd><%= aluno.nome %></dd></div>
                         <div><dt>Matrícula</dt><dd><%= aluno.matricula || '—' %></dd></div>
+                        <div><dt>Curso</dt><dd><%= aluno.curso || 'Não informado' %></dd></div>
                         <div><dt>Empresa ou entidade concedente</dt><dd><%= aluno.empresa || '—' %></dd></div>
                         <div><dt>Supervisor</dt><dd><%= aluno.supervisor_nome || '—' %></dd></div>
                         <div><dt>Orientador</dt><dd><%= aluno.orientador_nome || '—' %></dd></div>
@@ -137,14 +138,14 @@
             <!-- Atividades -->
             <section class="dashboard-tab-panel" id="panel-atividades" role="tabpanel" aria-labelledby="tab-atividades" tabindex="0" <%= abaSelecionada === 'atividades' ? '' : 'hidden' %>>
                 <div class="atividade-layout">
-                    <div class="card">
+                    <div class="card atividade-calendario">
                         <h2>Calendário</h2>
                         <p class="text-muted" style="margin-bottom: 12px;">Toque em um dia para ver as atividades. Você pode registrar de segunda a sábado, mesmo fora dos dias planejados; domingo não permite registro.</p>
                         <%- include('partials/calendario', { dados: calendario, modo: 'ver', hoje, selecionado: '', podeRegistrar: podeAlterarAtividades, horariosTrabalho }) %>
                         <div class="dia-resumo" data-cal-painel aria-live="polite" hidden></div>
                     </div>
 
-                    <div class="card">
+                    <section class="card atividade-historico">
                         <div class="card-header">
                             <div>
                                 <h2>Histórico</h2>
@@ -155,7 +156,7 @@
                             <% } %>
                         </div>
                         <div class="table-wrap">
-                            <table>
+                            <table class="activity-history-table">
                                 <thead>
                                     <tr><th>Data</th><th>Horário</th><th>Descrição</th><th>Horas</th><th>Situação</th><th>Ações</th></tr>
                                 </thead>
@@ -171,7 +172,7 @@
                                                         <%= atividade.hora_inicio.slice(0, 5) %> – <%= atividade.hora_fim.slice(0, 5) %>
                                                     <% } else { %>—<% } %>
                                                 </td>
-                                                <td><%= atividade.descricao %></td>
+                                                <td class="activity-description" title="<%= atividade.descricao %>"><%= atividade.descricao %></td>
                                                 <td><%= Number(atividade.horas) %>h</td>
                                                 <td><%- include('partials/status_atividade', { atividade }) %></td>
                                                 <td class="activity-actions">
@@ -197,7 +198,7 @@
                         <p class="text-muted" data-cal-filtro hidden style="margin-top: 12px;">
                             Mostrando só o dia selecionado. <button type="button" class="btn-ghost btn-sm" data-cal-limpar>Mostrar todas</button>
                         </p>
-                    </div>
+                    </section>
                 </div>
             </section>
 

@@ -14,6 +14,7 @@ const { gerarFapoPdf } = require('../services/fapoPdf');
 const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
 const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTrabalho');
+const { CURSOS, ehCurso } = require('../config/cursos');
 
 router.use(requireRole('professor'));
 
@@ -664,7 +665,7 @@ router.get('/usuarios', requireRole('professor'), async (req, res) => {
 });
 
 router.get('/usuarios/novo', requireAdmin, (req, res) => {
-    res.render('professor_usuario_novo');
+    res.render('professor_usuario_novo', { cursos: CURSOS });
 });
 
 router.get(['/professores', '/cadastros'], requireAdmin, (req, res) => {
@@ -725,13 +726,14 @@ router.post('/usuarios', requireAdmin, async (req, res) => {
     const email = (req.body.email || '').trim().toLowerCase();
     const matriculaInformada = (req.body.matricula || '').trim();
     const matricula = matriculaInformada || null;
+    const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     const empresa = String(req.body.empresa || '').trim();
     const funcao = String(req.body.funcao || '').trim();
 
     if (!nome || nome.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
         || !['aluno', 'professor', 'supervisor'].includes(tipo)
         || (tipo === 'supervisor' && (!empresa || empresa.length > 200 || !funcao || funcao.length > 150))
-        || (tipo === 'aluno' && matricula && matricula.length > 30)) {
+        || (tipo === 'aluno' && (matricula && matricula.length > 30 || !ehCurso(curso)))) {
         setFlash(req, 'error', 'Confira os dados obrigatórios e o tipo de acesso selecionado.');
         return res.redirect('/professor/usuarios/novo');
     }
@@ -756,6 +758,7 @@ router.post('/usuarios', requireAdmin, async (req, res) => {
             email,
             tipo,
             matricula,
+            curso,
             empresa,
             funcao,
         });

@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS professores (
 CREATE TABLE IF NOT EXISTS alunos (
     usuario_id      INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
     matricula       VARCHAR(30) UNIQUE,
+    curso           VARCHAR(150) CONSTRAINT alunos_curso_check CHECK (curso IN (
+                        'Curso Técnico de Agropecuária Integrado ao Ensino Médio',
+                        'Curso Técnico em Eletroeletrônica Integrado ao Ensino Médio',
+                        'Curso Técnico em Informática Integrado ao Ensino Médio'
+                    )),
     empresa         TEXT,
     status          VARCHAR(20) NOT NULL DEFAULT 'lista_espera'
                         CHECK (status IN ('lista_espera', 'em_andamento', 'concluido')),

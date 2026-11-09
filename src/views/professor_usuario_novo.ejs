@@ -43,6 +43,13 @@
                     <label for="nova-matricula">Matrícula <span class="text-muted">(opcional)</span></label>
                     <input id="nova-matricula" name="matricula" type="text" maxlength="30">
                 </div>
+                <div class="form-field" data-user-field="curso" data-student-field>
+                    <label for="novo-curso">Curso</label>
+                    <select id="novo-curso" name="curso" required>
+                        <option value="">Selecione o curso do estudante</option>
+                        <% cursos.forEach((curso) => { %><option value="<%= curso %>"><%= curso %></option><% }) %>
+                    </select>
+                </div>
                 <div class="form-field" data-user-field="empresa" data-supervisor-field>
                     <label for="nova-empresa">Empresa/entidade</label>
                     <input id="nova-empresa" name="empresa" type="text" maxlength="200">
@@ -65,6 +72,9 @@
                 form.dataset.userType = tipo.value;
                 form.querySelectorAll('[data-student-field]').forEach((campo) => {
                     campo.hidden = tipo.value !== 'aluno';
+                    campo.querySelectorAll('input, select, textarea').forEach((controle) => {
+                        controle.disabled = tipo.value !== 'aluno';
+                    });
                 });
                 form.querySelectorAll('[data-supervisor-field]').forEach((campo) => {
                     campo.hidden = tipo.value !== 'supervisor';

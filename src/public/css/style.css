@@ -699,8 +699,18 @@ html.alto-contraste .ata-final { color: #ffd700; }
    Calendário
 =========================== */
 
-.atividade-layout { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.atividade-layout { display: grid; grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr); gap: 20px; align-items: start; }
 .atividade-layout .card { margin-bottom: 0; }
+.atividade-historico { min-width: 0; }
+.activity-history-table { width: 100%; min-width: 0; table-layout: fixed; }
+.activity-history-table th:nth-child(1) { width: 14%; }
+.activity-history-table th:nth-child(2) { width: 18%; }
+.activity-history-table th:nth-child(3) { width: 21%; }
+.activity-history-table th:nth-child(4) { width: 9%; }
+.activity-history-table th:nth-child(5) { width: 17%; }
+.activity-history-table th:nth-child(6) { width: 21%; }
+.activity-description { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-actions { white-space: nowrap; }
 
 .calendario { user-select: none; }
 .cal-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
@@ -882,6 +892,8 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
   .table-wrap td[colspan]::before { content: none; }
   .table-wrap tbody tr:hover td { background: none; }
   .table-wrap .table-actions { justify-content: flex-end; }
+  .activity-history-table { min-width: 0; table-layout: auto; }
+  .activity-description { overflow: visible; text-overflow: clip; white-space: normal; }
   .users-table-card .table-wrap { overflow-x: auto; }
   .users-table-card .users-table { display: table; }
   .users-table-card .users-table tbody { display: table-row-group; width: auto; }

@@ -11,8 +11,8 @@ async function salvar(alunoId, supervisor, dados) {
     const { rowCount } = await pool.query(`INSERT INTO facs
         (aluno_id, supervisor_id, supervisor_nome, empresa, curso, periodo, notas,
          atividades, comentarios, local_assinatura, data_assinatura)
-        SELECT usuario_id, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11::date
-        FROM alunos WHERE usuario_id = $1 AND supervisor_id = $2
+        SELECT usuario_id, $2, $3, $4, curso, $6, $7::jsonb, $8, $9, $10, $11::date
+        FROM alunos WHERE usuario_id = $1 AND supervisor_id = $2 AND curso = $5
           AND status = 'concluido' AND encerrado_em IS NULL AND arquivado = false
         ON CONFLICT (aluno_id) DO UPDATE SET
           supervisor_id = EXCLUDED.supervisor_id, supervisor_nome = EXCLUDED.supervisor_nome,

@@ -16,10 +16,10 @@ async function buscarPorUsuarioId(usuarioId) {
     return rows[0] || null;
 }
 
-async function criar({ usuarioId, matricula }) {
+async function criar({ usuarioId, matricula, curso }) {
     const { rows } = await pool.query(
-        `INSERT INTO alunos (usuario_id, matricula) VALUES ($1, $2) RETURNING *`,
-        [usuarioId, matricula]
+        `INSERT INTO alunos (usuario_id, matricula, curso) VALUES ($1, $2, $3) RETURNING *`,
+        [usuarioId, matricula, curso]
     );
     return rows[0];
 }
@@ -33,6 +33,14 @@ async function atualizarMatricula(usuarioId, matricula) {
     const { rows } = await pool.query(
         `UPDATE alunos SET matricula = $2 WHERE usuario_id = $1 RETURNING *`,
         [usuarioId, matricula]
+    );
+    return rows[0];
+}
+
+async function atualizarCurso(usuarioId, curso) {
+    const { rows } = await pool.query(
+        'UPDATE alunos SET curso = $2 WHERE usuario_id = $1 RETURNING *',
+        [usuarioId, curso]
     );
     return rows[0];
 }
@@ -180,6 +188,7 @@ module.exports = {
     criar,
     buscarPorMatricula,
     atualizarMatricula,
+    atualizarCurso,
     listar,
     atualizarEstagio,
     arquivar,

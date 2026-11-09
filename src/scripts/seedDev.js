@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { CURSOS } = require('../config/cursos');
 
 const supervisores = [
     { nome: 'Marina Supervisora de Teste', email: 'supervisora1@example.test' },
@@ -24,6 +25,7 @@ const estudantes = Array.from({ length: 12 }, (_, indice) => ({
     supervisor: indice < 3 ? 'externo' : indice % supervisores.length,
     orientador: indice % orientadores.length,
     status: indice < 2 ? 'lista_espera' : 'em_andamento',
+    curso: CURSOS[indice % CURSOS.length],
 }));
 
 async function criarUsuario(client, { nome, email, tipo }) {
@@ -85,12 +87,13 @@ async function executar() {
             const id = await criarUsuario(client, { ...estudante, tipo: 'aluno' });
             await client.query(
                 `INSERT INTO alunos (
-                     usuario_id, matricula, empresa, status, supervisor_id, orientador_id,
+                     usuario_id, matricula, curso, empresa, status, supervisor_id, orientador_id,
                      carga_horaria, arquivado, encerrado_em, horario_trabalho
                  )
-                 VALUES ($1, $2, 'Empresa de Teste', $3, $4, $5, 60, false, NULL, $6::jsonb)
+                 VALUES ($1, $2, $3, 'Empresa de Teste', $4, $5, $6, 60, false, NULL, $7::jsonb)
                  ON CONFLICT (usuario_id) DO UPDATE
                  SET matricula = EXCLUDED.matricula,
+                     curso = EXCLUDED.curso,
                      empresa = EXCLUDED.empresa,
                      status = EXCLUDED.status,
                      supervisor_id = EXCLUDED.supervisor_id,
@@ -102,6 +105,7 @@ async function executar() {
                 [
                     id,
                     estudante.matricula,
+                    estudante.curso,
                     estudante.status,
                     estudante.supervisor === 'externo'
                         ? idSupervisorExterno
