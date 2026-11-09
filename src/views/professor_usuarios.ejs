@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= ehAdmin ? 'Gerenciar usuários' : 'Aprovar supervisores externos' %> · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    <main id="conteudo" class="container users-page">
+        <%- include('partials/flash') %>
+        <div class="page-head">
+            <div>
+                <h1><%= ehAdmin ? 'Gerenciar usuários' : 'Aprovar supervisores externos' %></h1>
+                <p><%= ehAdmin
+                    ? 'Consulte e administre as contas de estudantes, professores e supervisores externos.'
+                    : 'Revise solicitações de acesso ao estágio enviadas por supervisores externos.' %></p>
+            </div>
+            <% if (ehAdmin) { %>
+                <a href="/professor/usuarios/novo" class="btn btn-success"><%- icone('mais') %> Adicionar usuário</a>
+            <% } else { %>
+                <a href="/professor/dashboard" class="btn btn-secondary">Voltar ao painel</a>
+            <% } %>
+        </div>
+
+        <% if (solicitacoesPendentes.length) { %>
+            <section class="card approval-section" aria-labelledby="solicitacoes-pendentes">
+                <div class="section-heading">
+                    <div>
+                        <h2 id="solicitacoes-pendentes">Aguardando aprovação
+                            <span class="contagem"><%= solicitacoesPendentes.length %></span>
+                        </h2>
+                        <p class="text-muted">Solicitações de supervisores externos. Um orientador ou outro supervisor aprovado pode aprovar.</p>
+                    </div>
+                </div>
+                <% if (!solicitacoesPendentes.length) { %>
+                    <p class="empty-state">Não há solicitações aguardando aprovação.</p>
+                <% } else { %>
+                    <div class="approval-list">
+                        <% solicitacoesPendentes.forEach((solicitacao) => { %>
+                            <article class="approval-item">
+                                <div class="approval-person">
+                                    <span class="approval-avatar" aria-hidden="true"><%= solicitacao.nome.charAt(0).toUpperCase() %></span>
+                                    <div>
+                                        <strong><%= solicitacao.nome %></strong>
+                                        <span><%= solicitacao.email %></span>
+                                        <small><%= solicitacao.empresa_externa || 'Empresa não informada' %><%= solicitacao.funcao_externa ? ` · ${solicitacao.funcao_externa}` : '' %></small>
+                                        <% if (!solicitacao.ativo) { %><small class="status status-archived">Conta desativada</small><% } %>
+                                    </div>
+                                </div>
+                                <form action="/professor/usuarios/<%= solicitacao.id %>/aprovar" method="POST">
+                                    <button type="submit" class="btn-success btn-sm"><%- icone('check') %> Aprovar acesso</button>
+                                </form>
+                            </article>
+                        <% }) %>
+                    </div>
+                <% } %>
+            </section>
+        <% } %>
+
+        <% if (ehAdmin) {
+            const montarUrl = (alteracoes = {}) => {
+                const parametros = new URLSearchParams({
+                    q: filtros.busca,
+                    tipo: filtros.tipo,
+                    situacao: filtros.situacao,
+                    ordenar: ordenarPor,
+                    dir: direcao,
+                    pagina: String(pagina),
+                });
+                Object.entries(alteracoes).forEach(([chave, valor]) => {
+                    if (valor === '' || valor === null || valor === undefined) parametros.delete(chave);
+                    else parametros.set(chave, String(valor));
+                });
+                return `/professor/usuarios?${parametros.toString()}`;
+            };
+            const linkOrdenacao = (campo) => montarUrl({
+                ordenar: campo,
+                dir: ordenarPor === campo && direcao === 'asc' ? 'desc' : 'asc',
+                pagina: 1,
+            });
+            const ariaOrdenacao = (campo) => ordenarPor === campo
+                ? (direcao === 'asc' ? 'ascending' : 'descending')
+                : 'none';
+            const inicio = total ? (pagina - 1) * tamanhoPagina + 1 : 0;
+            const fim = Math.min(pagina * tamanhoPagina, total);
+            const inicioJanela = Math.max(2, pagina - 2);
+            const fimJanela = Math.min(totalPaginas - 1, pagina + 2);
+        %>
+            <section class="card users-table-card" aria-labelledby="titulo-lista-usuarios">
+                <div class="section-heading users-list-heading">
+                    <div>
+                        <h2 id="titulo-lista-usuarios">Todos os usuários <span class="contagem"><%= total %></span></h2>
+                    </div>
+                    <form action="/professor/usuarios" method="GET" class="users-filter-form">
+                        <label class="sr-only" for="busca-usuarios">Buscar por nome ou e-mail</label>
+                        <input id="busca-usuarios" type="search" name="q" value="<%= filtros.busca %>"
+                            placeholder="Nome ou e-mail">
+                        <label class="sr-only" for="filtro-tipo">Tipo de acesso</label>
+                        <select id="filtro-tipo" name="tipo">
+                            <option value="">Todos os tipos</option>
+                            <option value="aluno" <%= filtros.tipo === 'aluno' ? 'selected' : '' %>>Estudante</option>
+                            <option value="professor" <%= filtros.tipo === 'professor' ? 'selected' : '' %>>Professor / orientador</option>
+                            <option value="supervisor" <%= filtros.tipo === 'supervisor' ? 'selected' : '' %>>Supervisor externo</option>
+                        </select>
+                        <label class="sr-only" for="filtro-situacao">Situação</label>
+                        <select id="filtro-situacao" name="situacao">
+                            <option value="">Todas as situações</option>
+                            <option value="ativo" <%= filtros.situacao === 'ativo' ? 'selected' : '' %>>Ativo</option>
+                            <option value="desativado" <%= filtros.situacao === 'desativado' ? 'selected' : '' %>>Desativado</option>
+                            <option value="pendente" <%= filtros.situacao === 'pendente' ? 'selected' : '' %>>Aguardando aprovação</option>
+                            <option value="aprovado" <%= filtros.situacao === 'aprovado' ? 'selected' : '' %>>Supervisor aprovado</option>
+                        </select>
+                        <button type="submit"><%- icone('lupa') %> Filtrar</button>
+                        <% if (filtros.busca || filtros.tipo || filtros.situacao) { %>
+                            <a href="/professor/usuarios" class="btn btn-ghost">Limpar</a>
+                        <% } %>
+                    </form>
+                </div>
+                <div class="table-wrap">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th scope="col" aria-sort="<%= ariaOrdenacao('nome') %>"><a href="<%= linkOrdenacao('nome') %>">Usuário <%= ordenarPor === 'nome' ? (direcao === 'asc' ? '↑' : '↓') : '' %></a></th>
+                                <th scope="col" aria-sort="<%= ariaOrdenacao('tipo') %>"><a href="<%= linkOrdenacao('tipo') %>">Tipo de acesso <%= ordenarPor === 'tipo' ? (direcao === 'asc' ? '↑' : '↓') : '' %></a></th>
+                                <th scope="col" aria-sort="<%= ariaOrdenacao('situacao') %>"><a href="<%= linkOrdenacao('situacao') %>">Situação <%= ordenarPor === 'situacao' ? (direcao === 'asc' ? '↑' : '↓') : '' %></a></th>
+                                <th scope="col" aria-sort="<%= ariaOrdenacao('criado_em') %>"><a href="<%= linkOrdenacao('criado_em') %>">Cadastro <%= ordenarPor === 'criado_em' ? (direcao === 'asc' ? '↑' : '↓') : '' %></a></th>
+                                <th scope="col"><span class="sr-only">Ações</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (!usuarios.length) { %>
+                                <tr><td colspan="5" class="empty-state">Nenhum usuário encontrado com esses filtros.</td></tr>
+                            <% } else { %>
+                                <% usuarios.forEach((usuario) => {
+                                    const supervisor = usuario.tipo === 'professor' && usuario.cargo === 'supervisor';
+                                    const tipo = usuario.tipo === 'aluno' ? 'Estudante' : (supervisor ? 'Supervisor externo' : 'Professor / orientador');
+                                    const proprio = Number(usuario.id) === Number(user.id);
+                                    const principal = usuario.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase();
+                                %>
+                                    <tr>
+                                        <td class="user-cell">
+                                            <strong><%= usuario.nome %></strong>
+                                            <span><%= usuario.email %></span>
+                                            <% if (supervisor && (usuario.empresa_externa || usuario.funcao_externa)) { %>
+                                                <small><%= usuario.empresa_externa || '' %><%= usuario.empresa_externa && usuario.funcao_externa ? ' · ' : '' %><%= usuario.funcao_externa || '' %></small>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <span class="status <%= supervisor ? 'status-banca' : (usuario.tipo === 'professor' ? 'status-progress' : 'status-waiting') %>"><%= tipo %></span>
+                                            <% if (usuario.tipo === 'professor' && !supervisor && usuario.cargo === 'admin') { %>
+                                                <span class="status status-progress">Administrador</span>
+                                            <% } %>
+                                        </td>
+                                        <td class="user-status-cell">
+                                            <span class="status <%= usuario.ativo ? 'status-completed' : 'status-archived' %>"><%= usuario.ativo ? 'Ativo' : 'Desativado' %></span>
+                                            <% if (supervisor) { %>
+                                                <span class="status <%= usuario.supervisor_aprovado ? 'status-completed' : 'status-waiting' %>"><%= usuario.supervisor_aprovado ? 'Aprovado' : 'Aguardando aprovação' %></span>
+                                            <% } else if (usuario.tipo === 'aluno' && usuario.status_estagio) { %>
+                                                <span class="status status-waiting">Estágio: <%= usuario.status_estagio.replace('_', ' ') %></span>
+                                            <% } %>
+                                        </td>
+                                        <td><%= new Date(usuario.criado_em).toLocaleDateString('pt-BR') %></td>
+                                        <td>
+                                            <div class="user-actions">
+                                                <% if (usuario.tipo === 'professor' && !supervisor && !proprio && !principal) { %>
+                                                    <form action="/professor/professores/<%= usuario.id %>/cargo" method="POST">
+                                                        <input type="hidden" name="cargo" value="<%= usuario.cargo === 'admin' ? 'comum' : 'admin' %>">
+                                                        <button type="submit" class="user-action" title="<%= usuario.cargo === 'admin' ? 'Remover administrador' : 'Tornar administrador' %>" aria-label="<%= usuario.cargo === 'admin' ? 'Remover administrador de ' + usuario.nome : 'Tornar ' + usuario.nome + ' administrador' %>" data-confirmar="<%= usuario.cargo === 'admin' ? 'Remover o cargo de administrador?' : 'Tornar este usuário administrador?' %>"><%- icone('escudo') %></button>
+                                                    </form>
+                                                <% } %>
+                                                <% if (!proprio && !principal) { %>
+                                                    <form action="/professor/usuarios/<%= usuario.id %>/ativo" method="POST">
+                                                        <input type="hidden" name="ativo" value="<%= usuario.ativo ? 'false' : 'true' %>">
+                                                        <button type="submit" class="user-action <%= usuario.ativo ? 'user-action-danger' : 'user-action-positive' %>" title="<%= usuario.ativo ? 'Desativar conta' : 'Ativar conta' %>" aria-label="<%= usuario.ativo ? 'Desativar ' + usuario.nome : 'Ativar ' + usuario.nome %>" <%= usuario.ativo ? `data-confirmar="Desativar esta conta? As sessões abertas serão encerradas."` : '' %>><%- icone(usuario.ativo ? 'cadeado' : 'check') %></button>
+                                                    </form>
+                                                <% } %>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination users-pagination">
+                    <span class="pagination-info">Exibindo <%= inicio %>–<%= fim %> de <%= total %> usuários</span>
+                    <% if (totalPaginas > 1) { %>
+                        <nav class="pagination-pages" aria-label="Paginação de usuários">
+                            <% if (pagina > 1) { %><a href="<%= montarUrl({ pagina: pagina - 1 }) %>" class="pagination-link">Anterior</a><% } %>
+                            <a href="<%= montarUrl({ pagina: 1 }) %>" class="pagination-link <%= pagina === 1 ? 'active' : '' %>" <%= pagina === 1 ? 'aria-current="page"' : '' %>>1</a>
+                            <% if (inicioJanela > 2) { %><span class="pagination-gap" aria-hidden="true">…</span><% } %>
+                            <% for (let p = inicioJanela; p <= fimJanela; p++) { %>
+                                <a href="<%= montarUrl({ pagina: p }) %>" class="pagination-link <%= pagina === p ? 'active' : '' %>" <%= pagina === p ? 'aria-current="page"' : '' %>><%= p %></a>
+                            <% } %>
+                            <% if (fimJanela < totalPaginas - 1) { %><span class="pagination-gap" aria-hidden="true">…</span><% } %>
+                            <% if (totalPaginas > 1) { %>
+                                <a href="<%= montarUrl({ pagina: totalPaginas }) %>" class="pagination-link <%= pagina === totalPaginas ? 'active' : '' %>" <%= pagina === totalPaginas ? 'aria-current="page"' : '' %>><%= totalPaginas %></a>
+                            <% } %>
+                            <% if (pagina < totalPaginas) { %><a href="<%= montarUrl({ pagina: pagina + 1 }) %>" class="pagination-link">Próxima</a><% } %>
+                        </nav>
+                    <% } %>
+                </div>
+            </section>
+        <% } else { %>
+            <section class="card approval-section">
+                <form action="/professor/usuarios" method="GET" class="users-filter-form approvals-filter">
+                    <label class="sr-only" for="busca-solicitacoes">Buscar solicitação por nome, e-mail ou empresa</label>
+                    <input id="busca-solicitacoes" type="search" name="q" value="<%= busca %>"
+                        placeholder="Buscar por nome, e-mail ou empresa">
+                    <button type="submit"><%- icone('lupa') %> Buscar</button>
+                    <% if (busca) { %><a href="/professor/usuarios" class="btn btn-ghost">Limpar</a><% } %>
+                </form>
+                <% if (!solicitacoesPendentes.length) { %>
+                    <p class="empty-state">Não há solicitações aguardando aprovação.</p>
+                <% } else { %>
+                    <div class="approval-list">
+                        <% solicitacoesPendentes.forEach((solicitacao) => { %>
+                            <article class="approval-item">
+                                <div class="approval-person">
+                                    <span class="approval-avatar" aria-hidden="true"><%= solicitacao.nome.charAt(0).toUpperCase() %></span>
+                                    <div>
+                                        <strong><%= solicitacao.nome %></strong>
+                                        <span><%= solicitacao.email %></span>
+                                        <small><%= solicitacao.empresa_externa || 'Empresa não informada' %><%= solicitacao.funcao_externa ? ` · ${solicitacao.funcao_externa}` : '' %></small>
+                                        <% if (!solicitacao.ativo) { %><small class="status status-archived">Conta desativada</small><% } %>
+                                    </div>
+                                </div>
+                                <form action="/professor/usuarios/<%= solicitacao.id %>/aprovar" method="POST">
+                                    <button type="submit" class="btn-success btn-sm"><%- icone('check') %> Aprovar acesso</button>
+                                </form>
+                            </article>
+                        <% }) %>
+                    </div>
+                <% } %>
+            </section>
+        <% } %>
+    </main>
+    <%- include('partials/footer') %>
+</body>
+</html>

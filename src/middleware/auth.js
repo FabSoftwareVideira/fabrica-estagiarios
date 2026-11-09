@@ -7,6 +7,27 @@ const usuariosModel = require('../models/usuarios');
 const { estagioStatus } = require('../config/status');
 
 async function attachUser(req, res, next) {
+    if (req.session.user) {
+        try {
+            const acesso = await usuariosModel.buscarAcessoPorId(req.session.user.id);
+            if (!acesso || !acesso.ativo) {
+                return req.session.destroy((erro) => {
+                    if (erro) return next(erro);
+                    res.status(403).render('acesso_desativado');
+                });
+            }
+
+            req.session.user.tipo = acesso.tipo;
+            req.session.user.nome = acesso.nome;
+            req.session.user.email = acesso.email;
+            req.session.user.cargo = acesso.cargo || null;
+            req.session.user.supervisorAprovado = acesso.supervisor_aprovado ?? true;
+            req.session.user.avatarEmoji = acesso.avatar_emoji || null;
+        } catch (erro) {
+            return next(erro);
+        }
+    }
+
     res.locals.user = req.session.user || null;
     res.locals.flash = req.session.flash || null;
     res.locals.currentPath = req.path;

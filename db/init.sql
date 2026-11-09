@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     google_id     VARCHAR(255) UNIQUE,
     avatar_url    TEXT,
     avatar_emoji  TEXT,
+    ativo         BOOLEAN NOT NULL DEFAULT true,
     tipo          VARCHAR(20)  NOT NULL CHECK (tipo IN ('aluno', 'professor')),
     -- o GitHub só garante o "login"/nome público no OAuth, então o nome pode
     -- vir incompleto (ex.: só o primeiro nome); esse campo controla se a
@@ -13,6 +14,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nome_confirmado BOOLEAN    NOT NULL DEFAULT false,
     criado_em     TIMESTAMP    NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email_lower_unique ON usuarios (LOWER(email));
 
 CREATE TABLE IF NOT EXISTS professores (
     usuario_id  INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,

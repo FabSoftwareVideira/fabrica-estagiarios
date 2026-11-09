@@ -47,7 +47,7 @@
                         <a href="/aluno/dashboard?aba=fichas" class="nav-link <%= ativo((noDash && aba === 'fichas') || currentPath.startsWith('/aluno/faa')) %>"><%- icone('arquivo') %> Fichas</a>
                     <% } else { %>
                         <% const emFichas = currentPath === '/professor/fichas' || currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/(fare|fapo|fac|banca)/.test(currentPath); %>
-                        <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
+                        <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
                         <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> Alunos</a>
                         <% if (user.cargo !== 'supervisor' && currentPath !== '/supervisor/pendente') { %>
                             <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>

@@ -47,7 +47,10 @@ before(async () => {
     app.use(express.urlencoded({ extended: true }));
     app.use((req, res, next) => {
         const id = Number(req.headers['x-test-user'] || 101);
-        req.session = { user: { id, nome: id === 101 ? 'Supervisor Teste' : 'Usuário Teste', tipo: req.headers['x-test-type'] || ([1, 11].includes(id) ? 'aluno' : 'professor'), cargo: req.headers['x-test-cargo'] || 'comum', supervisorAprovado: true } };
+        req.session = {
+            user: { id, nome: id === 101 ? 'Supervisor Teste' : 'Usuário Teste', tipo: req.headers['x-test-type'] || ([1, 11].includes(id) ? 'aluno' : 'professor'), cargo: req.headers['x-test-cargo'] || 'comum', supervisorAprovado: true },
+            destroy(callback) { delete this.user; callback(); },
+        };
         next();
     });
     app.use(require('../src/middleware/auth').attachUser);
@@ -65,15 +68,17 @@ beforeEach(async () => {
         (101,'Supervisor Teste','supervisor@example.test','professor',true),
         (102,'Orientador Teste','orientador@example.test','professor',true),
         (103,'Outro Professor','outro@example.test','professor',true),
+        (104,'Admin Teste','admin@example.test','professor',true),
         (105,'Supervisor Externo','externo@example.test','professor',true);
         INSERT INTO professores (usuario_id,cargo,aprovado) VALUES
-        (101,'comum',true),(102,'comum',true),(103,'comum',true),(105,'supervisor',true);
+        (101,'comum',true),(102,'comum',true),(103,'comum',true),(104,'admin',true),(105,'supervisor',true);
         INSERT INTO usuarios (id,nome,email,tipo,nome_confirmado)
         SELECT n, 'Estudante ' || n, 'aluno' || n || '@example.test', 'aluno', true FROM generate_series(1,10) n
         ON CONFLICT (id) DO UPDATE SET nome=EXCLUDED.nome, email=EXCLUDED.email, tipo='aluno';
         INSERT INTO usuarios (id,nome,email,tipo,nome_confirmado)
         VALUES (11,'Novo Usuário Externo','novo@example.test','aluno',true)
         ON CONFLICT (id) DO UPDATE SET nome=EXCLUDED.nome,email=EXCLUDED.email,tipo='aluno';
+        SELECT setval(pg_get_serial_sequence('usuarios','id'), (SELECT MAX(id) FROM usuarios));
         INSERT INTO alunos (usuario_id,supervisor_id,orientador_id,status,empresa,relatorio_atualizado_em)
         SELECT n,101,102,'em_andamento','Empresa Exemplo',NOW() - INTERVAL '6 days' FROM generate_series(1,10) n;`);
 });
@@ -214,10 +219,11 @@ test('supervisor externo só vê estudantes atribuídos e não acessa funções 
     assert.equal((await usuarios.listarProfessores()).some((p) => p.id === 105), false);
     assert.equal((await usuarios.listarSupervisores()).some((p) => p.id === 105), true);
 });
-test('professor aprova supervisor externo e supervisor pendente fica bloqueado', async () => {
+test('supervisor aprovado ou orientador aprova supervisor externo e supervisor pendente fica bloqueado', async () => {
     await db.exec(`INSERT INTO usuarios (id,nome,email,tipo,nome_confirmado)
-        VALUES (106,'Pendente','pendente@example.test','professor',true);
-        INSERT INTO professores (usuario_id,cargo,aprovado) VALUES (106,'supervisor',false);`);
+        VALUES (106,'Pendente','pendente@example.test','professor',true),
+               (107,'Outro Pendente','outropendente@example.test','professor',true);
+        INSERT INTO professores (usuario_id,cargo,aprovado) VALUES (106,'supervisor',false),(107,'supervisor',false);`);
 
     const atribuicaoPendente = await requisitar('/professor/aluno/1', {
         method: 'POST',
@@ -226,8 +232,10 @@ test('professor aprova supervisor externo e supervisor pendente fica bloqueado',
     assert.equal(atribuicaoPendente.status, 302);
     assert.equal((await consultar('SELECT supervisor_id FROM alunos WHERE usuario_id=1')).rows[0].supervisor_id, 101);
 
-    const painel = await requisitar('/professor/dashboard', { user: 101 });
-    assert.match(await painel.text(), /pendente@example\.test/);
+    const painel = await requisitar('/professor/usuarios', { user: 104 });
+    const painelHtml = await painel.text();
+    assert.match(painelHtml, /pendente@example\.test/);
+    assert.match(painelHtml, /outropendente@example\.test/);
     const bloqueado = await requisitar('/professor/dashboard', { user: 106, cargo: 'supervisor' });
     assert.equal(bloqueado.status, 302);
     assert.equal(bloqueado.headers.get('location'), '/supervisor/pendente');
@@ -235,16 +243,24 @@ test('professor aprova supervisor externo e supervisor pendente fica bloqueado',
     assert.equal(telaPendente.status, 200);
     assert.match(await telaPendente.text(), /Acesso de supervisor em análise/);
 
-    const negado = await requisitar('/professor/supervisores/106/aprovar', {
-        user: 105, cargo: 'supervisor', method: 'POST',
-    });
-    assert.equal(negado.status, 302);
+    const filaBloqueada = await requisitar('/professor/usuarios', { user: 106, cargo: 'supervisor' });
+    assert.equal(filaBloqueada.headers.get('location'), '/supervisor/pendente');
     let result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=106');
     assert.equal(result.rows[0].aprovado, false);
 
-    const aprovado = await requisitar('/professor/supervisores/106/aprovar', { user: 101, method: 'POST' });
-    assert.equal(aprovado.status, 302);
+    const autoAprovacao = await requisitar('/professor/usuarios/106/aprovar', { user: 106, cargo: 'supervisor', method: 'POST' });
+    assert.equal(autoAprovacao.status, 302);
     result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=106');
+    assert.equal(result.rows[0].aprovado, false);
+
+    const aprovado = await requisitar('/professor/usuarios/106/aprovar', { user: 105, method: 'POST' });
+    assert.equal(aprovado.status, 302);
+    assert.equal(aprovado.headers.get('location'), '/professor/usuarios');
+    result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=106');
+    assert.equal(result.rows[0].aprovado, true);
+    const aprovadoPorOrientador = await requisitar('/professor/usuarios/107/aprovar', { user: 102, method: 'POST' });
+    assert.equal(aprovadoPorOrientador.status, 302);
+    result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=107');
     assert.equal(result.rows[0].aprovado, true);
 
     const atribuicaoComoOrientador = await requisitar('/professor/aluno/1', {
@@ -287,7 +303,7 @@ test('conta externa escolhe estudante ou solicita perfil de supervisor com empre
     });
     const pendente = await requisitar('/supervisor/pendente', { user: 11, tipo: 'professor', cargo: 'supervisor' });
     assert.match(await pendente.text(), /Empresa Externa/);
-    const painelProfessor = await requisitar('/professor/dashboard', { user: 101 });
+    const painelProfessor = await requisitar('/professor/usuarios', { user: 104 });
     const painelHtml = await painelProfessor.text();
     assert.match(painelHtml, /Engenheira de Produção/);
 
@@ -398,12 +414,95 @@ test('arquivamento: professor comum só arquiva lista de espera ou estágio ence
         assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=$1', [id])).rows[0].arquivado, true);
     }
 
-    await db.exec("UPDATE professores SET cargo='admin' WHERE usuario_id=101");
     for (const id of [5, 6]) {
-        const resposta = await requisitar(`/professor/aluno/${id}/arquivar`, { method: 'POST', cargo: 'admin' });
+        const resposta = await requisitar(`/professor/aluno/${id}/arquivar`, { method: 'POST', user: 104 });
         assert.equal(resposta.status, 302);
         assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=$1', [id])).rows[0].arquivado, true);
     }
+});
+test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa usuários', async () => {
+    const acessoNegado = await requisitar('/professor/usuarios', { user: 101 });
+    assert.equal(acessoNegado.status, 200);
+    assert.doesNotMatch(await acessoNegado.text(), /Todos os usuários/);
+
+    const painel = await requisitar('/professor/usuarios', { user: 104 });
+    assert.equal(painel.status, 200);
+    const html = await painel.text();
+    assert.match(html, /Adicionar usuário/);
+    assert.match(html, /Todos os usuários/);
+    assert.doesNotMatch(html, /Solicitações de supervisores externos/);
+    assert.match(html, /aria-sort=/);
+    assert.match(html, /pagination/);
+    const segundaPagina = await requisitar('/professor/usuarios?pagina=2', { user: 104 });
+    assert.match(await segundaPagina.text(), /Supervisor Externo/);
+    const cadastro = await requisitar('/professor/usuarios/novo', { user: 104 });
+    assert.equal(cadastro.status, 200);
+    assert.match(await cadastro.text(), /data-admin-user-form/);
+
+    const paginaFiltrada = await requisitar('/professor/usuarios?tipo=aluno&situacao=ativo&ordenar=nome&dir=desc', { user: 104 });
+    assert.equal(paginaFiltrada.status, 200);
+    const paginaFiltradaHtml = await paginaFiltrada.text();
+    assert.match(paginaFiltradaHtml, /Todos os usuários/);
+    const totalFiltrado = await consultar(`SELECT COUNT(*)::int AS total FROM usuarios u
+        LEFT JOIN professores p ON p.usuario_id=u.id WHERE u.tipo='aluno' AND u.ativo=true`);
+    assert.match(paginaFiltradaHtml, new RegExp(`de ${totalFiltrado.rows[0].total} usuários`));
+
+    for (const [tipo, suffix, extra] of [
+        ['aluno', 'estudante', { matricula: 'ADM123' }],
+        ['professor', 'professor', {}],
+        ['supervisor', 'supervisor', { empresa: 'Empresa Nova', funcao: 'Gestor de Estágio' }],
+    ]) {
+        const resposta = await requisitar('/professor/usuarios', {
+            user: 104, method: 'POST',
+            body: { nome: `Conta ${suffix}`, email: `${suffix}.novo@example.test`, tipo, ...extra },
+        });
+        assert.equal(resposta.status, 302);
+        const conta = await consultar(`SELECT u.id,u.tipo,u.ativo,p.cargo,p.aprovado,p.empresa_externa,p.funcao_externa,a.matricula
+            FROM usuarios u LEFT JOIN professores p ON p.usuario_id=u.id
+            LEFT JOIN alunos a ON a.usuario_id=u.id WHERE u.email=$1`, [`${suffix}.novo@example.test`]);
+        assert.equal(conta.rows.length, 1);
+        assert.equal(conta.rows[0].ativo, true);
+        if (tipo === 'aluno') assert.equal(conta.rows[0].matricula, 'ADM123');
+        if (tipo === 'professor') assert.equal(conta.rows[0].cargo, 'comum');
+        if (tipo === 'supervisor') {
+            assert.equal(conta.rows[0].cargo, 'supervisor');
+            assert.equal(conta.rows[0].aprovado, false);
+            assert.equal(conta.rows[0].empresa_externa, 'Empresa Nova');
+            assert.equal(conta.rows[0].funcao_externa, 'Gestor de Estágio');
+            const aprovado = await requisitar(`/professor/usuarios/${conta.rows[0].id}/aprovar`, { user: 104, method: 'POST' });
+            assert.equal(aprovado.status, 302);
+        }
+    }
+
+    const emailDuplicado = await requisitar('/professor/usuarios', {
+        user: 104, method: 'POST',
+        body: { nome: 'Duplicado', email: 'ALUNO1@EXAMPLE.TEST', tipo: 'aluno' },
+    });
+    assert.equal(emailDuplicado.status, 302);
+    assert.equal(emailDuplicado.headers.get('location'), '/professor/usuarios/novo');
+    assert.equal((await consultar(`SELECT COUNT(*)::int AS total FROM usuarios
+        WHERE LOWER(email)=LOWER('aluno1@example.test')`)).rows[0].total, 1);
+
+    const desativar = await requisitar('/professor/usuarios/2/ativo', {
+        user: 104, method: 'POST', body: { ativo: 'false' },
+    });
+    assert.equal(desativar.status, 302);
+    const contaDesativada = await consultar('SELECT ativo FROM usuarios WHERE id=2');
+    assert.equal(contaDesativada.rows[0].ativo, false);
+    const sessaoExistente = await requisitar('/aluno/dashboard', { user: 2, tipo: 'aluno' });
+    assert.equal(sessaoExistente.status, 403);
+
+    const estadoInvalido = await requisitar('/professor/usuarios/3/ativo', {
+        user: 104, method: 'POST', body: { ativo: 'valor-invalido' },
+    });
+    assert.equal(estadoInvalido.status, 302);
+    assert.equal((await consultar('SELECT ativo FROM usuarios WHERE id=3')).rows[0].ativo, true);
+
+    const propriaConta = await requisitar('/professor/usuarios/104/ativo', {
+        user: 104, method: 'POST', body: { ativo: 'false' },
+    });
+    assert.equal(propriaConta.status, 302);
+    assert.equal((await consultar('SELECT ativo FROM usuarios WHERE id=104')).rows[0].ativo, true);
 });
 test('FAC: supervisor preenche, persiste notas e média; aluno e orientador consultam PDF', async () => {
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);

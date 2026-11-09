@@ -212,6 +212,10 @@ router.get('/auth/github/callback', async (req, res) => {
         if (!usuario) {
             const porEmail = await usuarios.buscarPorEmail(email);
             if (porEmail) {
+                if (!porEmail.ativo) {
+                    setFlash(req, 'error', 'Esta conta foi desativada. Entre em contato com a instituição.');
+                    return res.redirect('/login');
+                }
                 usuario = await usuarios.vincularGithubId(porEmail.id, githubId, avatarUrl);
             }
         }
@@ -227,6 +231,11 @@ router.get('/auth/github/callback', async (req, res) => {
             }
             // aluno: a linha em "alunos" só é criada em /aluno/completar-cadastro
             // (precisa da matrícula, que o GitHub não fornece)
+        }
+
+        if (!usuario.ativo) {
+            setFlash(req, 'error', 'Esta conta foi desativada. Entre em contato com a instituição.');
+            return res.redirect('/login');
         }
 
         let cargo = null;
@@ -343,6 +352,10 @@ router.get('/auth/google/callback', async (req, res) => {
         if (!usuario) {
             const porEmail = await usuarios.buscarPorEmail(email);
             if (porEmail) {
+                if (!porEmail.ativo) {
+                    setFlash(req, 'error', 'Esta conta foi desativada. Entre em contato com a instituição.');
+                    return res.redirect('/login');
+                }
                 usuario = await usuarios.vincularGoogleId(porEmail.id, googleId, avatarUrl);
             }
         }
@@ -355,6 +368,11 @@ router.get('/auth/google/callback', async (req, res) => {
                 const ehAdminPrincipal = email === ADMIN_PRINCIPAL_EMAIL.toLowerCase();
                 await professores.criar({ usuarioId: usuario.id, cargo: ehAdminPrincipal ? 'admin' : 'comum' });
             }
+        }
+
+        if (!usuario.ativo) {
+            setFlash(req, 'error', 'Esta conta foi desativada. Entre em contato com a instituição.');
+            return res.redirect('/login');
         }
 
         let cargo = null;

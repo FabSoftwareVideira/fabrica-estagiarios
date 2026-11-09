@@ -80,6 +80,9 @@ async function entrarComo(tipo, req, res) {
 
     // 1) acha ou cria o usuário
     let usuario = await usuariosModel.buscarPorEmail(dados.email);
+    if (usuario && !usuario.ativo) {
+        return res.status(403).send('Esta conta de desenvolvimento foi desativada.');
+    }
     if (!usuario) {
         usuario = await usuariosModel.criar({
             nome: dados.nome,

@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 
 async function buscarPorEmail(email) {
-    const { rows } = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    const { rows } = await pool.query('SELECT * FROM usuarios WHERE LOWER(email) = LOWER($1)', [email]);
     return rows[0] || null;
 }
 
@@ -20,6 +20,18 @@ async function buscarPorId(id) {
     return rows[0] || null;
 }
 
+async function buscarAcessoPorId(id) {
+    const { rows } = await pool.query(
+        `SELECT u.id, u.nome, u.email, u.tipo, u.ativo,
+                p.cargo, p.aprovado AS supervisor_aprovado, u.avatar_emoji
+         FROM usuarios u
+         LEFT JOIN professores p ON p.usuario_id = u.id
+         WHERE u.id = $1`,
+        [id]
+    );
+    return rows[0] || null;
+}
+
 async function criar({ nome, email, tipo, githubId, googleId, avatarUrl, nomeConfirmado = false }) {
     const { rows } = await pool.query(
         `INSERT INTO usuarios (nome, email, tipo, github_id, google_id, avatar_url, nome_confirmado)
@@ -27,6 +39,127 @@ async function criar({ nome, email, tipo, githubId, googleId, avatarUrl, nomeCon
         [nome, email, tipo, githubId, googleId, avatarUrl, nomeConfirmado]
     );
     return rows[0];
+}
+
+async function listarTodos({
+    busca = '',
+    tipo = '',
+    situacao = '',
+    ordenarPor = 'nome',
+    direcao = 'asc',
+    limite = 10,
+    offset = 0,
+} = {}) {
+    const valores = [];
+    const condicoes = [];
+    const termo = String(busca || '').trim();
+    if (termo) {
+        valores.push(`%${termo}%`);
+        condicoes.push(`(u.nome ILIKE $${valores.length} OR u.email ILIKE $${valores.length})`);
+    }
+    if (tipo === 'aluno') condicoes.push("u.tipo = 'aluno'");
+    if (tipo === 'professor') condicoes.push("u.tipo = 'professor' AND COALESCE(p.cargo, 'comum') <> 'supervisor'");
+    if (tipo === 'supervisor') condicoes.push("u.tipo = 'professor' AND p.cargo = 'supervisor'");
+    if (situacao === 'ativo') condicoes.push('u.ativo = true');
+    if (situacao === 'desativado') condicoes.push('u.ativo = false');
+    if (situacao === 'pendente') condicoes.push("u.tipo = 'professor' AND p.cargo = 'supervisor' AND p.aprovado = false");
+    if (situacao === 'aprovado') condicoes.push("u.tipo = 'professor' AND p.cargo = 'supervisor' AND p.aprovado = true");
+    const where = condicoes.length ? `WHERE ${condicoes.join(' AND ')}` : '';
+    const orderBy = {
+        nome: 'u.nome',
+        email: 'u.email',
+        tipo: "CASE WHEN u.tipo = 'aluno' THEN 'Estudante' WHEN p.cargo = 'supervisor' THEN 'Supervisor externo' ELSE 'Professor' END",
+        criado_em: 'u.criado_em',
+        situacao: `CASE WHEN u.ativo = false THEN 2 WHEN p.cargo = 'supervisor' AND p.aprovado = false THEN 1 ELSE 0 END`,
+    }[ordenarPor] || 'u.nome';
+    const orderDirection = direcao === 'desc' ? 'DESC' : 'ASC';
+
+    const { rows: totais } = await pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM usuarios u
+         LEFT JOIN professores p ON p.usuario_id = u.id
+         LEFT JOIN alunos a ON a.usuario_id = u.id
+         ${where}`,
+        valores
+    );
+    const { rows } = await pool.query(
+        `SELECT u.id, u.nome, u.email, u.tipo, u.ativo, u.criado_em,
+                p.cargo, p.aprovado AS supervisor_aprovado,
+                p.empresa_externa, p.funcao_externa,
+                a.matricula, a.status AS status_estagio
+         FROM usuarios u
+         LEFT JOIN professores p ON p.usuario_id = u.id
+         LEFT JOIN alunos a ON a.usuario_id = u.id
+         ${where}
+         ORDER BY ${orderBy} ${orderDirection} NULLS LAST, u.id ASC
+         LIMIT $${valores.length + 1} OFFSET $${valores.length + 2}`,
+        [...valores, limite, offset]
+    );
+    return { usuarios: rows, total: totais[0].total };
+}
+
+async function listarSupervisoresPendentes(busca = '') {
+    const valores = [];
+    let where = "p.cargo = 'supervisor' AND p.aprovado = false";
+    const termo = String(busca || '').trim();
+    if (termo) {
+        valores.push(`%${termo}%`);
+        where += ` AND (u.nome ILIKE $1 OR u.email ILIKE $1 OR p.empresa_externa ILIKE $1)`;
+    }
+    const { rows } = await pool.query(
+        `SELECT u.id, u.nome, u.email, u.ativo, p.empresa_externa, p.funcao_externa
+         FROM professores p
+         JOIN usuarios u ON u.id = p.usuario_id
+         WHERE ${where}
+         ORDER BY u.criado_em, u.nome`,
+        valores
+    );
+    return rows;
+}
+
+async function contarSupervisoresPendentes() {
+    const { rows } = await pool.query(
+        "SELECT COUNT(*)::int AS total FROM professores WHERE cargo = 'supervisor' AND aprovado = false"
+    );
+    return rows[0].total;
+}
+
+async function criarContaAdministrada({ nome, email, tipo, matricula, empresa, funcao }) {
+    const { rows } = await pool.query(
+        `WITH novo_usuario AS (
+            INSERT INTO usuarios (nome, email, tipo, nome_confirmado)
+            VALUES ($1, $2, $3, true)
+            RETURNING id
+        ),
+        novo_aluno AS (
+            INSERT INTO alunos (usuario_id, matricula)
+            SELECT id, $5 FROM novo_usuario WHERE $4 = 'aluno'
+            RETURNING usuario_id
+        ),
+        novo_professor AS (
+            INSERT INTO professores
+                (usuario_id, cargo, aprovado, empresa_externa, funcao_externa, receber_relatorio_semanal)
+            SELECT id,
+                   CASE WHEN $4 = 'supervisor' THEN 'supervisor' ELSE 'comum' END,
+                   $4 <> 'supervisor',
+                   CASE WHEN $4 = 'supervisor' THEN $6 ELSE NULL END,
+                   CASE WHEN $4 = 'supervisor' THEN $7 ELSE NULL END,
+                   $4 <> 'supervisor'
+            FROM novo_usuario WHERE $4 <> 'aluno'
+            RETURNING usuario_id
+        )
+        SELECT id FROM novo_usuario`,
+        [nome, email, tipo === 'aluno' ? 'aluno' : 'professor', tipo, matricula || null, empresa || null, funcao || null]
+    );
+    return rows[0].id;
+}
+
+async function definirAtivo(id, ativo) {
+    const { rowCount } = await pool.query(
+        'UPDATE usuarios SET ativo = $2 WHERE id = $1',
+        [id, ativo]
+    );
+    return rowCount > 0;
 }
 
 // casa uma conta que já existia (ex.: seed do admin, sem github_id ainda)
@@ -51,7 +184,8 @@ async function listarProfessores() {
     const { rows } = await pool.query(
         `SELECT u.id, u.nome, u.email FROM usuarios u
          JOIN professores p ON p.usuario_id = u.id
-         WHERE u.tipo = 'professor' AND p.cargo <> 'supervisor' AND p.aprovado = true
+         WHERE u.tipo = 'professor' AND u.ativo = true
+           AND p.cargo <> 'supervisor' AND p.aprovado = true
          ORDER BY u.nome`
     );
     return rows;
@@ -61,7 +195,8 @@ async function listarSupervisores() {
     const { rows } = await pool.query(
         `SELECT u.id, u.nome, u.email FROM usuarios u
          JOIN professores p ON p.usuario_id = u.id
-         WHERE u.tipo = 'professor' AND p.cargo = 'supervisor' AND p.aprovado = true
+         WHERE u.tipo = 'professor' AND u.ativo = true
+           AND p.cargo = 'supervisor' AND p.aprovado = true
          ORDER BY u.nome`
     );
     return rows;
@@ -99,6 +234,12 @@ module.exports = {
     buscarPorGithubId,
     buscarPorGoogleId,
     buscarPorId,
+    buscarAcessoPorId,
+    listarTodos,
+    listarSupervisoresPendentes,
+    contarSupervisoresPendentes,
+    criarContaAdministrada,
+    definirAtivo,
     criar,
     vincularGithubId,
     vincularGoogleId,

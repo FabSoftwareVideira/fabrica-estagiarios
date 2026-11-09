@@ -34,6 +34,8 @@ async function listarDestinatarios() {
          JOIN usuarios supervisor ON supervisor.id = aluno.supervisor_id
          JOIN professores perfil_supervisor ON perfil_supervisor.usuario_id = supervisor.id
          WHERE aluno.arquivado = false
+           AND supervisor.ativo = true
+           AND perfil_supervisor.aprovado = true
            AND aluno.status = 'em_andamento'
          GROUP BY supervisor.id, supervisor.nome, supervisor.email,
                   perfil_supervisor.receber_relatorio_semanal

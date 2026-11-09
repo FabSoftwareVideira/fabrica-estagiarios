@@ -30,8 +30,10 @@ router.use(async (req, res, next) => {
     const caminhoPermitido = (req.method === 'GET' && [
         '/dashboard',
         '/completar-cadastro',
+        '/usuarios',
     ].includes(req.path))
         || (req.method === 'POST' && req.path === '/completar-cadastro')
+        || (req.method === 'POST' && /^\/(?:usuarios|supervisores)\/\d+\/aprovar$/.test(req.path))
         || (req.method === 'GET' && /^\/aluno\/\d+$/.test(req.path))
         || (req.method === 'POST' && /^\/aluno\/\d+\/atividade\/\d+\/(validar|invalidar)$/.test(req.path))
         || (/^\/aluno\/\d+\/fac(?:\/pdf)?$/.test(req.path) && ['GET', 'POST'].includes(req.method))
@@ -82,13 +84,16 @@ router.use(require('./fac'));
 router.use(require('./bancas'));
 
 const TAMANHO_PAGINA = 10;
+const TAMANHO_PAGINA_USUARIOS = 10;
 const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'concluido'];
 const CAMPOS_ORDENACAO = ['nome', 'supervisor', 'horas', 'status'];
 const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado'];
+const CAMPOS_ORDENACAO_USUARIOS = ['nome', 'email', 'tipo', 'situacao', 'criado_em'];
 
 router.get('/dashboard', async (req, res) => {
     const isAdmin = req.session.user.cargo === 'admin';
     const isSupervisor = req.session.user.cargo === 'supervisor';
+    const solicitacoesPendentes = await usuariosModel.contarSupervisoresPendentes();
     const aba = isAdmin
         ? (req.query.aba === 'administracao' ? 'administracao' : 'alunos')
         : 'alunos';
@@ -104,6 +109,7 @@ router.get('/dashboard', async (req, res) => {
             filtros: { q: '', status: [], arquivados: false },
             filtroPersonalizado: false,
             ordenacao: { campo: null, direcao: 'asc' },
+            solicitacoesPendentes,
         });
     }
 
@@ -161,23 +167,10 @@ router.get('/dashboard', async (req, res) => {
         totalPaginas,
         tamanhoPagina: TAMANHO_PAGINA,
         filtros,
-        supervisoresPendentes: isSupervisor ? [] : await professoresModel.listarSupervisoresPendentes(),
         filtroPersonalizado: Boolean(filtroEnviado),
         ordenacao,
+        solicitacoesPendentes,
     });
-});
-
-router.post('/supervisores/:id/aprovar', async (req, res) => {
-    if (req.session.user.cargo === 'supervisor') {
-        return res.status(403).send('Somente um professor da instituição pode aprovar supervisores externos.');
-    }
-    const aprovado = await professoresModel.aprovarSupervisor(req.params.id);
-    if (!aprovado) {
-        setFlash(req, 'error', 'Solicitação não encontrada ou já aprovada.');
-    } else {
-        setFlash(req, 'success', 'Supervisor aprovado. Ele poderá acessar os estudantes vinculados a ele.');
-    }
-    res.redirect('/professor/dashboard');
 });
 
 function dataLocalIso(data = new Date()) {
@@ -607,13 +600,68 @@ router.post('/aluno/:id/excluir', requireAdmin, async (req, res) => {
 // req.session.user nunca aparece na própria lista (não faz sentido se
 // confirmar/promover/excluir sozinho).
 
-router.get('/professores', requireAdmin, async (req, res) => {
-    const lista = await professoresModel.listarExceto(req.session.user.id);
-    res.render('professor_lista', { professores: lista, ADMIN_PRINCIPAL_EMAIL });
+router.get('/usuarios', requireRole('professor'), async (req, res) => {
+    const ehAdmin = req.session.user.cargo === 'admin';
+    if (req.session.user.cargo === 'supervisor' && !req.session.user.supervisorAprovado) {
+        return res.redirect('/supervisor/pendente');
+    }
+
+    const busca = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const solicitacoesPendentes = await usuariosModel.listarSupervisoresPendentes(ehAdmin ? '' : busca);
+    if (!ehAdmin) {
+        return res.render('professor_usuarios', {
+            ehAdmin,
+            solicitacoesPendentes,
+            busca,
+        });
+    }
+
+    const tipo = ['aluno', 'professor', 'supervisor'].includes(req.query.tipo) ? req.query.tipo : '';
+    const situacao = ['ativo', 'desativado', 'pendente', 'aprovado'].includes(req.query.situacao)
+        ? req.query.situacao
+        : '';
+    const ordenarPor = CAMPOS_ORDENACAO_USUARIOS.includes(req.query.ordenar) ? req.query.ordenar : 'nome';
+    const direcao = req.query.dir === 'desc' ? 'desc' : 'asc';
+    let pagina = Number.parseInt(req.query.pagina, 10);
+    if (!Number.isSafeInteger(pagina) || pagina < 1) pagina = 1;
+    const filtros = { busca, tipo, situacao };
+    const consultar = () => usuariosModel.listarTodos({
+        busca,
+        tipo,
+        situacao,
+        ordenarPor,
+        direcao,
+        limite: TAMANHO_PAGINA_USUARIOS,
+        offset: (pagina - 1) * TAMANHO_PAGINA_USUARIOS,
+    });
+    let resultado = await consultar();
+    const totalPaginas = Math.max(1, Math.ceil(resultado.total / TAMANHO_PAGINA_USUARIOS));
+    if (pagina > totalPaginas) {
+        pagina = totalPaginas;
+        resultado = await consultar();
+    }
+    res.render('professor_usuarios', {
+        ehAdmin,
+        usuarios: resultado.usuarios,
+        total: resultado.total,
+        solicitacoesPendentes,
+        busca,
+        filtros,
+        ordenarPor,
+        direcao,
+        pagina,
+        totalPaginas,
+        tamanhoPagina: TAMANHO_PAGINA_USUARIOS,
+        ADMIN_PRINCIPAL_EMAIL,
+    });
 });
 
-router.get('/cadastros', requireAdmin, (req, res) => {
-    res.render('professor_cadastros');
+router.get('/usuarios/novo', requireAdmin, (req, res) => {
+    res.render('professor_usuario_novo');
+});
+
+router.get(['/professores', '/cadastros'], requireAdmin, (req, res) => {
+    res.redirect('/professor/usuarios');
 });
 
 router.get('/relatorio-semanal', requireAdmin, async (req, res) => {
@@ -664,82 +712,126 @@ router.post('/relatorio-semanal/enviar-agora', requireAdmin, async (req, res) =>
     res.redirect('/professor/relatorio-semanal');
 });
 
-router.post('/cadastros', requireAdmin, async (req, res) => {
-    const tipo = req.body.tipo === 'professor' ? 'professor' : 'aluno';
+router.post('/usuarios', requireAdmin, async (req, res) => {
+    const tipo = req.body.tipo;
     const nome = (req.body.nome || '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
     const matriculaInformada = (req.body.matricula || '').trim();
     const matricula = matriculaInformada || null;
+    const empresa = String(req.body.empresa || '').trim();
+    const funcao = String(req.body.funcao || '').trim();
 
-    if (!nome || !email) {
-        setFlash(req, 'error', 'Preencha todos os campos obrigatórios.');
-        return res.redirect('/professor/cadastros');
+    if (!nome || nome.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        || !['aluno', 'professor', 'supervisor'].includes(tipo)
+        || (tipo === 'supervisor' && (!empresa || empresa.length > 200 || !funcao || funcao.length > 150))
+        || (tipo === 'aluno' && matricula && matricula.length > 30)) {
+        setFlash(req, 'error', 'Confira os dados obrigatórios e o tipo de acesso selecionado.');
+        return res.redirect('/professor/usuarios/novo');
     }
 
     const usuarioExistente = await usuariosModel.buscarPorEmail(email);
     if (usuarioExistente) {
         setFlash(req, 'error', 'Já existe um cadastro com este e-mail.');
-        return res.redirect('/professor/cadastros');
+        return res.redirect('/professor/usuarios/novo');
     }
 
     if (tipo === 'aluno' && matricula) {
         const matriculaExistente = await alunosModel.buscarPorMatricula(matricula);
         if (matriculaExistente) {
             setFlash(req, 'error', 'Já existe um cadastro com esta matrícula.');
-            return res.redirect('/professor/cadastros');
+            return res.redirect('/professor/usuarios/novo');
         }
     }
 
     try {
-        const usuario = await usuariosModel.criar({
+        await usuariosModel.criarContaAdministrada({
             nome,
             email,
             tipo,
-            nomeConfirmado: true,
+            matricula,
+            empresa,
+            funcao,
         });
 
-        if (tipo === 'aluno') {
-            await alunosModel.criar({ usuarioId: usuario.id, matricula });
-        } else {
-            await professoresModel.criar({ usuarioId: usuario.id });
-        }
-
-        setFlash(req, 'success', `${tipo === 'aluno' ? 'Aluno' : 'Professor'} cadastrado com sucesso.`);
+        setFlash(req, 'success', tipo === 'supervisor'
+            ? 'Usuário cadastrado. Aprove a solicitação para liberar o acesso do supervisor.'
+            : 'Usuário cadastrado com sucesso.');
+        return res.redirect('/professor/usuarios');
     } catch (err) {
-        console.error('[professor/cadastros] erro:', err.message);
-        setFlash(req, 'error', 'Não foi possível concluir o cadastro. Verifique os dados e tente novamente.');
+        console.error('[professor/usuarios] erro ao cadastrar usuário:', err.message);
+        setFlash(req, 'error', err.code === '23505'
+            ? 'O e-mail ou a matrícula já está em uso.'
+            : 'Não foi possível cadastrar o usuário. Verifique os dados e tente novamente.');
+        return res.redirect('/professor/usuarios/novo');
     }
-    res.redirect('/professor/cadastros');
+});
+
+async function aprovarSupervisorExterno(req, res) {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1 || id === Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Você não pode aprovar a própria solicitação.');
+        return res.redirect('/professor/usuarios');
+    }
+    const aprovado = await professoresModel.aprovarSupervisor(id);
+    setFlash(req, aprovado ? 'success' : 'error', aprovado
+        ? 'Supervisor externo aprovado.'
+        : 'Solicitação não encontrada ou já aprovada.');
+    res.redirect('/professor/usuarios');
+}
+
+function requireSupervisorAprovador(req, res, next) {
+    if (!req.session.user || req.session.user.tipo !== 'professor') {
+        return res.redirect('/login');
+    }
+    if (req.session.user.cargo === 'supervisor' && !req.session.user.supervisorAprovado) {
+        return res.redirect('/supervisor/pendente');
+    }
+    next();
+}
+
+router.post('/usuarios/:id/aprovar', requireSupervisorAprovador, aprovarSupervisorExterno);
+router.post('/supervisores/:id/aprovar', requireSupervisorAprovador, aprovarSupervisorExterno);
+
+router.post('/usuarios/:id/ativo', requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) {
+        setFlash(req, 'error', 'Usuário inválido.');
+        return res.redirect('/professor/usuarios');
+    }
+    if (id === Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Você não pode desativar sua própria conta.');
+        return res.redirect('/professor/usuarios');
+    }
+    const alvo = await usuariosModel.buscarPorId(id);
+    if (!alvo) {
+        setFlash(req, 'error', 'Usuário não encontrado.');
+        return res.redirect('/professor/usuarios');
+    }
+    if (alvo.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase()) {
+        setFlash(req, 'error', 'A conta do administrador principal não pode ser desativada.');
+        return res.redirect('/professor/usuarios');
+    }
+    if (req.body.ativo !== 'true' && req.body.ativo !== 'false') {
+        setFlash(req, 'error', 'Estado de ativação inválido.');
+        return res.redirect('/professor/usuarios');
+    }
+    const ativo = req.body.ativo === 'true';
+    await usuariosModel.definirAtivo(id, ativo);
+    setFlash(req, 'success', ativo ? 'Usuário ativado.' : 'Usuário desativado. As sessões abertas serão encerradas.');
+    res.redirect('/professor/usuarios');
 });
 
 router.post('/professores/:id/cargo', requireAdmin, async (req, res) => {
     if (Number(req.params.id) === req.session.user.id) {
-        return res.redirect('/professor/professores');
+        return res.redirect('/professor/usuarios');
     }
     const cargo = req.body.cargo === 'admin' ? 'admin' : 'comum';
     if (!await professoresModel.definirCargo(req.params.id, cargo)) {
         setFlash(req, 'error', 'O cargo deste usuário não pode ser alterado por esta tela.');
-        return res.redirect('/professor/professores');
+        return res.redirect('/professor/usuarios');
     }
     setFlash(req, 'success', 'Cargo atualizado com sucesso.');
-    res.redirect('/professor/professores');
-});
-
-router.post('/professores/:id/excluir', requireAdmin, async (req, res) => {
-    if (Number(req.params.id) === req.session.user.id) {
-        setFlash(req, 'error', 'Você não pode excluir a própria conta.');
-        return res.redirect('/professor/professores');
-    }
-
-    const alvo = await professoresModel.buscarPorUsuarioId(req.params.id);
-    if (alvo && alvo.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase()) {
-        setFlash(req, 'error', 'Esta conta é o administrador principal e não pode ser excluída.');
-        return res.redirect('/professor/professores');
-    }
-
-    await professoresModel.excluir(req.params.id);
-    setFlash(req, 'success', 'Professor excluído com sucesso.');
-    res.redirect('/professor/professores');
+    res.redirect('/professor/usuarios');
 });
 
 module.exports = router;

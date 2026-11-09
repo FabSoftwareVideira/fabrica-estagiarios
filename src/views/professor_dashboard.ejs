@@ -25,21 +25,26 @@
                     <% } %>
                 </div>
 
+                <% if (solicitacoesPendentes > 0) { %>
+                    <section class="card pending-requests-banner" aria-label="Solicitações de supervisores externos">
+                        <div>
+                            <strong><%- icone('alerta') %> <%= solicitacoesPendentes %> <%= solicitacoesPendentes === 1 ? 'solicitação aguarda' : 'solicitações aguardam' %> aprovação</strong>
+                            <p>Supervisores externos podem ser aprovados por um orientador ou outro supervisor aprovado.</p>
+                        </div>
+                        <a href="/professor/usuarios" class="btn btn-secondary btn-sm">Revisar solicitações</a>
+                    </section>
+                <% } %>
+
                 <% if (aba === 'administracao') { %>
                     <div class="card">
                         <h2>Administração</h2>
-                        <p class="text-muted">Gerencie contas de professores, cadastre usuários e configure o relatório semanal.</p>
+                        <p class="text-muted">Gerencie todas as contas, permissões e solicitações de acesso, além do relatório semanal.</p>
 
                         <div class="action-grid">
-                            <a href="/professor/professores" class="action-card">
-                                <h3>Lista de Professores</h3>
-                                <p>Confirme cadastros, altere cargos e exclua contas de professores.</p>
-                                <span class="btn">Gerenciar</span>
-                            </a>
-                            <a href="/professor/cadastros" class="action-card">
-                                <h3>Cadastrar Usuário</h3>
-                                <p>Crie manualmente contas de alunos e professores.</p>
-                                <span class="btn">Cadastrar</span>
+                            <a href="/professor/usuarios" class="action-card">
+                                <h3>Gerenciar usuários</h3>
+                                <p>Cadastre estudantes, professores e supervisores externos; aprove solicitações e controle o acesso.</p>
+                                <span class="btn">Abrir usuários</span>
                             </a>
                             <a href="/professor/relatorio-semanal" class="action-card">
                                 <h3>Relatório semanal por e-mail</h3>
@@ -49,25 +54,6 @@
                         </div>
                     </div>
                 <% } else { %>
-                    <% if (user.cargo !== 'supervisor' && typeof supervisoresPendentes !== 'undefined' && supervisoresPendentes.length) { %>
-                        <section class="card" aria-labelledby="solicitacoes-supervisores">
-                            <h2 id="solicitacoes-supervisores">Solicitações de supervisores externos</h2>
-                            <p>Confira a identidade do solicitante antes de aprovar. A aprovação libera somente as funções de supervisor.</p>
-                            <div class="lista-cartoes">
-                                <% supervisoresPendentes.forEach((supervisor) => { %>
-                                    <article class="orientando">
-                                        <div>
-                                            <h3><%= supervisor.nome %></h3>
-                                            <p class="meta"><%= supervisor.email %> · <%= supervisor.empresa_externa || 'Empresa não informada' %> · <%= supervisor.funcao_externa || 'Função não informada' %></p>
-                                        </div>
-                                        <form action="/professor/supervisores/<%= supervisor.id %>/aprovar" method="POST">
-                                            <button type="submit" class="btn-success">Aprovar supervisor</button>
-                                        </form>
-                                    </article>
-                                <% }) %>
-                            </div>
-                        </section>
-                    <% } %>
                     <div class="card filters-card">
                         <form action="/professor/dashboard" method="GET" class="filters-form">
                             <input type="hidden" name="f" value="1">

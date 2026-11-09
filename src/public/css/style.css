@@ -284,6 +284,18 @@ button[disabled], .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed
 .button-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .button-group form { display: inline-flex; }
 .table-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.user-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.user-actions form { display: inline-flex; }
+.user-action {
+  width: 36px; min-width: 36px; min-height: 36px; padding: 0;
+  background: transparent; color: var(--texto-suave); border: 1px solid transparent; border-radius: 50%;
+}
+.user-action svg { width: 17px; height: 17px; }
+.user-action:hover { color: var(--azul-800); background: var(--azul-50); border-color: var(--borda); }
+.user-action-danger { color: var(--vermelho-600); }
+.user-action-danger:hover { color: var(--vermelho-600); background: var(--vermelho-100); border-color: var(--vermelho-100); }
+.user-action-positive { color: var(--verde-700); }
+.user-action-positive:hover { color: var(--verde-700); background: var(--verde-100); border-color: var(--verde-100); }
 
 /* ===========================
    Formulários
@@ -473,6 +485,73 @@ html.alto-contraste .proximo-passo { background: #000; border-color: #ffd700; }
 .pagination-link:hover { background: var(--azul-50); }
 .pagination-link.active { background: var(--azul-700); border-color: var(--azul-700); color: #fff; }
 .pagination-gap { color: var(--texto-suave); }
+
+/* Administração de usuários */
+.users-page .page-head { align-items: center; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-heading h2 { display: flex; align-items: center; gap: 10px; font-size: 20px; }
+.approval-section { border-top: 4px solid var(--amarelo-700); }
+.approval-section > .section-heading { margin-bottom: 14px; }
+.approval-section .section-heading p { margin-top: 4px; }
+.approval-list { display: grid; gap: 10px; }
+.approval-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 16px; border: 1px solid var(--borda-suave); border-radius: var(--raio-campo);
+  background: var(--fundo);
+}
+.approval-person { min-width: 0; display: flex; align-items: center; gap: 12px; }
+.approval-person > div { min-width: 0; display: grid; }
+.approval-person strong, .approval-person span, .approval-person small { overflow-wrap: anywhere; }
+.approval-person span, .approval-person small { color: var(--texto-suave); }
+.approval-avatar {
+  width: 40px; height: 40px; flex: none; display: grid; place-items: center;
+  color: var(--azul-800); background: var(--azul-100); border-radius: 50%; font-weight: 700;
+}
+.empty-state { padding: 14px 0; color: var(--texto-suave); }
+.users-table-card { margin-top: 20px; }
+.users-list-heading { align-items: flex-start; margin-bottom: 16px; }
+.users-list-heading h2 { white-space: nowrap; }
+.users-filter-form {
+  width: min(100%, 790px); display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(145px, auto) minmax(155px, auto) auto auto;
+  align-items: center; gap: 8px;
+}
+.users-filter-form input, .users-filter-form select { min-width: 0; width: 100%; }
+.users-filter-form button, .users-filter-form .btn { min-height: 42px; white-space: nowrap; }
+.users-filter-form button { padding: 0 16px; }
+.users-table { min-width: 760px; }
+.users-table thead th { white-space: nowrap; }
+.users-table thead th a { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; }
+.users-table thead th a:hover { color: var(--azul-700); text-decoration: underline; }
+.users-table tbody tr:hover td { background: var(--azul-50); }
+.user-cell { min-width: 220px; }
+.user-cell strong, .user-cell span, .user-cell small { display: block; }
+.user-cell span, .user-cell small { color: var(--texto-suave); font-size: 14px; }
+.user-status-cell { min-width: 150px; }
+.user-status-cell .status { margin: 2px 3px 2px 0; }
+.users-pagination { align-items: center; }
+.user-form-card { max-width: 820px; }
+.user-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "nome email" "tipo matricula" "empresa funcao" "acoes acoes"; }
+.user-form-grid [data-user-field="nome"] { grid-area: nome; }
+.user-form-grid [data-user-field="email"] { grid-area: email; }
+.user-form-grid [data-user-field="tipo"] { grid-area: tipo; }
+.user-form-grid [data-user-field="matricula"] { grid-area: matricula; }
+.user-form-grid [data-user-field="empresa"] { grid-area: empresa; }
+.user-form-grid [data-user-field="funcao"] { grid-area: funcao; }
+.user-form-grid [data-user-field="acoes"] { grid-area: acoes; }
+.user-form-grid[data-user-type="professor"] { grid-template-areas: "nome email" "tipo tipo" "acoes acoes"; }
+.user-form-grid[data-user-type="aluno"] { grid-template-areas: "nome email" "tipo matricula" "acoes acoes"; }
+.user-form-grid[data-user-type="supervisor"] { grid-template-areas: "nome email" "tipo tipo" "empresa funcao" "acoes acoes"; }
+.user-form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 0; }
+.pending-requests-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-bottom: 18px; border-left: 4px solid var(--amarelo-700);
+}
+.pending-requests-banner strong { display: flex; align-items: center; gap: 8px; }
+.pending-requests-banner p { margin-top: 3px; color: var(--texto-suave); }
+.pending-requests-banner svg { width: 18px; height: 18px; }
+html.alto-contraste .approval-section { border-top-color: #ffd700; }
+html.alto-contraste .approval-avatar { color: #ffd700; }
 
 /* ===========================
    Cartões de ação / Fichas
@@ -732,6 +811,8 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
   .atividade-layout { grid-template-columns: 1fr; }
   .orientando { grid-template-columns: 1fr; }
   .orientando-acoes { justify-content: flex-start; }
+  .users-list-heading { flex-direction: column; align-items: stretch; }
+  .users-filter-form { width: 100%; }
 }
 
 @media (max-width: 720px) {
@@ -755,6 +836,21 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
   .form-actions > .btn, .form-actions > button, .form-actions form, .form-actions form button { width: 100%; }
   .card-actions > .btn, .card-actions > button { flex: 1 1 100%; }
   .filters-top button, .filters-top .btn { flex: 1; }
+  .users-list-heading { flex-direction: column; }
+  .users-filter-form { grid-template-columns: 1fr 1fr; }
+  .users-filter-form input[type="search"] { grid-column: 1 / -1; }
+  .users-filter-form button, .users-filter-form .btn { width: 100%; }
+  .user-form-grid,
+  .user-form-grid[data-user-type="professor"],
+  .user-form-grid[data-user-type="aluno"],
+  .user-form-grid[data-user-type="supervisor"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+  .user-form-grid [data-user-field] { grid-area: auto; }
+  .approval-item, .pending-requests-banner { align-items: stretch; flex-direction: column; }
+  .approval-item form, .approval-item form button { width: 100%; }
+  .pending-requests-banner .btn { width: 100%; }
   .ressalva-linha { grid-template-columns: 1fr; }
   .ressalva-extra { margin-left: 8px; }
   .faa-nota { flex-wrap: wrap; }
@@ -775,6 +871,14 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
   .table-wrap td[colspan]::before { content: none; }
   .table-wrap tbody tr:hover td { background: none; }
   .table-wrap .table-actions { justify-content: flex-end; }
+  .users-table-card .table-wrap { overflow-x: auto; }
+  .users-table-card .users-table { display: table; }
+  .users-table-card .users-table tbody { display: table-row-group; width: auto; }
+  .users-table-card .users-table tr { display: table-row; width: auto; padding: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .users-table-card .users-table td { display: table-cell; width: auto; text-align: left; }
+  .users-table-card .users-table td::before { content: none; }
+  .users-table-card .users-table td[colspan] { display: table-cell; }
+  .users-table-card .user-actions { justify-content: flex-end; }
 }
 
 @media (prefers-reduced-motion: reduce) {
