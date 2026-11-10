@@ -67,9 +67,9 @@ router.get('/completar-cadastro', async (req, res) => {
 
 router.post('/completar-cadastro', async (req, res) => {
     const nome = (req.body.nome || '').trim();
-    const avatarEmoji = typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '';
-    if (!nome || !avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
-        setFlash(req, 'error', 'Informe seu nome completo e escolha um avatar.');
+    const avatarEmoji = (typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '') || null;
+    if (!nome || (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji))) {
+        setFlash(req, 'error', 'Informe seu nome completo. O avatar é opcional.');
         return res.redirect('/professor/completar-cadastro');
     }
     const usuario = await usuariosModel.confirmarNome(req.session.user.id, nome);
@@ -480,6 +480,12 @@ router.post('/aluno/:id', async (req, res) => {
     // lista de espera e em andamento.
     const status = req.body.status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
 
+    // fora da lista de espera o estágio precisa de um orientador
+    if (status !== 'lista_espera' && !orientador_id) {
+        setFlash(req, 'error', 'Selecione o professor orientador. Só estudantes na lista de espera podem ficar sem orientador.');
+        return res.redirect('/professor/aluno/' + req.params.id);
+    }
+
     const erroResponsaveis = await validarResponsaveis(supervisor_id, orientador_id);
     if (erroResponsaveis) {
         setFlash(req, 'error', erroResponsaveis);
@@ -594,8 +600,13 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
-    // supervisor e orientador podem ficar em branco aqui e ser
-    // definidos/trocados depois na tela de editar aluno
+    // o orientador é obrigatório na aprovação: sem ele o estudante some do
+    // painel dos professores comuns. O supervisor pode ser definido depois.
+    if (!orientador_id) {
+        setFlash(req, 'error', 'Selecione o professor orientador para aprovar o cadastro.');
+        return res.redirect('/professor/cadastro-aluno/' + req.params.id);
+    }
+
     const erroResponsaveis = await validarResponsaveis(supervisor_id, orientador_id);
     if (erroResponsaveis) {
         setFlash(req, 'error', erroResponsaveis);

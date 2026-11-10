@@ -75,7 +75,10 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
 
     if (professorId != null) {
         valores.push(professorId);
-        filtros.push(`(a.orientador_id = $${valores.length} OR a.supervisor_id = $${valores.length})`);
+        // além dos próprios estudantes, o professor vê quem está na lista de
+        // espera ainda sem orientador: qualquer professor pode aprovar o cadastro
+        filtros.push(`(a.orientador_id = $${valores.length} OR a.supervisor_id = $${valores.length}
+            OR (a.status = 'lista_espera' AND a.orientador_id IS NULL))`);
     } else if (orientadorId != null) {
         valores.push(orientadorId);
         filtros.push(`a.orientador_id = $${valores.length}`);

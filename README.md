@@ -150,9 +150,9 @@ Cada estudante recebe no máximo um lembrete a cada **7 dias**, enquanto continu
 
 A migração `016_lembretes_atividades.sql` permanece no histórico de deploy e não envia e-mails. O comando manual `npm run email:reminders` também permanece no código, mas **envia e-mails reais** usando o SMTP configurado; não deve ser executado em produção durante a suspensão. A retomada do envio automático exige recriar o workflow somente após implantar o script e aplicar a migração no servidor.
 
-## Temas claro e escuro
+## Alto contraste
 
-O ícone de sol/lua no cabeçalho alterna o tema em todas as páginas, inclusive no celular e na página pública. Sem escolha salva, a interface acompanha `prefers-color-scheme`, inclusive mudanças durante a visita. A escolha manual é salva em `localStorage` e tem prioridade nas próximas visitas. O alto contraste continua disponível e tem prioridade visual. Para voltar ao comportamento automático, remova a chave `tema` do armazenamento local do navegador.
+A interface usa sempre o tema claro. O botão "Alto contraste" na barra superior alterna o modo de alto contraste em todas as páginas; a escolha é salva em `localStorage` (chave `contraste`) e reaplicada nas próximas visitas.
 
 ## Avaliação do supervisor (FAC)
 

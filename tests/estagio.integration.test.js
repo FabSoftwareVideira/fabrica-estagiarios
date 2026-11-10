@@ -421,6 +421,7 @@ test('aprovação e edição salvam a escala semanal e rejeitam jornadas acima d
         body: {
             empresa: 'Empresa Exemplo',
             carga_horaria: '60',
+            orientador_id: '102',
             dias_trabalho: ['1', '6'],
             horario_inicio_1: '08:00',
             horario_fim_1: '12:00',

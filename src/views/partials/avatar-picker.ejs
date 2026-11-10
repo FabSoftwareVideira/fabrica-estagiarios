@@ -1,11 +1,18 @@
 <fieldset class="avatar-fieldset">
-    <legend>Escolha seu avatar</legend>
-    <p class="text-muted">Escolha um animal ou um ícone famoso da tecnologia para aparecer ao lado do seu nome.</p>
+    <legend>Escolha seu avatar <span class="text-muted">(opcional)</span></legend>
+    <p class="text-muted">Escolha um animal ou um ícone famoso da tecnologia para aparecer ao lado do seu nome. Sem avatar, aparece a inicial do seu nome.</p>
     <div class="avatar-picker">
+        <label class="avatar-option">
+            <input type="radio" name="avatarEmoji" value="" <%= selectedAvatar ? '' : 'checked' %>>
+            <span class="avatar-choice">
+                <span class="avatar-emoji" aria-hidden="true"><%= (typeof user !== 'undefined' && user && user.nome) ? user.nome.charAt(0).toUpperCase() : 'A' %></span>
+                <span class="avatar-name">Sem avatar</span>
+            </span>
+        </label>
         <% avatares.forEach((avatar) => { %>
             <label class="avatar-option">
                 <input type="radio" name="avatarEmoji" value="<%= avatar.emoji %>"
-                    <%= selectedAvatar === avatar.emoji ? 'checked' : '' %> required>
+                    <%= selectedAvatar === avatar.emoji ? 'checked' : '' %>>
                 <span class="avatar-choice">
                     <span class="avatar-emoji" aria-hidden="true"><%= avatar.emoji %></span>
                     <span class="avatar-name"><%= avatar.nome %></span>

@@ -52,15 +52,15 @@ router.post('/perfil', requireAuth, async (req, res) => {
     const matriculaInformada = (req.body.matricula || '').trim();
     const matricula = matriculaInformada || null;
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
-    const avatarEmoji = typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '';
+    const avatarEmoji = (typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '') || null;
 
     if (!nome) {
         setFlash(req, 'error', 'Informe seu nome completo.');
         return res.redirect('/perfil');
     }
 
-    if (!avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
-        setFlash(req, 'error', 'Escolha um avatar para seu perfil.');
+    if (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
+        setFlash(req, 'error', 'Escolha um avatar da lista ou fique sem avatar.');
         return res.redirect('/perfil');
     }
     if (req.session.user.tipo === 'aluno' && !ehCurso(curso)) {

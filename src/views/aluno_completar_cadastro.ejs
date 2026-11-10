@@ -17,18 +17,41 @@
 
         <div class="login-box">
             <h1>Falta pouco!</h1>
-            <p>Confirme seu nome, matrícula e curso, e escolha um personagem para concluir o cadastro.</p>
+            <p>Confirme seu nome e escolha seu curso para concluir o cadastro. Matrícula e avatar são opcionais.</p>
 
             <form action="/aluno/completar-cadastro" method="POST">
                 <label for="nome">Nome completo</label>
                 <input type="text" id="nome" name="nome" maxlength="150" value="<%= nomeAtual %>" required>
-                <label for="matricula">Matrícula</label>
-                <input type="text" id="matricula" name="matricula" required>
-                <label for="curso">Curso</label>
-                <select id="curso" name="curso" required>
-                    <option value="">Selecione seu curso</option>
-                    <% cursos.forEach((curso) => { %><option value="<%= curso %>"><%= curso %></option><% }) %>
-                </select>
+                <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
+                <input type="text" id="matricula" name="matricula" maxlength="30">
+                <%
+                    // aparência de cada curso; cursos novos caem no visual padrão (azul)
+                    const visuais = {
+                        'Agropecuária': { emoji: '🌱', cor: 'verde' },
+                        'Eletroeletrônica': { emoji: '⚡', cor: 'ambar' },
+                        'Informática': { emoji: '💻', cor: 'azul' },
+                    };
+                %>
+                <fieldset class="curso-fieldset">
+                    <legend>Qual é o seu curso?</legend>
+                    <div class="curso-picker">
+                        <% cursos.forEach((curso) => { %>
+                            <% const nomeCurto = curso.replace(/^Curso Técnico (de|em) /, '').replace(/ Integrado ao Ensino Médio$/, ''); %>
+                            <% const visual = visuais[nomeCurto] || { emoji: '🎓', cor: 'azul' }; %>
+                            <label class="curso-option curso-<%= visual.cor %>">
+                                <input type="radio" name="curso" value="<%= curso %>" required>
+                                <span class="curso-choice">
+                                    <span class="curso-emoji" aria-hidden="true"><%= visual.emoji %></span>
+                                    <span class="curso-texto">
+                                        <span class="curso-nome"><%= nomeCurto %></span>
+                                        <% if (nomeCurto !== curso) { %><span class="curso-detalhe">Técnico integrado ao ensino médio</span><% } %>
+                                    </span>
+                                    <span class="curso-marca" aria-hidden="true"><%- icone('check') %></span>
+                                </span>
+                            </label>
+                        <% }); %>
+                    </div>
+                </fieldset>
                 <%- include('partials/avatar-picker', { avatares, selectedAvatar }) %>
                 <button type="submit" class="btn">Concluir Cadastro</button>
             </form>

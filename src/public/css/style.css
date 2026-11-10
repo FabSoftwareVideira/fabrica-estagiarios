@@ -65,7 +65,10 @@ html.alto-contraste {
   --borda-suave: #5c4d00;
 }
 html.alto-contraste .btn,
-html.alto-contraste button:not(.btn-secondary):not(.btn-danger):not(.btn-ghost) { color: #000; }
+html.alto-contraste button:not(.btn-secondary):not(.btn-danger):not(.btn-ghost):not(.contrast-toggle):not(.nav-toggle):not(.cal-nav *) { color: #000; }
+html.alto-contraste .contrast-toggle { color: #ffd700; opacity: 1; }
+html.alto-contraste .nav-toggle, html.alto-contraste .nav-toggle:hover { color: #ffd700; }
+html.alto-contraste .cal-nav button, html.alto-contraste .cal-nav button:hover { color: #ffd700; }
 html.alto-contraste .site-header { background: #000; }
 html.alto-contraste .nav-link { color: #fff; }
 
@@ -342,6 +345,14 @@ input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-
 
 fieldset { border: 0; min-width: 0; }
 fieldset:disabled { opacity: 1; }
+/* Formulário longo dividido em seções com uma linha entre elas */
+.form-secao + .form-secao { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--borda-suave); }
+.form-secao h2 { margin-bottom: 14px; }
+.form-secao .form-field > small { display: block; margin-top: 6px; color: var(--texto-suave); }
+.form-secao .horario-trabalho-campos { margin: 0; }
+.form-secao .horario-trabalho-campos legend { font-size: 20px; color: var(--azul-900); }
+.form-secao + .form-actions { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--borda-suave); }
+
 .horario-trabalho-campos { margin: 20px 0; }
 .horario-trabalho-campos legend { font-weight: 700; font-size: 18px; margin-bottom: 4px; }
 .horario-trabalho-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
@@ -772,6 +783,40 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
 .auth-buttons .btn { margin-top: 0; }
 .login-box .auth-buttons .btn { width: 100%; }
 .login-box .button-group .btn, .login-box .button-group button { width: auto; flex: 1 1 150px; }
+
+/* Escolha do curso: um cartão colorido por curso */
+.curso-fieldset { margin-top: 18px; }
+.curso-fieldset legend { font-weight: 700; margin-bottom: 4px; color: var(--azul-900); }
+.curso-picker { display: grid; gap: 10px; margin-top: 8px; }
+.curso-option { margin: 0; cursor: pointer; position: relative; --curso-cor: #1351b4; --curso-fundo: #e8effa; }
+.curso-verde { --curso-cor: #216e1f; --curso-fundo: #e3f4e0; }
+.curso-ambar { --curso-cor: #9a5b00; --curso-fundo: #fff1cc; }
+html.alto-contraste .curso-option { --curso-cor: #7cc4ff; --curso-fundo: #1a1a1a; }
+html.alto-contraste .curso-verde { --curso-cor: #00e676; }
+html.alto-contraste .curso-ambar { --curso-cor: #ffd700; }
+.curso-option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.curso-choice {
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px; min-height: 68px;
+  border: 2px solid var(--borda-suave); border-left: 6px solid var(--curso-cor); border-radius: var(--raio-campo);
+  background: var(--superficie); transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.curso-emoji {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+  font-size: 24px; line-height: 1; border-radius: 50%; background: var(--curso-fundo);
+}
+.curso-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.curso-nome { font-size: 16px; font-weight: 700; color: var(--curso-cor); }
+.curso-detalhe { font-size: 13px; font-weight: 500; color: var(--texto-suave); }
+.curso-marca {
+  flex: none; width: 24px; height: 24px; display: grid; place-items: center;
+  border: 2px solid var(--borda); border-radius: 50%; color: transparent;
+}
+.curso-marca svg { width: 14px; height: 14px; stroke-width: 3; }
+.curso-option:hover .curso-choice { border-color: var(--curso-cor); }
+.curso-option input:checked + .curso-choice { border-color: var(--curso-cor); background: var(--curso-fundo); }
+.curso-option input:checked + .curso-choice .curso-emoji { background: var(--superficie); }
+.curso-option input:checked + .curso-choice .curso-marca { background: var(--curso-cor); border-color: var(--curso-cor); color: var(--superficie); }
+.curso-option input:focus-visible + .curso-choice { box-shadow: var(--foco); }
 
 .avatar-fieldset { margin-top: 18px; }
 .avatar-fieldset legend { font-weight: 700; margin-bottom: 4px; color: var(--azul-900); }
