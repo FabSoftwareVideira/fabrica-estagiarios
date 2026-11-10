@@ -154,15 +154,24 @@ A migração `016_lembretes_atividades.sql` permanece no histórico de deploy e 
 
 A interface usa sempre o tema claro. O botão "Alto contraste" na barra superior alterna o modo de alto contraste em todas as páginas; a escolha é salva em `localStorage` (chave `contraste`) e reaplicada nas próximas visitas.
 
-## Papel de servidor (setor de estágios)
+## Papéis
 
-Além de estudante, professor, administrador e supervisor externo, existe o papel **servidor**, para pessoas do setor de estágios do campus com e-mail `@ifc.edu.br` que não são professores. O servidor vê todos os estudantes no painel e tem acesso ao **Acompanhamento dos estágios**; pode aprovar cadastros e editar os dados do estágio como qualquer professor. Não aparece como opção de orientador, supervisor ou avaliador de banca, e não gerencia usuários.
+Estudantes e supervisores externos têm um papel só. As contas internas (`@ifc.edu.br`) podem acumular papéis, definidos pelo administrador em **Administração → Gerenciar usuários**, no botão de escudo da linha da pessoa:
 
-Como o e-mail institucional não distingue professor de técnico, todo `@ifc.edu.br` entra como professor no primeiro acesso. O administrador define o papel em **Administração → Gerenciar usuários**: pelo botão "Tornar servidor" na linha da pessoa (bloqueado enquanto ela for orientadora, supervisora ou avaliadora de algo em aberto) ou cadastrando a conta já como "Servidor (setor de estágios)". O papel fica em `professores.cargo = 'servidor'` (migração `026_papel_servidor.sql`). Em desenvolvimento, a tela de login tem o atalho "Entrar como Servidor".
+| Papel | O que permite |
+|---|---|
+| Administrador | Gerencia usuários e papéis e vê todos os estágios. |
+| Servidor (setor de estágios) | Acompanha todos os estagiários pelo **Acompanhamento dos estágios**, que é a tela inicial de quem tem esse papel. |
+| Orientador | Pode ser orientador de estudantes e avaliador de bancas. |
+| Supervisor | Pode ser supervisor de estudantes e validar atividades. |
+
+Todo `@ifc.edu.br` entra, no primeiro acesso, como orientador e supervisor (o e-mail não distingue professor de técnico); o administrador ajusta depois, ou cadastra a conta já como "Servidor (setor de estágios)". Quem é só servidor não vê a tela **Alunos**: a lista de estudantes dele fica no próprio acompanhamento. Um papel não pode ser retirado enquanto a pessoa tiver estudantes ou bancas em aberto nele, ninguém altera os próprios papéis e é obrigatório manter ao menos um.
+
+No banco, administrador é `professores.cargo = 'admin'` e os demais papéis ficam em `papel_servidor`, `papel_orientador` e `papel_supervisor` (migrações `026_papel_servidor.sql` e `027_papeis_multiplos.sql`); as regras estão em `src/config/papeis.js`. Em desenvolvimento, a tela de login tem o atalho "Entrar como Servidor".
 
 ## Acompanhamento (administrador e servidor)
 
-Em **Administração → Acompanhamento dos estágios** (ou no menu **Acompanhamento**, para o servidor; `/professor/acompanhamento`), o administrador ou o servidor vê quantos estudantes estão em cada etapa (lista de espera, em andamento, aguardando banca, encerrado), a distribuição por curso e a lista de estudantes com horas, responsáveis, última atividade e pendências (cadastro a aprovar, sem orientador ou supervisor, mais de 5 dias sem registrar, horas aguardando validação, banca não agendada, curso não informado). Estágios arquivados e contas desativadas não entram.
+Em **Administração → Acompanhamento dos estágios** (ou no menu **Acompanhamento**, para o servidor; `/professor/acompanhamento`), o administrador ou o servidor vê quantos estudantes estão em cada etapa (lista de espera, em andamento, aguardando banca, encerrado), a distribuição por curso e a lista de estudantes com etapa, horas e pendências (cadastro a aprovar, sem orientador ou supervisor, mais de 5 dias sem registrar, horas aguardando validação, banca não agendada, curso não informado). Estágios arquivados e contas desativadas não entram.
 
 ## Avisos e convites da banca
 

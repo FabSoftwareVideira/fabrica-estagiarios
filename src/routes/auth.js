@@ -32,7 +32,7 @@ router.get('/login', (req, res) => {
         if (req.session.user.cargo === 'supervisor' && !req.session.user.supervisorAprovado) {
             return res.redirect('/supervisor/pendente');
         }
-        return res.redirect(req.session.user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard');
+        return res.redirect(req.session.user.tipo === 'professor' ? '/professor/inicio' : '/aluno/dashboard');
     }
     res.redirect('/');
 });
@@ -276,7 +276,7 @@ router.get('/auth/github/callback', async (req, res) => {
             if (cargo === 'supervisor' && !supervisorAprovado) {
                 return res.redirect('/supervisor/pendente');
             }
-            return res.redirect('/professor/dashboard');
+            return res.redirect('/professor/inicio');
         }
         // requireAlunoCompleto cuida de redirecionar pra completar-cadastro se faltar matrícula
         const emailConta = usuario.email.toLowerCase();
@@ -413,7 +413,7 @@ router.get('/auth/google/callback', async (req, res) => {
             if (cargo === 'supervisor' && !supervisorAprovado) {
                 return res.redirect('/supervisor/pendente');
             }
-            return res.redirect('/professor/dashboard');
+            return res.redirect('/professor/inicio');
         }
         const emailConta = usuario.email.toLowerCase();
         if (!emailConta.endsWith(DOMINIO_PROFESSOR) && !await alunos.buscarPorUsuarioId(usuario.id)) {

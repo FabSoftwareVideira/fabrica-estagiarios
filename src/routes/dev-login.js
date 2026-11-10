@@ -41,7 +41,8 @@ const USUARIOS_DEV = {
         googleId: 'dev-google-servidor',
         avatarUrl: null,
         tipo: 'professor',
-        cargo: 'servidor',
+        cargo: 'comum',
+        papeis: { admin: false, servidor: true, orientador: false, supervisor: false },
     },
     aluno: {
         nome: 'Aluno de Teste',
@@ -118,6 +119,7 @@ async function entrarComo(tipo, req, res) {
             }
             await professoresModel.definirCargo(usuario.id, dados.cargo);
         }
+        if (dados.papeis) await professoresModel.definirPapeis(usuario.id, dados.papeis);
     }
 
     // 3) grava na sessão (mesmo formato usado pelo middleware/auth.js)
@@ -134,7 +136,7 @@ async function entrarComo(tipo, req, res) {
         const prof = await professoresModel.buscarPorUsuarioId(usuarioAtualizado.id);
         req.session.user.cargo = prof ? prof.cargo : 'comum';
         req.session.user.supervisorAprovado = prof ? prof.aprovado : true;
-        return res.redirect('/professor/dashboard');
+        return res.redirect('/professor/inicio');
     }
 
     return res.redirect('/aluno/dashboard');

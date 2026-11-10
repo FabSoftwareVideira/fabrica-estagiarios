@@ -49,8 +49,8 @@
                                 <input type="checkbox" name="receber_email_bancas" <%= usuario.receber_email_bancas === false ? '' : 'checked' %>>
                                 <span>Avisos de banca<small>Agendamento, remarcação e cancelamento, com convite para a agenda.</small></span>
                             </label>
-                            <%# servidor do setor de estágios não supervisiona, então não recebe o resumo semanal %>
-                            <% if (usuario.tipo === 'professor' && !(professor && professor.cargo === 'servidor')) { %>
+                            <%# o resumo semanal vai para quem supervisiona estudantes %>
+                            <% if (usuario.tipo === 'professor' && !(professor && professor.cargo !== 'supervisor' && professor.papel_supervisor === false)) { %>
                                 <label class="schedule-toggle profile-email-preference">
                                     <input type="checkbox" name="receber_relatorio_semanal"
                                         <%= professor && professor.receber_relatorio_semanal ? 'checked' : '' %>>

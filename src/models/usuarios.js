@@ -23,7 +23,8 @@ async function buscarPorId(id) {
 async function buscarAcessoPorId(id) {
     const { rows } = await pool.query(
         `SELECT u.id, u.nome, u.email, u.tipo, u.ativo,
-                p.cargo, p.aprovado AS supervisor_aprovado, u.avatar_emoji
+                p.cargo, p.aprovado AS supervisor_aprovado, u.avatar_emoji,
+                p.papel_servidor, p.papel_orientador, p.papel_supervisor
          FROM usuarios u
          LEFT JOIN professores p ON p.usuario_id = u.id
          WHERE u.id = $1`,
@@ -58,8 +59,8 @@ async function listarTodos({
         condicoes.push(`(u.nome ILIKE $${valores.length} OR u.email ILIKE $${valores.length})`);
     }
     if (tipo === 'aluno') condicoes.push("u.tipo = 'aluno'");
-    if (tipo === 'professor') condicoes.push("u.tipo = 'professor' AND COALESCE(p.cargo, 'comum') IN ('comum', 'admin')");
-    if (tipo === 'servidor') condicoes.push("u.tipo = 'professor' AND p.cargo = 'servidor'");
+    if (tipo === 'professor') condicoes.push("u.tipo = 'professor' AND COALESCE(p.cargo, 'comum') <> 'supervisor' AND (p.papel_orientador OR p.papel_supervisor)");
+    if (tipo === 'servidor') condicoes.push("u.tipo = 'professor' AND p.cargo <> 'supervisor' AND p.papel_servidor");
     if (tipo === 'supervisor') condicoes.push("u.tipo = 'professor' AND p.cargo = 'supervisor'");
     if (situacao === 'ativo') condicoes.push('u.ativo = true');
     if (situacao === 'desativado') condicoes.push('u.ativo = false');
@@ -69,7 +70,7 @@ async function listarTodos({
     const orderBy = {
         nome: 'u.nome',
         email: 'u.email',
-        tipo: "CASE WHEN u.tipo = 'aluno' THEN 'Estudante' WHEN p.cargo = 'supervisor' THEN 'Supervisor externo' WHEN p.cargo = 'servidor' THEN 'Servidor' ELSE 'Professor' END",
+        tipo: "CASE WHEN u.tipo = 'aluno' THEN 'Estudante' WHEN p.cargo = 'supervisor' THEN 'Supervisor externo' WHEN p.papel_servidor AND NOT p.papel_orientador THEN 'Servidor' ELSE 'Professor' END",
         criado_em: 'u.criado_em',
         situacao: `CASE WHEN u.ativo = false THEN 2 WHEN p.cargo = 'supervisor' AND p.aprovado = false THEN 1 ELSE 0 END`,
     }[ordenarPor] || 'u.nome';
@@ -86,6 +87,7 @@ async function listarTodos({
     const { rows } = await pool.query(
         `SELECT u.id, u.nome, u.email, u.tipo, u.ativo, u.criado_em,
                 p.cargo, p.aprovado AS supervisor_aprovado,
+                p.papel_servidor, p.papel_orientador, p.papel_supervisor,
                 p.empresa_externa, p.funcao_externa,
                 a.matricula, a.status AS status_estagio
          FROM usuarios u
@@ -125,34 +127,42 @@ async function contarSupervisoresPendentes() {
     return rows[0].total;
 }
 
-async function criarContaAdministrada({ nome, email, tipo, matricula, curso, empresa, funcao }) {
+// conta: 'aluno' | 'interno' (professor/servidor, com papéis) | 'supervisor' (externo)
+async function criarContaAdministrada({ nome, email, conta, matricula, curso, empresa, funcao, papeis = {} }) {
+    const externo = conta === 'supervisor';
     const { rows } = await pool.query(
         `WITH novo_usuario AS (
             INSERT INTO usuarios (nome, email, tipo, nome_confirmado)
-            VALUES ($1, $2, $3, true)
+            VALUES ($1, $2, $3::varchar, true)
             RETURNING id
         ),
         novo_aluno AS (
             INSERT INTO alunos (usuario_id, matricula, curso)
-            SELECT id, $5, $8 FROM novo_usuario WHERE $4 = 'aluno'
+            SELECT id, $4, $5 FROM novo_usuario WHERE $3::varchar = 'aluno'
             RETURNING usuario_id
         ),
         novo_professor AS (
             INSERT INTO professores
-                (usuario_id, cargo, aprovado, empresa_externa, funcao_externa, receber_relatorio_semanal)
-            SELECT id,
-                   CASE WHEN $4 = 'supervisor' THEN 'supervisor' WHEN $4 = 'servidor' THEN 'servidor' ELSE 'comum' END,
-                   $4 <> 'supervisor',
-                   CASE WHEN $4 = 'supervisor' THEN $6 ELSE NULL END,
-                   CASE WHEN $4 = 'supervisor' THEN $7 ELSE NULL END,
-                   $4 <> 'supervisor'
-            FROM novo_usuario WHERE $4 <> 'aluno'
+                (usuario_id, cargo, aprovado, empresa_externa, funcao_externa, receber_relatorio_semanal,
+                 papel_servidor, papel_orientador, papel_supervisor)
+            SELECT id, $6::varchar, $7::boolean, $8, $9, $7::boolean, $10::boolean, $11::boolean, $12::boolean
+            FROM novo_usuario WHERE $3::varchar = 'professor'
             RETURNING usuario_id
         )
         SELECT id FROM novo_usuario`,
-        [nome, email, tipo === 'aluno' ? 'aluno' : 'professor', tipo, matricula || null, empresa || null, funcao || null, curso || null]
+        [
+            nome, email, conta === 'aluno' ? 'aluno' : 'professor', matricula || null, curso || null,
+            externo ? 'supervisor' : (papeis.admin ? 'admin' : 'comum'), !externo,
+            externo ? (empresa || null) : null, externo ? (funcao || null) : null,
+            !externo && Boolean(papeis.servidor), externo || Boolean(papeis.orientador), externo || Boolean(papeis.supervisor),
+        ]
     );
     return rows[0].id;
+}
+
+// Edição pelo administrador: nome e e-mail de qualquer conta.
+async function atualizarDadosAdmin(id, nome, email) {
+    await pool.query('UPDATE usuarios SET nome = $2, email = $3, nome_confirmado = true WHERE id = $1', [id, nome, email]);
 }
 
 async function definirAtivo(id, ativo) {
@@ -256,7 +266,19 @@ async function listarProfessores() {
         `SELECT u.id, u.nome, u.email FROM usuarios u
          JOIN professores p ON p.usuario_id = u.id
          WHERE u.tipo = 'professor' AND u.ativo = true
-           AND p.cargo IN ('comum', 'admin') AND p.aprovado = true
+           AND p.cargo <> 'supervisor' AND p.papel_orientador AND p.aprovado = true
+         ORDER BY u.nome`
+    );
+    return rows;
+}
+
+// Pessoas internas com o papel de supervisor (o supervisor externo vem de listarSupervisores).
+async function listarSupervisoresInternos() {
+    const { rows } = await pool.query(
+        `SELECT u.id, u.nome, u.email FROM usuarios u
+         JOIN professores p ON p.usuario_id = u.id
+         WHERE u.tipo = 'professor' AND u.ativo = true
+           AND p.cargo <> 'supervisor' AND p.papel_supervisor AND p.aprovado = true
          ORDER BY u.nome`
     );
     return rows;
@@ -318,6 +340,7 @@ module.exports = {
     listarSupervisoresPendentes,
     contarSupervisoresPendentes,
     criarContaAdministrada,
+    atualizarDadosAdmin,
     definirAtivo,
     excluirSeSemVinculos,
     criar,
@@ -325,6 +348,7 @@ module.exports = {
     vincularGoogleId,
     listarProfessores,
     listarSupervisores,
+    listarSupervisoresInternos,
     confirmarNome,
     atualizarPerfil,
     atualizarAvatar,

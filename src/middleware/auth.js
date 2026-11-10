@@ -5,6 +5,7 @@
 const alunosModel = require('../models/alunos');
 const usuariosModel = require('../models/usuarios');
 const { estagioStatus } = require('../config/status');
+const { papeisDoPerfil } = require('../config/papeis');
 
 async function attachUser(req, res, next) {
     if (req.session.user) {
@@ -21,6 +22,7 @@ async function attachUser(req, res, next) {
             req.session.user.nome = acesso.nome;
             req.session.user.email = acesso.email;
             req.session.user.cargo = acesso.cargo || null;
+            req.session.user.papeis = papeisDoPerfil(acesso);
             req.session.user.supervisorAprovado = acesso.supervisor_aprovado ?? true;
             req.session.user.avatarEmoji = acesso.avatar_emoji || null;
         } catch (erro) {

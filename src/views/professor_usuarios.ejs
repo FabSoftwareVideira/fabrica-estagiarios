@@ -22,7 +22,7 @@
             <% if (ehAdmin) { %>
                 <a href="/professor/usuarios/novo" class="btn btn-success"><%- icone('mais') %> Adicionar usuário</a>
             <% } else { %>
-                <a href="/professor/dashboard" class="btn btn-secondary">Voltar ao painel</a>
+                <a href="/professor/inicio" class="btn btn-secondary">Voltar ao painel</a>
             <% } %>
         </div>
 
@@ -138,8 +138,9 @@
                             <% } else { %>
                                 <% usuarios.forEach((usuario) => {
                                     const supervisor = usuario.tipo === 'professor' && usuario.cargo === 'supervisor';
-                                    const servidor = usuario.tipo === 'professor' && usuario.cargo === 'servidor';
-                                    const tipo = usuario.tipo === 'aluno' ? 'Estudante' : (supervisor ? 'Supervisor externo' : (servidor ? 'Servidor (setor de estágios)' : 'Professor / orientador'));
+                                    const interno = usuario.tipo === 'professor' && !supervisor;
+                                    const papeisUsuario = interno ? papeisDoPerfil(usuario) : {};
+                                    const tipo = usuario.tipo === 'aluno' ? 'Estudante' : 'Supervisor externo';
                                     const proprio = Number(usuario.id) === Number(user.id);
                                     const principal = usuario.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase();
                                 %>
@@ -152,9 +153,12 @@
                                             <% } %>
                                         </td>
                                         <td>
-                                            <span class="status <%= supervisor ? 'status-banca' : (usuario.tipo === 'professor' ? 'status-progress' : 'status-waiting') %>"><%= tipo %></span>
-                                            <% if (usuario.tipo === 'professor' && !supervisor && usuario.cargo === 'admin') { %>
-                                                <span class="status status-progress">Administrador</span>
+                                            <% if (interno) { %>
+                                                <% PAPEIS.filter((p) => papeisUsuario[p.chave]).forEach((p) => { %>
+                                                    <span class="status <%= p.chave === 'admin' ? 'status-progress' : (p.chave === 'servidor' ? 'status-banca' : 'status-waiting') %>"><%= p.rotulo %></span>
+                                                <% }) %>
+                                            <% } else { %>
+                                                <span class="status <%= supervisor ? 'status-banca' : 'status-waiting' %>"><%= tipo %></span>
                                             <% } %>
                                         </td>
                                         <td class="user-status-cell">
@@ -168,18 +172,7 @@
                                         <td><%= new Date(usuario.criado_em).toLocaleDateString('pt-BR') %></td>
                                         <td>
                                             <div class="user-actions">
-                                                <% if (usuario.tipo === 'professor' && !supervisor && !proprio && !principal && usuario.cargo !== 'admin') { %>
-                                                    <form action="/professor/professores/<%= usuario.id %>/cargo" method="POST">
-                                                        <input type="hidden" name="cargo" value="<%= servidor ? 'comum' : 'servidor' %>">
-                                                        <button type="submit" class="user-action" title="<%= servidor ? 'Tornar professor / orientador' : 'Tornar servidor (setor de estágios)' %>" aria-label="<%= servidor ? 'Tornar ' + usuario.nome + ' professor' : 'Tornar ' + usuario.nome + ' servidor do setor de estágios' %>" data-confirmar="<%= servidor ? 'Tornar este usuário professor / orientador? Ele passará a ver só os estudantes que orienta ou supervisiona.' : 'Tornar este usuário servidor do setor de estágios? Ele verá todos os estudantes, mas não poderá orientar, supervisionar nem avaliar bancas.' %>"><%- icone('olho') %></button>
-                                                    </form>
-                                                <% } %>
-                                                <% if (usuario.tipo === 'professor' && !supervisor && !servidor && !proprio && !principal) { %>
-                                                    <form action="/professor/professores/<%= usuario.id %>/cargo" method="POST">
-                                                        <input type="hidden" name="cargo" value="<%= usuario.cargo === 'admin' ? 'comum' : 'admin' %>">
-                                                        <button type="submit" class="user-action" title="<%= usuario.cargo === 'admin' ? 'Remover administrador' : 'Tornar administrador' %>" aria-label="<%= usuario.cargo === 'admin' ? 'Remover administrador de ' + usuario.nome : 'Tornar ' + usuario.nome + ' administrador' %>" data-confirmar="<%= usuario.cargo === 'admin' ? 'Remover o cargo de administrador?' : 'Tornar este usuário administrador?' %>"><%- icone('escudo') %></button>
-                                                    </form>
-                                                <% } %>
+                                                <a href="/professor/usuarios/<%= usuario.id %>/editar" class="user-action" title="Editar dados e papéis" aria-label="Editar <%= usuario.nome %>"><%- icone('caneta') %></a>
                                                 <% if (!proprio && !principal) { %>
                                                     <form action="/professor/usuarios/<%= usuario.id %>/ativo" method="POST">
                                                         <input type="hidden" name="ativo" value="<%= usuario.ativo ? 'false' : 'true' %>">

@@ -18,7 +18,7 @@
 
 <header class="site-header">
     <div class="header-inner">
-        <a href="<%= user ? (user.cargo === 'supervisor' && !user.supervisorAprovado ? '/supervisor/pendente' : (user.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard')) : '/' %>" class="brand">
+        <a href="<%= user ? (user.cargo === 'supervisor' && !user.supervisorAprovado ? '/supervisor/pendente' : (user.tipo === 'professor' ? '/professor/inicio' : '/aluno/dashboard')) : '/' %>" class="brand">
             <img src="/img/logo-ifc-videira.png" alt="Instituto Federal Catarinense, Campus Videira" class="brand-logo" width="110" height="44">
             <span class="brand-text">Controle de Estágio<small>Cursos Técnicos Integrados ao Ensino Médio</small></span>
         </a>
@@ -43,16 +43,22 @@
                         <a href="/aluno/dashboard?aba=fichas" class="nav-link <%= ativo((noDash && aba === 'fichas') || currentPath.startsWith('/aluno/faa')) %>"><%- icone('arquivo') %> Fichas</a>
                     <% } else { %>
                         <% const emFichas = currentPath === '/professor/fichas' || currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/(fare|fapo|fac|banca)/.test(currentPath); %>
-                        <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros', '/professor/acompanhamento'].includes(currentPath); %>
-                        <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> <%= user.cargo === 'supervisor' ? 'Supervisionados' : 'Alunos' %></a>
-                        <% if (user.cargo !== 'supervisor' && currentPath !== '/supervisor/pendente') { %>
-                            <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
+                        <% const papeis = user.papeis || {}; %>
+                        <% const externo = user.cargo === 'supervisor'; %>
+                        <% const emAdmin = currentPath === '/professor/administracao' || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
+                        <% const emAcompanhamento = currentPath === '/professor/acompanhamento'; %>
+                        <%# cada papel tem o seu item: acompanhar todos, cuidar dos próprios estudantes, administrar %>
+                        <% if (!externo && (user.cargo === 'admin' || papeis.servidor)) { %>
+                            <a href="/professor/acompanhamento" class="nav-link <%= ativo(emAcompanhamento) %>"><%- icone('olho') %> Acompanhamento</a>
                         <% } %>
-                        <% if (user.cargo === 'servidor') { %>
-                            <a href="/professor/acompanhamento" class="nav-link <%= ativo(currentPath === '/professor/acompanhamento') %>"><%- icone('olho') %> Acompanhamento</a>
+                        <% if (externo || papeis.orientador || papeis.supervisor) { %>
+                            <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && !emAcompanhamento && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> <%= externo ? 'Supervisionados' : 'Alunos' %></a>
+                            <% if (!externo && currentPath !== '/supervisor/pendente') { %>
+                                <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
+                            <% } %>
                         <% } %>
                         <% if (user.cargo === 'admin') { %>
-                            <a href="/professor/dashboard?aba=administracao" class="nav-link <%= ativo(emAdmin) %>"><%- icone('escudo') %> Administração</a>
+                            <a href="/professor/administracao" class="nav-link <%= ativo(emAdmin) %>"><%- icone('escudo') %> Administração</a>
                         <% } %>
                     <% } %>
                 </div>

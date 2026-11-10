@@ -73,16 +73,37 @@ async function listarExceto(usuarioIdAtual) {
     return rows;
 }
 
-// Estudantes e bancas em aberto que dependem da pessoa como orientadora,
-// supervisora ou avaliadora. Quem tem vínculos não pode virar servidor.
+// O que ainda depende da pessoa em cada papel. Um papel com vínculos em aberto
+// não pode ser retirado antes de trocar os responsáveis.
 async function contarVinculos(usuarioId) {
     const { rows } = await pool.query(
-        `SELECT (SELECT COUNT(*) FROM alunos WHERE orientador_id = $1 OR supervisor_id = $1)::int AS estudantes,
+        `SELECT (SELECT COUNT(*) FROM alunos WHERE orientador_id = $1 AND encerrado_em IS NULL)::int AS orientandos,
+                (SELECT COUNT(*) FROM alunos WHERE supervisor_id = $1 AND encerrado_em IS NULL)::int AS supervisionados,
                 (SELECT COUNT(*) FROM bancas WHERE situacao IN ('agendada', 'remarcada')
                     AND $1 IN (orientador_id, avaliador_1_id, avaliador_2_id))::int AS bancas`,
         [usuarioId]
     );
     return rows[0];
+}
+
+// Grava o conjunto de papéis de uma conta interna. Não mexe em supervisor externo.
+async function definirPapeis(usuarioId, { admin, servidor, orientador, supervisor }) {
+    const { rowCount } = await pool.query(
+        `UPDATE professores
+         SET cargo = CASE WHEN $2 THEN 'admin' ELSE 'comum' END,
+             papel_servidor = $3, papel_orientador = $4, papel_supervisor = $5
+         WHERE usuario_id = $1 AND cargo <> 'supervisor'`,
+        [usuarioId, Boolean(admin), Boolean(servidor), Boolean(orientador), Boolean(supervisor)]
+    );
+    return rowCount > 0;
+}
+
+// Empresa e função de um supervisor externo.
+async function atualizarDadosExternos(usuarioId, empresa, funcao) {
+    await pool.query(
+        "UPDATE professores SET empresa_externa = $2, funcao_externa = $3 WHERE usuario_id = $1 AND cargo = 'supervisor'",
+        [usuarioId, empresa, funcao]
+    );
 }
 
 async function definirCargo(usuarioId, cargo) {
@@ -114,6 +135,8 @@ module.exports = {
     listarExceto,
     definirCargo,
     contarVinculos,
+    definirPapeis,
+    atualizarDadosExternos,
     definirRecebimentoRelatorio,
     excluir,
 };

@@ -7,11 +7,12 @@ const fichasRascunhos = require('../models/fichasRascunhos');
 const { CRITERIOS_FAC, lerFac } = require('../utils/fac');
 const { dataParaInput, dataLocalIso, periodoDasAtividades, nomeParaArquivo } = require('../utils/datas');
 const { gerarFacPdf } = require('../services/facPdf');
+const { veTodosOsEstagios } = require('../config/papeis');
 
 async function carregar(req, res, next) {
     const aluno = await alunos.buscarPorUsuarioId(req.params.id);
     const user = req.session.user;
-    if (!aluno || ![aluno.supervisor_id, aluno.orientador_id].some((id) => Number(id) === Number(user.id)) && !['admin', 'servidor'].includes(user.cargo)) {
+    if (!aluno || ![aluno.supervisor_id, aluno.orientador_id].some((id) => Number(id) === Number(user.id)) && !veTodosOsEstagios(user)) {
         return res.status(403).send('Você não tem acesso à avaliação deste estudante.');
     }
     req.aluno = aluno;

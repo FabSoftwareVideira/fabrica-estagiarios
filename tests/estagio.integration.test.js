@@ -757,7 +757,7 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
     const cadastro = await requisitar('/professor/usuarios/novo', { user: 104 });
     assert.equal(cadastro.status, 200);
     const cadastroHtml = await cadastro.text();
-    assert.match(cadastroHtml, /data-admin-user-form/);
+    assert.match(cadastroHtml, /data-usuario-form/);
     for (const curso of require('../src/config/cursos').CURSOS) assert.ok(cadastroHtml.includes(curso));
 
     const paginaFiltrada = await requisitar('/professor/usuarios?tipo=aluno&situacao=ativo&ordenar=nome&dir=desc', { user: 104 });
@@ -1112,41 +1112,56 @@ test('acompanhamento: só o administrador vê; totais por curso, etapas, pendên
     assert.match(filtrada, /Estudante 3</); assert.doesNotMatch(filtrada, /Estudante 4</); assert.doesNotMatch(filtrada, /Estudante 1</);
     const soPendencias = await (await requisitar('/professor/acompanhamento?pendencias=1', { user: 104 })).text();
     assert.match(soPendencias, /Estudante 6</); assert.doesNotMatch(soPendencias, /Estudante 7</);
-    assert.match(await (await requisitar('/professor/dashboard?aba=administracao', { user: 104 })).text(), /Abrir acompanhamento/);
+    assert.match(await (await requisitar('/professor/dashboard', { user: 104 })).text(), /href="\/professor\/acompanhamento" class="nav-link/);
 });
-test('servidor do setor de estágios vê todos os estudantes, mas não orienta nem administra', async () => {
-    // o administrador cadastra um servidor e também converte um professor sem vínculos
-    const criado = await requisitar('/professor/usuarios', {
-        user: 104, method: 'POST', body: { nome: 'Servidora Nova', email: 'servidora@example.test', tipo: 'servidor' },
-    });
-    assert.equal(criado.headers.get('location'), '/professor/usuarios');
-    const nova = (await consultar("SELECT u.id, u.tipo, p.cargo, p.aprovado FROM usuarios u JOIN professores p ON p.usuario_id=u.id WHERE u.email='servidora@example.test'")).rows[0];
-    assert.deepEqual([nova.tipo, nova.cargo, nova.aprovado], ['professor', 'servidor', true]);
-
-    // quem ainda orienta ou supervisiona não pode virar servidor
-    await requisitar('/professor/professores/102/cargo', { user: 104, method: 'POST', body: { cargo: 'servidor' } });
-    assert.equal((await consultar('SELECT cargo FROM professores WHERE usuario_id=102')).rows[0].cargo, 'comum');
-    await requisitar('/professor/professores/103/cargo', { user: 104, method: 'POST', body: { cargo: 'servidor' } });
-    assert.equal((await consultar('SELECT cargo FROM professores WHERE usuario_id=103')).rows[0].cargo, 'servidor');
-
-    // vê todos os estudantes no painel e o acompanhamento, com o link no menu
-    const painel = await (await requisitar('/professor/dashboard', { user: 103 })).text();
-    assert.match(painel, /Estudante 1</); assert.match(painel, /Estudante 9</);
-    assert.match(painel, /href="\/professor\/acompanhamento"/);
-    assert.doesNotMatch(painel, /aba=administracao/);
-    assert.equal((await requisitar('/professor/acompanhamento', { user: 103 })).status, 200);
-    assert.equal((await requisitar('/professor/aluno/1', { user: 103 })).status, 200);
-    // um professor comum continua vendo só os seus
-    assert.doesNotMatch(await (await requisitar('/professor/dashboard', { user: 101 })).text(), /href="\/professor\/acompanhamento"/);
-
-    // não administra usuários
-    const semAcesso = await requisitar('/professor/usuarios/novo', { user: 103 });
-    assert.equal(semAcesso.status, 302);
-    assert.equal(semAcesso.headers.get('location'), '/professor/dashboard');
-
-    // não aparece nem é aceito como orientador ou supervisor
+test('papéis acumuláveis: o administrador combina servidor, orientador, supervisor e administrador', async () => {
     const usuarios = require('../src/models/usuarios');
+    const papeis = async (id) => (await consultar('SELECT cargo, papel_servidor AS servidor, papel_orientador AS orientador, papel_supervisor AS supervisor FROM professores WHERE usuario_id=$1', [id])).rows[0];
+    const definir = (id, lista, user = 104) => requisitar(`/professor/usuarios/${id}/papeis`, { user, method: 'POST', body: { papeis: lista } });
+
+    // por padrão, toda conta interna pode orientar e supervisionar
+    assert.deepEqual(await papeis(103), { cargo: 'comum', servidor: false, orientador: true, supervisor: true });
+
+    // conta cadastrada como servidor entra só com esse papel
+    await requisitar('/professor/usuarios', { user: 104, method: 'POST', body: { nome: 'Servidora Nova', email: 'servidora@example.test', tipo: 'servidor' } });
+    const nova = (await consultar("SELECT id FROM usuarios WHERE email='servidora@example.test'")).rows[0].id;
+    assert.deepEqual(await papeis(nova), { cargo: 'comum', servidor: true, orientador: false, supervisor: false });
+
+    // só o administrador define papéis, nunca os próprios, e ao menos um é obrigatório
+    assert.equal((await definir(103, ['servidor'], 102)).headers.get('location'), '/professor/dashboard');
+    await definir(104, ['orientador']);
+    assert.equal((await papeis(104)).cargo, 'admin');
+    await definir(103, []);
+    assert.deepEqual(await papeis(103), { cargo: 'comum', servidor: false, orientador: true, supervisor: true });
+    await definir(105, ['servidor']); // supervisor externo não acumula papéis
+    assert.equal((await papeis(105)).cargo, 'supervisor');
+
+    // papel com estudantes em aberto não pode ser retirado (102 orienta, 101 supervisiona)
+    await definir(102, ['servidor', 'supervisor']);
+    assert.equal((await papeis(102)).orientador, true);
+    await definir(101, ['orientador']);
+    assert.equal((await papeis(101)).supervisor, true);
+
+    // 103 passa a ser só servidor: abre no acompanhamento e não tem a tela de alunos
+    await definir(103, ['servidor']);
+    assert.deepEqual(await papeis(103), { cargo: 'comum', servidor: true, orientador: false, supervisor: false });
+    assert.equal((await requisitar('/professor/inicio', { user: 103 })).headers.get('location'), '/professor/acompanhamento');
+    assert.equal((await requisitar('/professor/dashboard', { user: 103 })).headers.get('location'), '/professor/acompanhamento');
+    const acompanhamento = await requisitar('/professor/acompanhamento', { user: 103 });
+    assert.equal(acompanhamento.status, 200);
+    const htmlServidor = await acompanhamento.text();
+    assert.match(htmlServidor, /Estudante 1</); assert.match(htmlServidor, /Estudante 9</);
+    assert.doesNotMatch(htmlServidor, /href="\/professor\/dashboard" class="nav-link/);
+    assert.doesNotMatch(htmlServidor, /href="\/professor\/administracao"/);
+    assert.equal((await requisitar('/professor/aluno/1', { user: 103 })).status, 200);
+    assert.equal((await requisitar('/professor/usuarios/novo', { user: 103 })).headers.get('location'), '/professor/dashboard');
+    // busca por nome dentro do acompanhamento
+    const busca = await (await requisitar('/professor/acompanhamento?q=' + encodeURIComponent('estudante 10'), { user: 103 })).text();
+    assert.match(busca, /Estudante 10</); assert.doesNotMatch(busca, /Estudante 2</);
+
+    // quem não é orientador nem supervisor não aparece nem é aceito nesses campos
     assert.equal((await usuarios.listarProfessores()).some((p) => p.id === 103), false);
+    assert.equal((await usuarios.listarSupervisoresInternos()).some((p) => p.id === 103), false);
     const edicao = { empresa: 'Empresa Exemplo', carga_horaria: '60', status: 'em_andamento',
         dias_trabalho: ['1'], horario_inicio_1: '08:00', horario_fim_1: '12:00' };
     await requisitar('/professor/aluno/1', { user: 104, method: 'POST', body: { ...edicao, orientador_id: '103', supervisor_id: '101' } });
@@ -1154,7 +1169,80 @@ test('servidor do setor de estágios vê todos os estudantes, mas não orienta n
     const responsaveis = (await consultar('SELECT orientador_id, supervisor_id FROM alunos WHERE usuario_id=1')).rows[0];
     assert.deepEqual([responsaveis.orientador_id, responsaveis.supervisor_id], [102, 101]);
 
-    // o administrador devolve o papel de professor
-    await requisitar('/professor/professores/103/cargo', { user: 104, method: 'POST', body: { cargo: 'comum' } });
+    // servidor + orientador + administrador ao mesmo tempo
+    await definir(103, ['admin', 'servidor', 'orientador']);
+    assert.deepEqual(await papeis(103), { cargo: 'admin', servidor: true, orientador: true, supervisor: false });
     assert.equal((await usuarios.listarProfessores()).some((p) => p.id === 103), true);
+    assert.equal((await requisitar('/professor/inicio', { user: 103 })).headers.get('location'), '/professor/acompanhamento');
+    assert.equal((await requisitar('/professor/dashboard', { user: 103 })).status, 200);
+    assert.equal((await requisitar('/professor/usuarios/novo', { user: 103 })).status, 200);
+
+    // professor comum: começa na tela de alunos e não acessa o acompanhamento
+    assert.equal((await requisitar('/professor/inicio', { user: 101 })).headers.get('location'), '/professor/dashboard');
+    assert.equal((await requisitar('/professor/acompanhamento', { user: 101 })).headers.get('location'), '/professor/dashboard');
+
+    // a tela de usuários mostra os papéis e o editor
+    const tela = await (await requisitar('/professor/usuarios?tipo=servidor', { user: 104 })).text();
+    assert.match(tela, /Servidor \(setor de estágios\)/); assert.match(tela, /Editar dados e papéis/);
+});
+test('administração separada: página própria, cadastro com papéis e edição de dados dos usuários', async () => {
+    const cursos = require('../src/config/cursos').CURSOS;
+    const linha = async (sql, params) => (await consultar(sql, params)).rows[0];
+
+    // página própria, só para administradores; a aba antiga redireciona
+    assert.equal((await requisitar('/professor/administracao', { user: 104 })).status, 200);
+    assert.equal((await requisitar('/professor/administracao', { user: 102 })).headers.get('location'), '/professor/dashboard');
+    assert.equal((await requisitar('/professor/dashboard?aba=administracao', { user: 104 })).headers.get('location'), '/professor/administracao');
+    const painel = await (await requisitar('/professor/dashboard', { user: 104 })).text();
+    assert.doesNotMatch(painel, /class="tab /);
+    assert.match(painel, /href="\/professor\/administracao" class="nav-link/);
+
+    // cadastro de conta interna com vários papéis de uma vez
+    const novo = await (await requisitar('/professor/usuarios/novo', { user: 104 })).text();
+    assert.match(novo, /Professor ou servidor/); assert.match(novo, /name="papeis" value="supervisor"/);
+    await requisitar('/professor/usuarios', { user: 104, method: 'POST', body: { nome: 'Paula Interna', email: 'Paula@Example.test', tipo: 'interno', papeis: ['servidor', 'supervisor', 'admin'] } });
+    const paula = await linha("SELECT u.id, u.email, p.cargo, p.papel_servidor AS servidor, p.papel_orientador AS orientador, p.papel_supervisor AS supervisor FROM usuarios u JOIN professores p ON p.usuario_id=u.id WHERE LOWER(u.email)='paula@example.test'");
+    assert.deepEqual([paula.email, paula.cargo, paula.servidor, paula.orientador, paula.supervisor], ['paula@example.test', 'admin', true, false, true]);
+    // conta interna sem papel é recusada
+    await requisitar('/professor/usuarios', { user: 104, method: 'POST', body: { nome: 'Sem Papel', email: 'sempapel@example.test', tipo: 'interno' } });
+    assert.equal((await consultar("SELECT 1 FROM usuarios WHERE email='sempapel@example.test'")).rows.length, 0);
+
+    // edição: só administrador; nome, e-mail e papéis de uma conta interna
+    assert.equal((await requisitar(`/professor/usuarios/${paula.id}/editar`, { user: 102 })).headers.get('location'), '/professor/dashboard');
+    const tela = await (await requisitar(`/professor/usuarios/${paula.id}/editar`, { user: 104 })).text();
+    assert.match(tela, /value="Paula Interna"/); assert.match(tela, /Salvar alterações/);
+    const editar = (id, body, user = 104) => requisitar(`/professor/usuarios/${id}`, { user, method: 'POST', body });
+    assert.equal((await editar(paula.id, { nome: 'Paula Souza', email: 'paula.souza@example.test', papeis: ['orientador'] })).headers.get('location'), '/professor/usuarios');
+    assert.deepEqual(await linha('SELECT u.nome, u.email, p.cargo, p.papel_servidor AS servidor, p.papel_orientador AS orientador, p.papel_supervisor AS supervisor FROM usuarios u JOIN professores p ON p.usuario_id=u.id WHERE u.id=$1', [paula.id]),
+        { nome: 'Paula Souza', email: 'paula.souza@example.test', cargo: 'comum', servidor: false, orientador: true, supervisor: false });
+    // e-mail de outra pessoa e conta sem papéis são recusados
+    await editar(paula.id, { nome: 'Paula Souza', email: 'orientador@example.test', papeis: ['orientador'] });
+    await editar(paula.id, { nome: 'Paula Souza', email: 'paula.souza@example.test' });
+    assert.deepEqual(await linha('SELECT email, papel_orientador AS orientador FROM usuarios u JOIN professores p ON p.usuario_id=u.id WHERE u.id=$1', [paula.id]),
+        { email: 'paula.souza@example.test', orientador: true });
+    // papel com estudantes em aberto não sai pela edição (102 orienta)
+    await editar(102, { nome: 'Orientador Teste', email: 'orientador@example.test', papeis: ['supervisor'] });
+    assert.equal((await linha('SELECT papel_orientador AS orientador FROM professores WHERE usuario_id=102')).orientador, true);
+    // o administrador edita os próprios dados, mas não os próprios papéis
+    await editar(104, { nome: 'Admin Renomeado', email: 'admin@example.test', papeis: ['orientador'] });
+    assert.deepEqual(await linha('SELECT u.nome, p.cargo FROM usuarios u JOIN professores p ON p.usuario_id=u.id WHERE u.id=104'), { nome: 'Admin Renomeado', cargo: 'admin' });
+
+    // estudante: matrícula e curso; matrícula de outro estudante é recusada
+    await editar(1, { nome: 'Estudante Um', email: 'aluno1@example.test', matricula: 'MAT-001', curso: cursos[2] });
+    assert.deepEqual(await linha('SELECT u.nome, a.matricula, a.curso FROM usuarios u JOIN alunos a ON a.usuario_id=u.id WHERE u.id=1'), { nome: 'Estudante Um', matricula: 'MAT-001', curso: cursos[2] });
+    await editar(2, { nome: 'Estudante 2', email: 'aluno2@example.test', matricula: 'MAT-001', curso: cursos[0] });
+    assert.notEqual((await linha('SELECT matricula FROM alunos WHERE usuario_id=2')).matricula, 'MAT-001');
+
+    // supervisor externo: empresa e função
+    await editar(105, { nome: 'Supervisor Externo', email: 'externo@example.test', empresa: 'Nova Empresa', funcao: 'Gerente' });
+    assert.deepEqual(await linha('SELECT cargo, empresa_externa, funcao_externa FROM professores WHERE usuario_id=105'), { cargo: 'supervisor', empresa_externa: 'Nova Empresa', funcao_externa: 'Gerente' });
+
+    // quem é só administrador começa na administração e não tem a tela de alunos
+    await requisitar('/professor/usuarios/103/papeis', { user: 104, method: 'POST', body: { papeis: ['admin'] } });
+    assert.equal((await requisitar('/professor/inicio', { user: 103 })).headers.get('location'), '/professor/administracao');
+    assert.equal((await requisitar('/professor/dashboard', { user: 103 })).headers.get('location'), '/professor/administracao');
+    const menu = await (await requisitar('/professor/administracao', { user: 103 })).text();
+    assert.doesNotMatch(menu, /href="\/professor\/dashboard" class="nav-link/);
+    assert.doesNotMatch(menu, /href="\/professor\/fichas" class="nav-link/);
+    assert.match(menu, /href="\/professor\/acompanhamento" class="nav-link/);
 });

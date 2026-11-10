@@ -18,7 +18,7 @@ const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTraba
 const { CURSOS, ehCurso } = require('../config/cursos');
 const bancasModel = require('../models/bancas');
 const acompanhamentoModel = require('../models/acompanhamento');
-const { veTodosOsEstagios, podeOrientar } = require('../config/papeis');
+const { PAPEIS, CHAVES_PAPEIS, papeisDoPerfil, veTodosOsEstagios, temAlunosProprios, telaInicial } = require('../config/papeis');
 
 // Acompanhamento geral: administradores e servidores do setor de estágios.
 function requireVisaoGeral(req, res, next) {
@@ -35,6 +35,7 @@ router.use(async (req, res, next) => {
     if (!perfil) return res.redirect('/login');
 
     user.cargo = perfil.cargo;
+    user.papeis = papeisDoPerfil(perfil);
     user.supervisorAprovado = perfil.aprovado;
     if (perfil.cargo !== 'supervisor') return next();
     if (!perfil.aprovado) return res.redirect('/supervisor/pendente');
@@ -105,29 +106,26 @@ const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'ence
 const SITUACOES_SUPERVISOR = ['andamento', 'concluido'];
 const CAMPOS_ORDENACAO_USUARIOS = ['nome', 'email', 'tipo', 'situacao', 'criado_em'];
 
+// Administração: contas, papéis e configurações. Fica separada das telas de
+// alunos e fichas, porque quem administra nem sempre orienta ou supervisiona.
+router.get('/administracao', requireAdmin, async (req, res) => {
+    res.render('professor_administracao', { solicitacoesPendentes: await usuariosModel.contarSupervisoresPendentes() });
+});
+
+// Primeira tela depois do login: depende dos papéis da pessoa.
+router.get('/inicio', (req, res) => res.redirect(telaInicial(req.session.user)));
+
 router.get('/dashboard', async (req, res) => {
+    // quem é só servidor não tem estudantes próprios: a lista dele é o acompanhamento
+    // a administração tem página própria; a aba antiga só redireciona
+    if (req.query.aba === 'administracao') return res.redirect('/professor/administracao');
+    if (!temAlunosProprios(req.session.user) && telaInicial(req.session.user) !== '/professor/dashboard') {
+        return res.redirect(telaInicial(req.session.user));
+    }
     const isAdmin = req.session.user.cargo === 'admin';
     const isSupervisor = req.session.user.cargo === 'supervisor';
     const solicitacoesPendentes = await usuariosModel.contarSupervisoresPendentes();
-    const aba = isAdmin
-        ? (req.query.aba === 'administracao' ? 'administracao' : 'alunos')
-        : 'alunos';
-
-    if (aba === 'administracao') {
-        return res.render('professor_dashboard', {
-            aba,
-            alunos: [],
-            total: 0,
-            pagina: 1,
-            totalPaginas: 1,
-            tamanhoPagina: TAMANHO_PAGINA,
-            filtros: { q: '', status: [], situacao: [], arquivados: false },
-            filtroPersonalizado: false,
-            ordenacao: { campo: null, direcao: 'asc' },
-            solicitacoesPendentes,
-            facPendentes: [],
-        });
-    }
+    const aba = 'alunos';
 
     const busca = (req.query.q || '').trim();
     const arquivados = !isSupervisor && req.query.arquivados === '1';
@@ -173,7 +171,7 @@ router.get('/dashboard', async (req, res) => {
         status,
         busca,
         arquivados,
-        professorId: veTodosOsEstagios(req.session.user) || isSupervisor ? null : req.session.user.id,
+        professorId: isAdmin || isSupervisor ? null : req.session.user.id,
         supervisorId: isSupervisor ? req.session.user.id : null,
         limite: TAMANHO_PAGINA,
         offset: (pagina - 1) * TAMANHO_PAGINA,
@@ -182,7 +180,7 @@ router.get('/dashboard', async (req, res) => {
     });
 
     // bancas em que o professor participa aparecem em destaque no painel
-    const minhasBancas = isSupervisor || req.session.user.cargo === 'servidor' ? [] : await bancasModel.listarProximasDoProfessor(req.session.user.id);
+    const minhasBancas = isSupervisor ? [] : await bancasModel.listarProximasDoProfessor(req.session.user.id);
     // destaque do supervisor: quem cumpriu as horas e ainda falta a FAC
     const facPendentes = isSupervisor
         ? await alunosModel.listarPendentesFac(req.session.user.id)
@@ -276,10 +274,11 @@ router.get('/aluno/:id', async (req, res) => {
         return res.redirect('/professor/dashboard');
     }
 
-    const [atividades, professores, supervisores, fapo, faa, fare, fac, fapoRascunho, facRascunho] = await Promise.all([
+    const [atividades, professores, supervisores, supervisoresInternos, fapo, faa, fare, fac, fapoRascunho, facRascunho] = await Promise.all([
         atividadesModel.listarPorAluno(req.params.id),
         usuariosModel.listarProfessores(),
         usuariosModel.listarSupervisores(),
+        usuariosModel.listarSupervisoresInternos(),
         faposModel.buscarPorAluno(req.params.id),
         faasModel.buscarPorAluno(req.params.id),
         faresModel.buscarPorAluno(req.params.id),
@@ -301,6 +300,7 @@ router.get('/aluno/:id', async (req, res) => {
         atividades,
         professores,
         supervisores,
+        supervisoresInternos,
         podeGerarFapo,
         fac,
         ehSupervisor: Number(aluno.supervisor_id) === Number(req.session.user.id),
@@ -474,10 +474,10 @@ async function validarResponsaveis(supervisorId, orientadorId) {
         orientadorId ? professoresModel.buscarPorUsuarioId(orientadorId) : null,
     ]);
 
-    if (supervisorId && (!supervisor || !supervisor.aprovado || supervisor.cargo === 'servidor')) {
+    if (supervisorId && (!supervisor || !supervisor.aprovado || !papeisDoPerfil(supervisor).supervisor)) {
         return 'Selecione um supervisor aprovado.';
     }
-    if (orientadorId && (!orientador || !orientador.aprovado || !podeOrientar(orientador.cargo))) {
+    if (orientadorId && (!orientador || !orientador.aprovado || orientador.cargo === 'supervisor' || !papeisDoPerfil(orientador).orientador)) {
         return 'O orientador deve ser um professor da instituição.';
     }
     if (supervisorId && orientadorId && Number(supervisorId) === Number(orientadorId)) {
@@ -623,11 +623,12 @@ router.get('/cadastro-aluno/:id', async (req, res) => {
         return res.redirect('/professor/dashboard');
     }
 
-    const [professores, supervisores] = await Promise.all([
+    const [professores, supervisores, supervisoresInternos] = await Promise.all([
         usuariosModel.listarProfessores(),
         usuariosModel.listarSupervisores(),
+        usuariosModel.listarSupervisoresInternos(),
     ]);
-    res.render('professor_cadastro_aluno', { aluno, professores, supervisores, diasTrabalho: DIAS_TRABALHO });
+    res.render('professor_cadastro_aluno', { aluno, professores, supervisores, supervisoresInternos, diasTrabalho: DIAS_TRABALHO });
 });
 
 router.post('/cadastro-aluno/:id', async (req, res) => {
@@ -727,6 +728,8 @@ router.post('/aluno/:id/excluir', requireAdmin, async (req, res) => {
 // confirmar/promover/excluir sozinho).
 
 router.get('/usuarios', requireRole('professor'), async (req, res) => {
+    res.locals.PAPEIS = PAPEIS;
+    res.locals.papeisDoPerfil = papeisDoPerfil;
     const ehAdmin = req.session.user.cargo === 'admin';
     if (req.session.user.cargo === 'supervisor' && !req.session.user.supervisorAprovado) {
         return res.redirect('/supervisor/pendente');
@@ -782,21 +785,63 @@ router.get('/usuarios', requireRole('professor'), async (req, res) => {
     });
 });
 
-router.get('/usuarios/novo', requireAdmin, (req, res) => {
-    res.render('professor_usuario_novo', { cursos: CURSOS });
+// ── Cadastro e edição de usuários (administrador) ────────────────────────
+function formularioUsuario(res, dados = {}) {
+    res.render('professor_usuario_form', {
+        cursos: CURSOS,
+        PAPEIS,
+        usuario: null,
+        aluno: null,
+        professor: null,
+        // conta interna nova começa como hoje: pode orientar e supervisionar
+        papeisAtuais: { admin: false, servidor: false, orientador: true, supervisor: true },
+        proprio: false,
+        principal: false,
+        ...dados,
+    });
+}
+
+router.get('/usuarios/novo', requireAdmin, (req, res) => formularioUsuario(res));
+
+async function carregarUsuarioEditado(req, res, next) {
+    const id = Number(req.params.id);
+    const usuario = Number.isSafeInteger(id) && id > 0 ? await usuariosModel.buscarPorId(id) : null;
+    if (!usuario) {
+        setFlash(req, 'error', 'Usuário não encontrado.');
+        return res.redirect('/professor/usuarios');
+    }
+    req.usuarioEditado = usuario;
+    req.alunoEditado = usuario.tipo === 'aluno' ? await alunosModel.buscarPorUsuarioId(id) : null;
+    req.professorEditado = usuario.tipo === 'professor' ? await professoresModel.buscarPorUsuarioId(id) : null;
+    next();
+}
+
+router.get('/usuarios/:id/editar', requireAdmin, carregarUsuarioEditado, (req, res) => {
+    const usuario = req.usuarioEditado;
+    formularioUsuario(res, {
+        usuario,
+        aluno: req.alunoEditado,
+        professor: req.professorEditado,
+        papeisAtuais: papeisDoPerfil(req.professorEditado),
+        proprio: Number(usuario.id) === Number(req.session.user.id),
+        principal: usuario.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase(),
+    });
 });
 
 // Dashboard do administrador: situação de cada estudante e de cada curso.
 router.get('/acompanhamento', requireVisaoGeral, async (req, res) => {
     const { ETAPAS_ACOMPANHAMENTO, formatarHoras } = acompanhamentoModel;
     const filtros = {
+        q: typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '',
         curso: ehCurso(req.query.curso) ? req.query.curso : '',
         etapa: ETAPAS_ACOMPANHAMENTO.some((e) => e.chave === req.query.etapa) ? req.query.etapa : '',
         pendencias: req.query.pendencias === '1',
     };
     const todos = await acompanhamentoModel.listarEstudantes();
     // os totais consideram todos; os filtros valem só para a lista de estudantes
-    const estudantes = todos.filter((a) => (!filtros.curso || a.curso === filtros.curso)
+    const termo = filtros.q.toLowerCase();
+    const estudantes = todos.filter((a) => (!termo || a.nome.toLowerCase().includes(termo) || a.email.toLowerCase().includes(termo))
+        && (!filtros.curso || a.curso === filtros.curso)
         && (!filtros.etapa || a.etapa === filtros.etapa)
         && (!filtros.pendencias || a.pendencias.length > 0));
     res.render('professor_acompanhamento', {
@@ -861,50 +906,72 @@ router.post('/relatorio-semanal/enviar-agora', requireAdmin, async (req, res) =>
     res.redirect('/professor/relatorio-semanal');
 });
 
+const lerPapeisMarcados = (body) => new Set([].concat(body.papeis || []).filter((p) => CHAVES_PAPEIS.includes(p)));
+const emailValido = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 150;
+
+// Confere as regras para os papéis de uma conta interna. Devolve a mensagem
+// de erro, ou '' quando o conjunto marcado pode ser gravado.
+async function validarPapeis(alvo, marcados) {
+    if (marcados.size === 0) return 'Escolha ao menos um papel. Para tirar o acesso, desative a conta.';
+    if (!alvo) return '';
+    // um papel com estudantes ou bancas em aberto não pode ser retirado
+    const atuais = papeisDoPerfil(alvo);
+    const vinculos = await professoresModel.contarVinculos(alvo.usuario_id);
+    if (atuais.orientador && !marcados.has('orientador') && (vinculos.orientandos || vinculos.bancas)) {
+        return `${alvo.nome} ainda orienta ${vinculos.orientandos} estudante(s) e participa de ${vinculos.bancas} banca(s) em aberto. Troque os responsáveis antes de retirar o papel de orientador.`;
+    }
+    if (atuais.supervisor && !marcados.has('supervisor') && vinculos.supervisionados) {
+        return `${alvo.nome} ainda supervisiona ${vinculos.supervisionados} estudante(s). Troque o supervisor deles antes de retirar o papel de supervisor.`;
+    }
+    return '';
+}
+const papeisComoObjeto = (marcados) => Object.fromEntries(CHAVES_PAPEIS.map((p) => [p, marcados.has(p)]));
+
 router.post('/usuarios', requireAdmin, async (req, res) => {
-    const tipo = req.body.tipo;
+    const voltar = '/professor/usuarios/novo';
+    // aceita também os nomes antigos de tipo: 'professor' e 'servidor' são contas internas
+    const tipoInformado = req.body.tipo;
+    const conta = ['professor', 'servidor', 'interno'].includes(tipoInformado) ? 'interno' : tipoInformado;
     const nome = (req.body.nome || '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
-    const matriculaInformada = (req.body.matricula || '').trim();
-    const matricula = matriculaInformada || null;
+    const matricula = (req.body.matricula || '').trim() || null;
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     const empresa = String(req.body.empresa || '').trim();
     const funcao = String(req.body.funcao || '').trim();
 
-    if (!nome || nome.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-        || !['aluno', 'professor', 'servidor', 'supervisor'].includes(tipo)
-        || (tipo === 'supervisor' && (!empresa || empresa.length > 200 || !funcao || funcao.length > 150))
-        || (tipo === 'aluno' && (matricula && matricula.length > 30 || !ehCurso(curso)))) {
-        setFlash(req, 'error', 'Confira os dados obrigatórios e o tipo de acesso selecionado.');
-        return res.redirect('/professor/usuarios/novo');
+    if (!nome || nome.length > 150 || !emailValido(email)
+        || !['aluno', 'interno', 'supervisor'].includes(conta)
+        || (conta === 'supervisor' && (!empresa || empresa.length > 200 || !funcao || funcao.length > 150))
+        || (conta === 'aluno' && (matricula && matricula.length > 30 || !ehCurso(curso)))) {
+        setFlash(req, 'error', 'Confira os dados obrigatórios e o tipo de conta selecionado.');
+        return res.redirect(voltar);
     }
 
-    const usuarioExistente = await usuariosModel.buscarPorEmail(email);
-    if (usuarioExistente) {
-        setFlash(req, 'error', 'Já existe um cadastro com este e-mail.');
-        return res.redirect('/professor/usuarios/novo');
-    }
-
-    if (tipo === 'aluno' && matricula) {
-        const matriculaExistente = await alunosModel.buscarPorMatricula(matricula);
-        if (matriculaExistente) {
-            setFlash(req, 'error', 'Já existe um cadastro com esta matrícula.');
-            return res.redirect('/professor/usuarios/novo');
+    let papeis = {};
+    if (conta === 'interno') {
+        const marcados = lerPapeisMarcados(req.body);
+        if (marcados.size === 0 && tipoInformado === 'servidor') marcados.add('servidor');
+        if (marcados.size === 0 && tipoInformado === 'professor') { marcados.add('orientador'); marcados.add('supervisor'); }
+        const erroPapeis = await validarPapeis(null, marcados);
+        if (erroPapeis) {
+            setFlash(req, 'error', erroPapeis);
+            return res.redirect(voltar);
         }
+        papeis = papeisComoObjeto(marcados);
+    }
+
+    if (await usuariosModel.buscarPorEmail(email)) {
+        setFlash(req, 'error', 'Já existe um cadastro com este e-mail.');
+        return res.redirect(voltar);
+    }
+    if (conta === 'aluno' && matricula && await alunosModel.buscarPorMatricula(matricula)) {
+        setFlash(req, 'error', 'Já existe um cadastro com esta matrícula.');
+        return res.redirect(voltar);
     }
 
     try {
-        await usuariosModel.criarContaAdministrada({
-            nome,
-            email,
-            tipo,
-            matricula,
-            curso,
-            empresa,
-            funcao,
-        });
-
-        setFlash(req, 'success', tipo === 'supervisor'
+        await usuariosModel.criarContaAdministrada({ nome, email, conta, matricula, curso, empresa, funcao, papeis });
+        setFlash(req, 'success', conta === 'supervisor'
             ? 'Usuário cadastrado. Aprove a solicitação para liberar o acesso do supervisor.'
             : 'Usuário cadastrado com sucesso.');
         return res.redirect('/professor/usuarios');
@@ -913,8 +980,61 @@ router.post('/usuarios', requireAdmin, async (req, res) => {
         setFlash(req, 'error', err.code === '23505'
             ? 'O e-mail ou a matrícula já está em uso.'
             : 'Não foi possível cadastrar o usuário. Verifique os dados e tente novamente.');
-        return res.redirect('/professor/usuarios/novo');
+        return res.redirect(voltar);
     }
+});
+
+// Edição: nome e e-mail de qualquer conta, mais os dados do tipo dela
+// (estudante: matrícula e curso; interna: papéis; supervisor externo: empresa e função).
+router.post('/usuarios/:id', requireAdmin, carregarUsuarioEditado, async (req, res) => {
+    const usuario = req.usuarioEditado;
+    const aluno = req.alunoEditado;
+    const professor = req.professorEditado;
+    const voltar = `/professor/usuarios/${usuario.id}/editar`;
+    const erro = (mensagem) => { setFlash(req, 'error', mensagem); return res.redirect(voltar); };
+
+    const nome = (req.body.nome || '').trim();
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!nome || nome.length > 150 || !emailValido(email)) return erro('Informe o nome completo e um e-mail válido.');
+    const mesmoEmail = await usuariosModel.buscarPorEmail(email);
+    if (mesmoEmail && Number(mesmoEmail.id) !== Number(usuario.id)) return erro('Já existe um cadastro com este e-mail.');
+
+    const proprio = Number(usuario.id) === Number(req.session.user.id);
+    const externo = professor && professor.cargo === 'supervisor';
+    let matricula = null; let curso = ''; let marcados = null; let empresa = ''; let funcao = '';
+
+    if (aluno) {
+        matricula = (req.body.matricula || '').trim() || null;
+        curso = typeof req.body.curso === 'string' ? req.body.curso : '';
+        if ((matricula && matricula.length > 30) || !ehCurso(curso)) return erro('Confira a matrícula (até 30 caracteres) e selecione um curso.');
+        const mesmaMatricula = matricula ? await alunosModel.buscarPorMatricula(matricula) : null;
+        if (mesmaMatricula && Number(mesmaMatricula.usuario_id) !== Number(usuario.id)) return erro('Já existe um cadastro com esta matrícula.');
+    } else if (externo) {
+        empresa = String(req.body.empresa || '').trim();
+        funcao = String(req.body.funcao || '').trim();
+        if (!empresa || empresa.length > 200 || !funcao || funcao.length > 150) return erro('Informe a empresa e o cargo ou função do supervisor.');
+    } else if (professor && !proprio) {
+        // ninguém altera os próprios papéis; o administrador principal nunca perde o de administrador
+        marcados = lerPapeisMarcados(req.body);
+        if (usuario.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase()) marcados.add('admin');
+        const erroPapeis = await validarPapeis(professor, marcados);
+        if (erroPapeis) return erro(erroPapeis);
+    }
+
+    try {
+        await usuariosModel.atualizarDadosAdmin(usuario.id, nome, email);
+        if (aluno) {
+            await alunosModel.atualizarMatricula(usuario.id, matricula);
+            await alunosModel.atualizarCurso(usuario.id, curso);
+        }
+        if (externo) await professoresModel.atualizarDadosExternos(usuario.id, empresa, funcao);
+        if (marcados) await professoresModel.definirPapeis(usuario.id, papeisComoObjeto(marcados));
+    } catch (err) {
+        console.error('[professor/usuarios] erro ao editar usuário:', err.message);
+        return erro(err.code === '23505' ? 'O e-mail ou a matrícula já está em uso.' : 'Não foi possível salvar as alterações. Tente novamente.');
+    }
+    setFlash(req, 'success', `Dados de ${nome} atualizados.`);
+    res.redirect('/professor/usuarios');
 });
 
 async function aprovarSupervisorExterno(req, res) {
@@ -1003,19 +1123,37 @@ router.post('/usuarios/:id/excluir', requireAdmin, async (req, res) => {
     res.redirect('/professor/usuarios');
 });
 
+// Troca só os papéis de uma conta interna (a edição completa fica em /usuarios/:id).
+router.post('/usuarios/:id/papeis', requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    const voltar = '/professor/usuarios';
+    const alvo = Number.isSafeInteger(id) ? await professoresModel.buscarPorUsuarioId(id) : null;
+    if (!alvo || alvo.cargo === 'supervisor') {
+        setFlash(req, 'error', 'Os papéis só podem ser definidos para contas internas (professores e servidores).');
+        return res.redirect(voltar);
+    }
+    if (id === Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Você não pode alterar os próprios papéis.');
+        return res.redirect(voltar);
+    }
+    const marcados = lerPapeisMarcados(req.body);
+    if (alvo.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase()) marcados.add('admin');
+    const erroPapeis = await validarPapeis(alvo, marcados);
+    if (erroPapeis) {
+        setFlash(req, 'error', erroPapeis);
+        return res.redirect(voltar);
+    }
+    await professoresModel.definirPapeis(id, papeisComoObjeto(marcados));
+    const nomes = PAPEIS.filter((p) => marcados.has(p.chave)).map((p) => p.rotulo).join(', ');
+    setFlash(req, 'success', `Papéis de ${alvo.nome} atualizados: ${nomes}.`);
+    res.redirect(voltar);
+});
+
 router.post('/professores/:id/cargo', requireAdmin, async (req, res) => {
     if (Number(req.params.id) === req.session.user.id) {
         return res.redirect('/professor/usuarios');
     }
-    const cargo = ['admin', 'servidor'].includes(req.body.cargo) ? req.body.cargo : 'comum';
-    if (cargo === 'servidor') {
-        // servidor não orienta, não supervisiona e não avalia: os vínculos precisam sair antes
-        const vinculos = await professoresModel.contarVinculos(req.params.id);
-        if (vinculos.estudantes || vinculos.bancas) {
-            setFlash(req, 'error', `Esta pessoa ainda é orientadora ou supervisora de ${vinculos.estudantes} estudante(s) e participa de ${vinculos.bancas} banca(s) em aberto. Troque os responsáveis antes de torná-la servidora.`);
-            return res.redirect('/professor/usuarios');
-        }
-    }
+    const cargo = req.body.cargo === 'admin' ? 'admin' : 'comum';
     if (!await professoresModel.definirCargo(req.params.id, cargo)) {
         setFlash(req, 'error', 'O cargo deste usuário não pode ser alterado por esta tela.');
         return res.redirect('/professor/usuarios');

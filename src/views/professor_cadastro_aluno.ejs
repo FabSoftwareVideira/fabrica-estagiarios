@@ -72,8 +72,8 @@
                                 <% }) %>
                             </optgroup>
                         <% } %>
-                        <optgroup label="Professores">
-                            <% professores.forEach((p) => { %>
+                        <optgroup label="Professores e servidores">
+                            <% (typeof supervisoresInternos !== 'undefined' ? supervisoresInternos : professores).forEach((p) => { %>
                                 <option value="<%= p.id %>"><%= p.nome %></option>
                             <% }) %>
                         </optgroup>

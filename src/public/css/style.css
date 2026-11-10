@@ -289,6 +289,18 @@ button[disabled], .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed
 .table-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .user-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .user-actions form { display: inline-flex; }
+/* Formulário de usuário (cadastro e edição) */
+.usuario-form-pagina > form { max-width: 880px; }
+.conta-fixa { display: flex; align-items: center; gap: 14px; }
+.conta-fixa strong, .conta-fixa span.text-muted { display: block; }
+.papeis-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
+.papeis-cartao { padding: 12px 14px; border: 2px solid var(--borda-suave); border-radius: var(--raio-campo); background: var(--superficie); }
+.papeis-cartao:hover { border-color: var(--azul-700); }
+.papeis-cartao:has(input:checked) { border-color: var(--azul-700); background: var(--azul-50); }
+.papeis-cartao:has(input:disabled) { opacity: 0.75; cursor: not-allowed; }
+a.user-action { text-decoration: none; }
+.papeis-opcao { display: flex; align-items: flex-start; gap: 10px; margin: 0; cursor: pointer; font-weight: 600; }
+.papeis-opcao small { display: block; font-weight: 400; font-size: 13px; color: var(--texto-suave); }
 .user-action {
   width: 36px; min-width: 36px; min-height: 36px; padding: 0;
   background: transparent; color: var(--texto-suave); border: 1px solid transparent; border-radius: 50%;
@@ -1189,11 +1201,15 @@ html.alto-contraste .acomp-tile strong { color: #ffd700; }
 .acomp-legenda { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--texto-suave); }
 .acomp-legenda li { display: inline-flex; align-items: center; gap: 6px; }
 .acomp-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.acomp-col-barra { min-width: 140px; width: 24%; }
+.acomp-col-barra { min-width: 180px; width: 60%; }
 .acomp-cursos th, .acomp-cursos td { padding-left: 10px; padding-right: 10px; }
 .acomp-cursos th.acomp-num { white-space: normal; }
-.acomp-barra { display: flex; gap: 2px; height: 16px; }
-.acomp-segmento { min-width: 6px; border-radius: 3px; }
+.acomp-barra { display: flex; gap: 2px; height: 24px; }
+.acomp-segmento {
+  min-width: 24px; border-radius: 4px; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums;
+}
+.acomp-segmento.acomp-aguardando_banca { color: #1f1500; }
 .acomp-segmento:hover { outline: 2px solid var(--texto); outline-offset: 1px; }
 .acomp-filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; margin: 4px 0 16px; }
 .acomp-filtros .form-field { flex: 1 1 200px; max-width: 320px; }

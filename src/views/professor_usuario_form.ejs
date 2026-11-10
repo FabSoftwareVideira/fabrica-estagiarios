@@ -1,0 +1,164 @@
+<%
+    // Cadastro (usuario = null) e edição de usuário pelo administrador.
+    const editando = Boolean(usuario);
+    const conta = editando
+        ? (usuario.tipo === 'aluno' ? 'aluno' : (professor && professor.cargo === 'supervisor' ? 'supervisor' : 'interno'))
+        : 'aluno';
+    const CONTAS = [
+        { chave: 'aluno', emoji: '🎓', cor: 'verde', nome: 'Estudante', detalhe: 'Registra atividades e preenche as fichas do estágio.' },
+        { chave: 'interno', emoji: '🏫', cor: 'azul', nome: 'Professor ou servidor', detalhe: 'Conta interna do campus (@ifc.edu.br), com um ou mais papéis.' },
+        { chave: 'supervisor', emoji: '🏢', cor: 'ambar', nome: 'Supervisor externo', detalhe: 'Pessoa da empresa concedente; o acesso aguarda aprovação.' },
+    ];
+    const contaAtual = CONTAS.find((c) => c.chave === conta);
+    const titulo = editando ? 'Editar usuário' : 'Adicionar usuário';
+-%>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= titulo %> · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    <main id="conteudo" class="container usuario-form-pagina">
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Administração', href: '/professor/administracao' },
+            { texto: 'Usuários', href: '/professor/usuarios' },
+            { texto: editando ? usuario.nome : 'Adicionar' }
+        ] }) %>
+        <%- include('partials/flash') %>
+
+        <div class="page-head">
+            <div>
+                <h1><%= titulo %></h1>
+                <p><%= editando ? 'Altere os dados e os papéis desta conta.' : 'Escolha o tipo de conta e preencha os dados. A pessoa entra depois com a conta Google ou GitHub desse e-mail.' %></p>
+            </div>
+        </div>
+
+        <form action="<%= editando ? '/professor/usuarios/' + usuario.id : '/professor/usuarios' %>" method="POST" class="card" data-usuario-form>
+            <section class="form-secao">
+                <% if (editando) { %>
+                    <h2>Tipo de conta</h2>
+                    <div class="conta-fixa">
+                        <span class="curso-emoji curso-<%= contaAtual.cor %>" aria-hidden="true"><%= contaAtual.emoji %></span>
+                        <div>
+                            <strong><%= contaAtual.nome %></strong>
+                            <span class="text-muted">O tipo de conta não pode ser alterado depois do cadastro.</span>
+                        </div>
+                    </div>
+                    <input type="hidden" name="tipo" value="<%= conta %>" data-usuario-tipo-fixo>
+                <% } else { %>
+                    <fieldset class="curso-fieldset">
+                        <legend>Tipo de conta</legend>
+                        <div class="curso-picker curso-picker-linha">
+                            <% CONTAS.forEach((c) => { %>
+                                <label class="curso-option curso-<%= c.cor %>">
+                                    <input type="radio" name="tipo" value="<%= c.chave %>" <%= c.chave === conta ? 'checked' : '' %> required>
+                                    <span class="curso-choice">
+                                        <span class="curso-emoji" aria-hidden="true"><%= c.emoji %></span>
+                                        <span class="curso-texto">
+                                            <span class="curso-nome"><%= c.nome %></span>
+                                            <span class="curso-detalhe"><%= c.detalhe %></span>
+                                        </span>
+                                        <span class="curso-marca" aria-hidden="true"><%- icone('check') %></span>
+                                    </span>
+                                </label>
+                            <% }) %>
+                        </div>
+                    </fieldset>
+                <% } %>
+            </section>
+
+            <section class="form-secao">
+                <h2>Dados</h2>
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="usuario-nome">Nome completo</label>
+                        <input id="usuario-nome" name="nome" type="text" maxlength="150" autocomplete="off" required value="<%= editando ? usuario.nome : '' %>">
+                    </div>
+                    <div class="form-field">
+                        <label for="usuario-email">E-mail</label>
+                        <input id="usuario-email" name="email" type="email" maxlength="150" autocomplete="off" required value="<%= editando ? usuario.email : '' %>">
+                        <small>É o e-mail da conta Google ou GitHub usada para entrar. Deve ser único.</small>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-secao" data-secao-conta="aluno">
+                <h2>Estudante</h2>
+                <% if (editando && !aluno) { %>
+                    <p class="text-muted">Este estudante ainda não concluiu o cadastro; matrícula e curso serão informados por ele no primeiro acesso.</p>
+                <% } else { %>
+                    <div class="form-field form-campo-curto">
+                        <label for="usuario-matricula">Matrícula <span class="text-muted">(opcional)</span></label>
+                        <input id="usuario-matricula" name="matricula" type="text" maxlength="30" value="<%= aluno ? (aluno.matricula || '') : '' %>">
+                    </div>
+                    <%- include('partials/curso-picker', { cursos, selecionado: aluno ? (aluno.curso || '') : '', legenda: 'Curso', emLinha: true }) %>
+                <% } %>
+            </section>
+
+            <section class="form-secao" data-secao-conta="interno">
+                <h2>Papéis</h2>
+                <p class="text-muted">Marque um ou mais. Uma mesma pessoa pode, por exemplo, ser orientadora, supervisora e administradora.</p>
+                <% if (proprio) { %><p class="aviso aviso-info">Você não pode alterar os próprios papéis. Peça a outro administrador.</p><% } %>
+                <div class="papeis-lista">
+                    <% PAPEIS.forEach((p) => { %>
+                        <% const travado = proprio || (principal && p.chave === 'admin'); %>
+                        <label class="papeis-opcao papeis-cartao">
+                            <input type="checkbox" name="papeis" value="<%= p.chave %>" <%= papeisAtuais[p.chave] ? 'checked' : '' %> <%= travado ? 'disabled data-travado' : '' %>>
+                            <span><%= p.rotulo %><small><%= p.descricao %><%= principal && p.chave === 'admin' ? ' O administrador principal sempre mantém este papel.' : '' %></small></span>
+                        </label>
+                    <% }) %>
+                </div>
+            </section>
+
+            <section class="form-secao" data-secao-conta="supervisor">
+                <h2>Empresa</h2>
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="usuario-empresa">Empresa/entidade</label>
+                        <input id="usuario-empresa" name="empresa" type="text" maxlength="200" required value="<%= professor ? (professor.empresa_externa || '') : '' %>">
+                    </div>
+                    <div class="form-field">
+                        <label for="usuario-funcao">Cargo ou função</label>
+                        <input id="usuario-funcao" name="funcao" type="text" maxlength="150" required value="<%= professor ? (professor.funcao_externa || '') : '' %>">
+                    </div>
+                </div>
+                <% if (!editando) { %><p class="text-muted" style="margin-top: 10px;">Depois de cadastrar, aprove a solicitação na lista de usuários para liberar o acesso.</p><% } %>
+            </section>
+
+            <div class="form-actions wizard-acoes">
+                <button type="submit" class="btn-success"><%- icone(editando ? 'check' : 'mais') %> <%= editando ? 'Salvar alterações' : 'Adicionar usuário' %></button>
+                <a href="/professor/usuarios" class="btn btn-ghost wizard-cancelar">Cancelar</a>
+            </div>
+        </form>
+    </main>
+    <script>
+        // mostra só a seção do tipo de conta escolhido e desliga os campos das outras
+        document.querySelectorAll('[data-usuario-form]').forEach((form) => {
+            const tipoAtual = () => {
+                const fixo = form.querySelector('[data-usuario-tipo-fixo]');
+                const marcado = form.querySelector('input[name="tipo"]:checked');
+                return fixo ? fixo.value : (marcado ? marcado.value : '');
+            };
+            const atualizar = () => {
+                const tipo = tipoAtual();
+                form.querySelectorAll('[data-secao-conta]').forEach((secao) => {
+                    const ativa = secao.dataset.secaoConta === tipo;
+                    secao.hidden = !ativa;
+                    secao.querySelectorAll('input, select, textarea').forEach((campo) => {
+                        campo.disabled = !ativa || campo.hasAttribute('data-travado');
+                    });
+                });
+            };
+            form.querySelectorAll('input[name="tipo"]').forEach((radio) => radio.addEventListener('change', atualizar));
+            atualizar();
+        });
+    </script>
+    <%- include('partials/footer') %>
+</body>
+</html>

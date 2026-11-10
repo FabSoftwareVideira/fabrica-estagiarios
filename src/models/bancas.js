@@ -79,7 +79,8 @@ async function salvar(alunoId, user, valores) {
         const participantes = [Number(aluno.orientador_id), Number(valores.avaliador_1_id), Number(valores.avaliador_2_id)];
         if (new Set(participantes).size !== 3) throw erro('O orientador e os dois avaliadores devem ser pessoas diferentes.');
         const { rows: professores } = await client.query(`SELECT u.id FROM usuarios u LEFT JOIN professores p ON p.usuario_id = u.id
-            WHERE u.tipo='professor' AND COALESCE(p.cargo, 'comum') <> 'servidor' AND u.id=ANY($1::integer[])`, [participantes]);
+            WHERE u.tipo='professor' AND u.id=ANY($1::integer[])
+              AND (u.id = $2 OR COALESCE(p.papel_orientador, true))`, [participantes, participantes[0]]);
         if (professores.length !== 3) throw erro('Selecione orientador e avaliadores cadastrados como professores.');
         const { rows: conflitos } = await client.query(`SELECT b.sala, TO_CHAR(b.hora_inicio, 'HH24:MI') AS inicio,
             TO_CHAR(b.hora_fim, 'HH24:MI') AS fim FROM bancas b
