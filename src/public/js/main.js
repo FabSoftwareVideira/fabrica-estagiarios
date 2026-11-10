@@ -20,6 +20,62 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // dropdown do perfil (perfil, administração e sair)
+    const menuMobile = window.matchMedia('(max-width: 960px)');
+
+    document.querySelectorAll('[data-user-menu]').forEach((menu) => {
+        const botao = menu.querySelector('.nav-user-toggle');
+        const dropdown = menu.querySelector('.nav-user-dropdown');
+        if (!botao || !dropdown) return;
+
+        // no mobile os itens ficam sempre visíveis, como uma lista do menu
+        const noMobile = () => menuMobile.matches;
+
+        const fechar = () => {
+            dropdown.hidden = true;
+            botao.setAttribute('aria-expanded', 'false');
+        };
+
+        const ajustarModo = () => {
+            if (noMobile()) {
+                dropdown.hidden = false;
+                botao.setAttribute('aria-expanded', 'true');
+            } else {
+                fechar();
+            }
+        };
+
+        botao.addEventListener('click', (evento) => {
+            evento.stopPropagation();
+            if (noMobile()) return;
+            const abrir = dropdown.hidden;
+            dropdown.hidden = !abrir;
+            botao.setAttribute('aria-expanded', String(abrir));
+        });
+
+        menu.querySelectorAll('.nav-user-item').forEach((item) => item.addEventListener('click', () => {
+            if (!noMobile()) fechar();
+        }));
+
+        document.addEventListener('click', (evento) => {
+            if (!noMobile() && !menu.contains(evento.target)) fechar();
+        });
+
+        document.addEventListener('keydown', (evento) => {
+            if (!noMobile() && evento.key === 'Escape' && !dropdown.hidden) {
+                fechar();
+                botao.focus();
+            }
+        });
+
+        if (typeof menuMobile.addEventListener === 'function') {
+            menuMobile.addEventListener('change', ajustarModo);
+        } else if (typeof menuMobile.addListener === 'function') {
+            menuMobile.addListener(ajustarModo);
+        }
+        ajustarModo();
+    });
+
     document.querySelectorAll('[data-dashboard-tabs]').forEach((tabContainer) => {
         const tabs = Array.from(tabContainer.querySelectorAll('[role="tab"]'));
 

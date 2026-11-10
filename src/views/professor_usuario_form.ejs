@@ -39,105 +39,142 @@
             </div>
         </div>
 
-        <form action="<%= editando ? '/professor/usuarios/' + usuario.id : '/professor/usuarios' %>" method="POST" class="card user-form-card" data-usuario-form>
-            <section class="form-secao">
-                <% if (editando) { %>
-                    <h2>Tipo de conta</h2>
-                    <div class="conta-fixa">
-                        <span class="curso-emoji curso-<%= contaAtual.cor %>" aria-hidden="true"><%= contaAtual.emoji %></span>
-                        <div>
-                            <strong><%= contaAtual.nome %></strong>
-                            <span class="text-muted">O tipo de conta não pode ser alterado depois do cadastro.</span>
+        <form action="<%= editando ? '/professor/usuarios/' + usuario.id : '/professor/usuarios' %>" method="POST" class="user-form-layout" data-usuario-form>
+            <div class="user-form-main">
+                <div class="card user-form-card">
+                    <section class="form-secao">
+                        <% if (editando) { %>
+                            <h2>Tipo de conta</h2>
+                            <div class="conta-fixa">
+                                <span class="curso-emoji curso-<%= contaAtual.cor %>" aria-hidden="true"><%= contaAtual.emoji %></span>
+                                <div>
+                                    <strong><%= contaAtual.nome %></strong>
+                                    <span class="text-muted">O tipo de conta não pode ser alterado depois do cadastro.</span>
+                                </div>
+                            </div>
+                            <input type="hidden" name="tipo" value="<%= conta %>" data-usuario-tipo-fixo
+                                data-rotulo="<%= contaAtual.nome %>" data-emoji="<%= contaAtual.emoji %>">
+                        <% } else { %>
+                            <fieldset class="curso-fieldset">
+                                <legend>Tipo de conta</legend>
+                                <div class="curso-picker curso-picker-linha">
+                                    <% CONTAS.forEach((c) => { %>
+                                        <label class="curso-option curso-<%= c.cor %>">
+                                            <input type="radio" name="tipo" value="<%= c.chave %>" <%= c.chave === conta ? 'checked' : '' %> required
+                                                data-rotulo="<%= c.nome %>" data-emoji="<%= c.emoji %>">
+                                            <span class="curso-choice">
+                                                <span class="curso-emoji" aria-hidden="true"><%= c.emoji %></span>
+                                                <span class="curso-texto">
+                                                    <span class="curso-nome"><%= c.nome %></span>
+                                                    <span class="curso-detalhe"><%= c.detalhe %></span>
+                                                </span>
+                                                <span class="curso-marca" aria-hidden="true"><%- icone('check') %></span>
+                                            </span>
+                                        </label>
+                                    <% }) %>
+                                </div>
+                            </fieldset>
+                        <% } %>
+                    </section>
+
+                    <section class="form-secao">
+                        <h2>Dados</h2>
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="usuario-nome">Nome completo</label>
+                                <input id="usuario-nome" name="nome" type="text" maxlength="150" autocomplete="off" required value="<%= editando ? usuario.nome : '' %>" data-resumo-nome-input>
+                            </div>
+                            <div class="form-field">
+                                <label for="usuario-email">E-mail</label>
+                                <input id="usuario-email" name="email" type="email" maxlength="150" autocomplete="off" required value="<%= editando ? usuario.email : '' %>" data-resumo-email-input>
+                                <small>É o e-mail da conta Google ou GitHub usada para entrar. Deve ser único.</small>
+                            </div>
                         </div>
-                    </div>
-                    <input type="hidden" name="tipo" value="<%= conta %>" data-usuario-tipo-fixo>
-                <% } else { %>
-                    <fieldset class="curso-fieldset">
-                        <legend>Tipo de conta</legend>
-                        <div class="curso-picker curso-picker-linha">
-                            <% CONTAS.forEach((c) => { %>
-                                <label class="curso-option curso-<%= c.cor %>">
-                                    <input type="radio" name="tipo" value="<%= c.chave %>" <%= c.chave === conta ? 'checked' : '' %> required>
-                                    <span class="curso-choice">
-                                        <span class="curso-emoji" aria-hidden="true"><%= c.emoji %></span>
-                                        <span class="curso-texto">
-                                            <span class="curso-nome"><%= c.nome %></span>
-                                            <span class="curso-detalhe"><%= c.detalhe %></span>
-                                        </span>
-                                        <span class="curso-marca" aria-hidden="true"><%- icone('check') %></span>
-                                    </span>
+                    </section>
+
+                    <section class="form-secao" data-secao-conta="aluno">
+                        <h2>Estudante</h2>
+                        <% if (editando && !aluno) { %>
+                            <p class="text-muted">Este estudante ainda não concluiu o cadastro; matrícula e curso serão informados por ele no primeiro acesso.</p>
+                        <% } else { %>
+                            <div class="form-field form-campo-curto">
+                                <label for="usuario-matricula">Matrícula <span class="text-muted">(opcional)</span></label>
+                                <input id="usuario-matricula" name="matricula" type="text" maxlength="30" value="<%= aluno ? (aluno.matricula || '') : '' %>">
+                            </div>
+                            <%- include('partials/curso-picker', { cursos, selecionado: aluno ? (aluno.curso || '') : '', legenda: 'Curso', emLinha: true }) %>
+                        <% } %>
+                    </section>
+
+                    <section class="form-secao" data-secao-conta="interno">
+                        <h2>Papéis e acessos</h2>
+                        <p class="text-muted">Os papéis são independentes: um professor ou servidor pode acumular funções, inclusive Supervisor e Administrador. Alunos e fichas ficam disponíveis conforme os papéis de orientação e supervisão; administrar usuários não concede esses acessos.</p>
+                        <% if (proprio) { %><p class="aviso aviso-info">Você não pode alterar os próprios papéis. Peça a outro administrador.</p><% } %>
+                        <fieldset class="papeis-fieldset">
+                            <legend class="sr-only">Selecione os papéis da conta interna</legend>
+                            <div class="papeis-lista">
+                            <% PAPEIS.forEach((p) => { %>
+                                <% const travado = proprio || (principal && p.chave === 'admin'); %>
+                                <label class="papeis-opcao papeis-cartao">
+                                    <input type="checkbox" name="papeis" value="<%= p.chave %>" <%= papeisAtuais[p.chave] ? 'checked' : '' %> <%= travado ? 'disabled data-travado' : '' %>>
+                                    <span><%= p.rotulo %><small><%= p.descricao %><%= principal && p.chave === 'admin' ? ' O administrador principal sempre mantém este papel.' : '' %></small></span>
                                 </label>
                             <% }) %>
+                            </div>
+                        </fieldset>
+                    </section>
+
+                    <section class="form-secao" data-secao-conta="supervisor">
+                        <h2>Empresa</h2>
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="usuario-empresa">Empresa/entidade</label>
+                                <input id="usuario-empresa" name="empresa" type="text" maxlength="200" required value="<%= professor ? (professor.empresa_externa || '') : '' %>">
+                            </div>
+                            <div class="form-field">
+                                <label for="usuario-funcao">Cargo ou função</label>
+                                <input id="usuario-funcao" name="funcao" type="text" maxlength="150" required value="<%= professor ? (professor.funcao_externa || '') : '' %>">
+                            </div>
                         </div>
-                    </fieldset>
-                <% } %>
-            </section>
-
-            <section class="form-secao">
-                <h2>Dados</h2>
-                <div class="form-grid">
-                    <div class="form-field">
-                        <label for="usuario-nome">Nome completo</label>
-                        <input id="usuario-nome" name="nome" type="text" maxlength="150" autocomplete="off" required value="<%= editando ? usuario.nome : '' %>">
-                    </div>
-                    <div class="form-field">
-                        <label for="usuario-email">E-mail</label>
-                        <input id="usuario-email" name="email" type="email" maxlength="150" autocomplete="off" required value="<%= editando ? usuario.email : '' %>">
-                        <small>É o e-mail da conta Google ou GitHub usada para entrar. Deve ser único.</small>
-                    </div>
+                        <% if (!editando) { %><p class="text-muted" style="margin-top: 10px;">Depois de cadastrar, aprove a solicitação na lista de usuários para liberar o acesso.</p><% } %>
+                    </section>
                 </div>
-            </section>
-
-            <section class="form-secao" data-secao-conta="aluno">
-                <h2>Estudante</h2>
-                <% if (editando && !aluno) { %>
-                    <p class="text-muted">Este estudante ainda não concluiu o cadastro; matrícula e curso serão informados por ele no primeiro acesso.</p>
-                <% } else { %>
-                    <div class="form-field form-campo-curto">
-                        <label for="usuario-matricula">Matrícula <span class="text-muted">(opcional)</span></label>
-                        <input id="usuario-matricula" name="matricula" type="text" maxlength="30" value="<%= aluno ? (aluno.matricula || '') : '' %>">
-                    </div>
-                    <%- include('partials/curso-picker', { cursos, selecionado: aluno ? (aluno.curso || '') : '', legenda: 'Curso', emLinha: true }) %>
-                <% } %>
-            </section>
-
-            <section class="form-secao" data-secao-conta="interno">
-                <h2>Papéis e acessos</h2>
-                <p class="text-muted">Os papéis são independentes: um professor ou servidor pode acumular funções, inclusive Supervisor e Administrador. Alunos e fichas ficam disponíveis conforme os papéis de orientação e supervisão; administrar usuários não concede esses acessos.</p>
-                <% if (proprio) { %><p class="aviso aviso-info">Você não pode alterar os próprios papéis. Peça a outro administrador.</p><% } %>
-                <fieldset class="papeis-fieldset">
-                    <legend class="sr-only">Selecione os papéis da conta interna</legend>
-                    <div class="papeis-lista">
-                    <% PAPEIS.forEach((p) => { %>
-                        <% const travado = proprio || (principal && p.chave === 'admin'); %>
-                        <label class="papeis-opcao papeis-cartao">
-                            <input type="checkbox" name="papeis" value="<%= p.chave %>" <%= papeisAtuais[p.chave] ? 'checked' : '' %> <%= travado ? 'disabled data-travado' : '' %>>
-                            <span><%= p.rotulo %><small><%= p.descricao %><%= principal && p.chave === 'admin' ? ' O administrador principal sempre mantém este papel.' : '' %></small></span>
-                        </label>
-                    <% }) %>
-                    </div>
-                </fieldset>
-            </section>
-
-            <section class="form-secao" data-secao-conta="supervisor">
-                <h2>Empresa</h2>
-                <div class="form-grid">
-                    <div class="form-field">
-                        <label for="usuario-empresa">Empresa/entidade</label>
-                        <input id="usuario-empresa" name="empresa" type="text" maxlength="200" required value="<%= professor ? (professor.empresa_externa || '') : '' %>">
-                    </div>
-                    <div class="form-field">
-                        <label for="usuario-funcao">Cargo ou função</label>
-                        <input id="usuario-funcao" name="funcao" type="text" maxlength="150" required value="<%= professor ? (professor.funcao_externa || '') : '' %>">
-                    </div>
-                </div>
-                <% if (!editando) { %><p class="text-muted" style="margin-top: 10px;">Depois de cadastrar, aprove a solicitação na lista de usuários para liberar o acesso.</p><% } %>
-            </section>
-
-            <div class="form-actions wizard-acoes">
-                <button type="submit" class="btn-success"><%- icone(editando ? 'check' : 'mais') %> <%= editando ? 'Salvar alterações' : 'Adicionar usuário' %></button>
-                <a href="/professor/usuarios" class="btn btn-ghost wizard-cancelar">Cancelar</a>
             </div>
+
+            <aside class="user-form-aside">
+                <div class="card user-form-resumo">
+                    <h2>Resumo da conta</h2>
+                    <dl>
+                        <div>
+                            <dt>Tipo de conta</dt>
+                            <dd class="resumo-tipo" data-resumo-tipo><span aria-hidden="true"><%= contaAtual.emoji %></span> <span data-resumo-tipo-nome><%= contaAtual.nome %></span></dd>
+                        </div>
+                        <div>
+                            <dt>Nome</dt>
+                            <dd data-resumo-nome><%= editando ? usuario.nome : 'Ainda não informado' %></dd>
+                        </div>
+                        <div>
+                            <dt>E-mail</dt>
+                            <dd data-resumo-email><%= editando ? usuario.email : 'Ainda não informado' %></dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <div class="card user-form-acao">
+                    <div class="form-actions wizard-acoes">
+                        <button type="submit" class="btn-success"><%- icone(editando ? 'check' : 'mais') %> <%= editando ? 'Salvar alterações' : 'Adicionar usuário' %></button>
+                        <a href="/professor/usuarios" class="btn btn-ghost wizard-cancelar">Cancelar</a>
+                    </div>
+                </div>
+
+                <div class="card user-form-dica">
+                    <strong>Antes de salvar</strong>
+                    <ul>
+                        <li>O e-mail precisa ser único e é a conta usada para entrar.</li>
+                        <li>O tipo de conta define quais seções do formulário aparecem.</li>
+                        <li>Contas de supervisor externo aguardam aprovação.</li>
+                    </ul>
+                </div>
+            </aside>
         </form>
     </main>
     <script>
@@ -146,10 +183,23 @@
             const tipoAtual = () => {
                 const fixo = form.querySelector('[data-usuario-tipo-fixo]');
                 const marcado = form.querySelector('input[name="tipo"]:checked');
-                return fixo ? fixo.value : (marcado ? marcado.value : '');
+                return fixo || marcado;
             };
+            const resumoTipo = form.querySelector('[data-resumo-tipo]');
+            const resumoTipoNome = form.querySelector('[data-resumo-tipo-nome]');
+            const resumoNome = form.querySelector('[data-resumo-nome]');
+            const resumoEmail = form.querySelector('[data-resumo-email]');
+
+            const atualizarResumoDados = () => {
+                const nome = form.querySelector('[data-resumo-nome-input]');
+                const email = form.querySelector('[data-resumo-email-input]');
+                if (resumoNome) resumoNome.textContent = (nome && nome.value.trim()) || 'Ainda não informado';
+                if (resumoEmail) resumoEmail.textContent = (email && email.value.trim()) || 'Ainda não informado';
+            };
+
             const atualizar = () => {
-                const tipo = tipoAtual();
+                const escolha = tipoAtual();
+                const tipo = escolha ? escolha.value : '';
                 form.querySelectorAll('[data-secao-conta]').forEach((secao) => {
                     const ativa = secao.dataset.secaoConta === tipo;
                     secao.hidden = !ativa;
@@ -157,9 +207,18 @@
                         campo.disabled = !ativa || campo.hasAttribute('data-travado');
                     });
                 });
+                if (resumoTipo && escolha) {
+                    const emoji = resumoTipo.querySelector('[aria-hidden="true"]');
+                    if (emoji) emoji.textContent = escolha.dataset.emoji || '';
+                    if (resumoTipoNome) resumoTipoNome.textContent = escolha.dataset.rotulo || '';
+                }
             };
             form.querySelectorAll('input[name="tipo"]').forEach((radio) => radio.addEventListener('change', atualizar));
+            form.querySelectorAll('[data-resumo-nome-input], [data-resumo-email-input]').forEach((campo) => {
+                campo.addEventListener('input', atualizarResumoDados);
+            });
             atualizar();
+            atualizarResumoDados();
         });
     </script>
     <%- include('partials/footer') %>

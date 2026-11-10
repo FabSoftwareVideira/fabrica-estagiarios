@@ -32,22 +32,15 @@
         <% } %>
 
         <div class="action-grid">
-            <% if (!(user.papeis && user.papeis.servidor)) { %>
-                <a href="/professor/acompanhamento" class="action-card">
-                    <h3><%- icone('olho') %> Acompanhamento</h3>
-                    <p>Consulte a situação geral dos estágios, acompanhe pendências e filtre os estudantes.</p>
-                    <span class="btn btn-secondary">Ver acompanhamento</span>
-                </a>
-            <% } %>
+            <a href="/professor/acompanhamento" class="action-card">
+                <h3><%- icone('olho') %> Acompanhamento</h3>
+                <p>Consulte a situação geral dos estágios, acompanhe pendências e filtre os estudantes.</p>
+                <span class="btn btn-secondary">Ver acompanhamento</span>
+            </a>
             <a href="/professor/usuarios" class="action-card">
                 <h3><%- icone('usuarios') %> Usuários e papéis</h3>
                 <p>Cadastre e edite estudantes, professores, servidores e supervisores externos; defina os papéis de cada conta.</p>
-                <span class="btn">Gerenciar usuários</span>
-            </a>
-            <a href="/professor/usuarios/novo" class="action-card">
-                <h3><%- icone('mais') %> Adicionar usuário</h3>
-                <p>Crie uma conta antes do primeiro acesso, já com o tipo e os papéis certos.</p>
-                <span class="btn btn-secondary">Adicionar</span>
+                <span class="btn btn-secondary">Gerenciar usuários</span>
             </a>
             <a href="/professor/relatorio-semanal" class="action-card">
                 <h3><%- icone('relogio') %> Relatório semanal por e-mail</h3>

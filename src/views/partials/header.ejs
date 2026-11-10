@@ -25,7 +25,7 @@
 
         <% if (user) { %>
             <button class="nav-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-principal">
-                <%- icone('menu') %> Menu
+                <%- icone('menu') %> <span class="nav-toggle-text">Menu</span>
             </button>
         <% } %>
 
@@ -48,7 +48,7 @@
                         <% const emAdmin = currentPath === '/professor/administracao' || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
                         <% const emAcompanhamento = currentPath === '/professor/acompanhamento'; %>
                         <%# o servidor mantém acesso direto; para os demais admins, Acompanhamento fica na Administração %>
-                        <% if (!externo && papeis.servidor) { %>
+                        <% if (!externo && papeis.servidor && user.cargo !== 'admin') { %>
                             <a href="/professor/acompanhamento" class="nav-link <%= ativo(emAcompanhamento) %>"><%- icone('olho') %> Acompanhamento</a>
                         <% } %>
                         <% if (externo || papeis.orientador || papeis.supervisor) { %>
@@ -57,19 +57,24 @@
                                 <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
                             <% } %>
                         <% } %>
-                        <% if (user.cargo === 'admin') { %>
-                            <a href="/professor/administracao" class="nav-link <%= ativo(emAdmin) %>"><%- icone('escudo') %> Administração</a>
-                        <% } %>
                     <% } %>
                 </div>
                 <% } %>
 
-                <div class="nav-user">
-                    <a href="/perfil" class="nav-user-profile" title="Meu perfil">
+                <div class="nav-user" data-user-menu>
+                    <button type="button" class="nav-user-profile nav-user-toggle" aria-expanded="false" aria-controls="menu-usuario" aria-haspopup="true" title="Menu da conta">
                         <span class="nav-avatar" aria-hidden="true"><%= user.avatarEmoji || user.nome.charAt(0).toUpperCase() %></span>
                         <span class="nav-user-name"><%= user.nome %></span>
-                    </a>
-                    <a href="/logout" class="nav-logout">Sair</a>
+                        <span class="nav-user-caret" aria-hidden="true"><%- icone('baixo') %></span>
+                    </button>
+                    <div class="nav-user-dropdown" id="menu-usuario" hidden>
+                        <a href="/perfil" class="nav-user-item"><%- icone('usuario') %> Meu perfil</a>
+                        <% if (user.cargo === 'admin') { %>
+                            <a href="/professor/administracao" class="nav-user-item"><%- icone('escudo') %> Administração</a>
+                        <% } %>
+                        <div class="nav-user-separador" role="separator"></div>
+                        <a href="/logout" class="nav-user-item nav-user-item-danger"><%- icone('sair') %> Sair</a>
+                    </div>
                 </div>
             <% } %>
         </nav>
