@@ -24,8 +24,8 @@ function lerFac(body, cursoAluno) {
     const valores = { curso: ehCurso(cursoAluno) ? cursoAluno : '' };
     if (!valores.curso) erros.push('O estudante precisa informar o curso no perfil antes de preencher a FAC.');
     for (const [campo, rotulo, limite, obrigatorio] of [
-        ['empresa', 'Empresa', 60, true], ['periodo', 'Período', 35, true], ['atividades', 'Atividades', 1500, true],
-        ['comentarios', 'Comentários', 1500, false], ['local_assinatura', 'Local', 80, true],
+        ['empresa', 'Empresa', 60, true], ['periodo', 'Período', 35, true], ['atividades', 'Atividades', 300, true],
+        ['comentarios', 'Comentários', 300, false], ['local_assinatura', 'Local', 80, true],
     ]) {
         valores[campo] = typeof body[campo] === 'string' ? body[campo].trim() : '';
         if ((obrigatorio && !valores[campo]) || valores[campo].length > limite) {

@@ -369,6 +369,13 @@ test('supervisor externo só vê estudantes atribuídos e não acessa funções 
     assert.match(html, /supervisionado-card/);
     assert.doesNotMatch(html, /<table/);
 
+    // o supervisor filtra apenas por "Em andamento" ou "Concluído"
+    assert.match(html, /name="situacao" value="andamento"/);
+    assert.match(html, /name="situacao" value="concluido"/);
+    assert.doesNotMatch(html, /name="status" value="lista_espera"/);
+    assert.doesNotMatch(html, /Aguardando banca/);
+    assert.doesNotMatch(html, /Lista de espera/);
+
     const painelConcluido = await requisitar('/professor/dashboard?f=1', { user: 105, cargo: 'supervisor' });
     const painelConcluidoHtml = await painelConcluido.text();
     assert.match(painelConcluidoHtml, /supervisionado-card/);
@@ -376,6 +383,21 @@ test('supervisor externo só vê estudantes atribuídos e não acessa funções 
     assert.match(painelConcluidoHtml, /Preencher FAC/);
     assert.match(painelConcluidoHtml, /href="\/professor\/aluno\/1\/fac"/);
     assert.doesNotMatch(painelConcluidoHtml, /Avaliações FAC/);
+
+    // card em destaque reúne quem concluiu as horas e está com FAC pendente
+    assert.match(painelConcluidoHtml, /fac-destaque/);
+    assert.match(painelConcluidoHtml, /id="fac-pendentes"/);
+
+    // filtros simplificados: em andamento esconde o concluído da lista (o destaque permanece)
+    const somenteAndamento = await requisitar('/professor/dashboard?f=1&situacao=andamento', { user: 105, cargo: 'supervisor' });
+    const andamentoHtml = await somenteAndamento.text();
+    assert.match(andamentoHtml, /Nenhum supervisionado encontrado/);
+    assert.match(andamentoHtml, /fac-destaque/);
+
+    const somenteConcluido = await requisitar('/professor/dashboard?f=1&situacao=concluido', { user: 105, cargo: 'supervisor' });
+    const concluidoFiltroHtml = await somenteConcluido.text();
+    assert.match(concluidoFiltroHtml, /supervisionado-card/);
+    assert.match(concluidoFiltroHtml, /Concluído/);
 
     // a página separada de avaliações foi removida do menu e das rotas
     const avaliacoes = await requisitar('/professor/avaliacoes', { user: 105, cargo: 'supervisor' });
@@ -958,7 +980,9 @@ test('FAPO e FAC permitem salvar e retomar rascunhos parciais', async () => {
     assert.match(facTelaHtml, /id="periodo"[^>]*maxlength="35"/);
     assert.match(facTelaHtml, /id="nota_0"[^>]*step="0\.01"/);
     assert.match(facTelaHtml, /id="atividades"[^>]*rows="2"/);
+    assert.match(facTelaHtml, /id="atividades"[^>]*maxlength="300"/);
     assert.match(facTelaHtml, /id="comentarios"[^>]*rows="2"/);
+    assert.match(facTelaHtml, /id="comentarios"[^>]*maxlength="300"/);
     assert.match(facTelaHtml, /placeholder="0,00"/);
     const facFinal = await requisitar('/professor/aluno/1/fac', {
         user: 101, method: 'POST', body: form(),
@@ -984,7 +1008,7 @@ test('FAC: permissões, encerramento, arquivamento e dados inválidos bloqueiam 
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
     for (const user of [102, 103]) assert.equal((await requisitar('/professor/aluno/1/fac', { user, method: 'POST', body: form() })).status, 403);
     assert.equal((await requisitar('/professor/aluno/1/fac/pdf', { user: 103 })).status, 403);
-    for (const alteracao of [{ nota_0: '' }, { nota_1: '11' }, { nota_2: '-1' }, { nota_3: 'NaN' }, { nota_4: '1.555' }, { data_assinatura: '2026-02-30' }, { atividades: '' }, { empresa: 'E'.repeat(61) }, { periodo: 'P'.repeat(36) }]) {
+    for (const alteracao of [{ nota_0: '' }, { nota_1: '11' }, { nota_2: '-1' }, { nota_3: 'NaN' }, { nota_4: '1.555' }, { data_assinatura: '2026-02-30' }, { atividades: '' }, { atividades: 'A'.repeat(301) }, { comentarios: 'C'.repeat(301) }, { empresa: 'E'.repeat(61) }, { periodo: 'P'.repeat(36) }]) {
         assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: { ...form(), ...alteracao } })).status, 422);
     }
     assert.equal(await facs.buscarPorAluno(1), null);

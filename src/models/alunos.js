@@ -149,6 +149,26 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
     return { alunos: rows, total: contagemRows[0].total };
 }
 
+// Destaque do painel do supervisor: estudantes que já cumpriram as horas do
+// estágio, o estágio ainda não foi encerrado e a FAC continua pendente.
+async function listarPendentesFac(supervisorId) {
+    const { rows } = await pool.query(
+        `SELECT a.*, u.nome, u.email, ori.nome AS orientador_nome,
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas
+         FROM alunos a
+         JOIN usuarios u ON u.id = a.usuario_id
+         LEFT JOIN usuarios ori ON ori.id = a.orientador_id
+         WHERE a.supervisor_id = $1
+           AND a.arquivado = false
+           AND a.status = 'concluido'
+           AND a.encerrado_em IS NULL
+           AND NOT EXISTS (SELECT 1 FROM facs f WHERE f.aluno_id = a.usuario_id)
+         ORDER BY u.nome`,
+        [supervisorId]
+    );
+    return rows;
+}
+
 async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orientadorId, cargaHoraria, horarioTrabalho }) {
     // "concluido" nunca é definido manualmente: só quando as horas validadas
     // atingem a carga horária. Qualquer outro status é tratado como em andamento.
@@ -203,6 +223,7 @@ module.exports = {
     atualizarMatricula,
     atualizarCurso,
     listar,
+    listarPendentesFac,
     atualizarEstagio,
     arquivar,
     desarquivar,

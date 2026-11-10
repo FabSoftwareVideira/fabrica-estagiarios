@@ -43,8 +43,10 @@
                     <% }) %>
                 </section>
                 <section class="card">
-                    <label for="atividades">Principais atividades executadas na empresa</label><textarea id="atividades" name="atividades" maxlength="1500" rows="2" class="textarea-compacta" placeholder="Descreva as principais atividades executadas pelo estagiário." required><%= valores.atividades %></textarea>
-                    <label for="comentarios">Comentários/observações</label><textarea id="comentarios" name="comentarios" maxlength="1500" rows="2" class="textarea-compacta" placeholder="Registre observações sobre o desempenho do estagiário."><%= valores.comentarios %></textarea>
+                    <label for="atividades">Principais atividades executadas na empresa</label><textarea id="atividades" name="atividades" maxlength="300" rows="2" class="textarea-compacta" placeholder="Descreva as principais atividades executadas pelo estagiário." required><%= valores.atividades %></textarea>
+                    <small class="text-muted">Máximo de 300 caracteres.</small>
+                    <label for="comentarios">Comentários/observações</label><textarea id="comentarios" name="comentarios" maxlength="300" rows="2" class="textarea-compacta" placeholder="Registre observações sobre o desempenho do estagiário."><%= valores.comentarios %></textarea>
+                    <small class="text-muted">Máximo de 300 caracteres.</small>
                     <div class="form-grid">
                         <div class="form-field"><label for="local_assinatura">Local da assinatura</label><input type="text" id="local_assinatura" name="local_assinatura" maxlength="80" placeholder="Ex.: Videira" required value="<%= valores.local_assinatura %>"></div>
                         <div class="form-field"><label for="data_assinatura">Data da assinatura</label><input type="date" id="data_assinatura" name="data_assinatura" placeholder="DD/MM/AAAA" required value="<%= valores.data_assinatura %>"></div>

@@ -93,6 +93,7 @@ const TAMANHO_PAGINA_USUARIOS = 10;
 const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'concluido'];
 const CAMPOS_ORDENACAO = ['nome', 'supervisor', 'horas', 'status'];
 const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado'];
+const SITUACOES_SUPERVISOR = ['andamento', 'concluido'];
 const CAMPOS_ORDENACAO_USUARIOS = ['nome', 'email', 'tipo', 'situacao', 'criado_em'];
 
 router.get('/dashboard', async (req, res) => {
@@ -111,10 +112,11 @@ router.get('/dashboard', async (req, res) => {
             pagina: 1,
             totalPaginas: 1,
             tamanhoPagina: TAMANHO_PAGINA,
-            filtros: { q: '', status: [], arquivados: false },
+            filtros: { q: '', status: [], situacao: [], arquivados: false },
             filtroPersonalizado: false,
             ordenacao: { campo: null, direcao: 'asc' },
             solicitacoesPendentes,
+            facPendentes: [],
         });
     }
 
@@ -128,21 +130,35 @@ router.get('/dashboard', async (req, res) => {
     // pra diferenciar "sem filtro" (todos) do primeiro acesso (padrão)
     const filtroEnviado = req.query.f === '1'
         || req.query.status !== undefined
+        || req.query.situacao !== undefined
         || req.query.q
         || arquivados
         || req.query.pagina !== undefined;
 
-    let status = [...new Set([].concat(req.query.status || []))]
-        .filter((s) => STATUS_VALIDOS.includes(s));
+    // O supervisor não distingue as fases internas do estágio: enxerga apenas
+    // "em andamento" (horas ainda não cumpridas) ou "concluído" (horas cumpridas).
+    const situacoesSupervisor = [...new Set([].concat(req.query.situacao || []))]
+        .filter((s) => SITUACOES_SUPERVISOR.includes(s));
 
-    if (!filtroEnviado && status.length === 0) {
-        status = [...STATUS_FILTRO];
+    let status;
+    if (isSupervisor) {
+        const soAndamento = situacoesSupervisor.length === 1 && situacoesSupervisor[0] === 'andamento';
+        const soConcluido = situacoesSupervisor.length === 1 && situacoesSupervisor[0] === 'concluido';
+        if (soAndamento) status = ['lista_espera', 'em_andamento'];
+        else if (soConcluido) status = ['concluido'];
+        else status = [];
+    } else {
+        status = [...new Set([].concat(req.query.status || []))]
+            .filter((s) => STATUS_VALIDOS.includes(s));
+        if (!filtroEnviado && status.length === 0) {
+            status = [...STATUS_FILTRO];
+        }
     }
 
     let pagina = parseInt(req.query.pagina, 10);
     if (!Number.isFinite(pagina) || pagina < 1) pagina = 1;
 
-    const filtros = { q: busca, status, arquivados };
+    const filtros = { q: busca, status, situacao: situacoesSupervisor, arquivados };
 
     const consultar = () => alunosModel.listar({
         status,
@@ -158,6 +174,10 @@ router.get('/dashboard', async (req, res) => {
 
     // bancas em que o professor participa aparecem em destaque no painel
     const minhasBancas = isSupervisor ? [] : await bancasModel.listarProximasDoProfessor(req.session.user.id);
+    // destaque do supervisor: quem cumpriu as horas e ainda falta a FAC
+    const facPendentes = isSupervisor
+        ? await alunosModel.listarPendentesFac(req.session.user.id)
+        : [];
 
     let resultado = await consultar();
     const totalPaginas = Math.max(1, Math.ceil(resultado.total / TAMANHO_PAGINA));
@@ -167,6 +187,10 @@ router.get('/dashboard', async (req, res) => {
         resultado = await consultar();
     }
 
+    const filtroPersonalizado = isSupervisor
+        ? Boolean(busca || situacoesSupervisor.length === 1)
+        : Boolean(filtroEnviado);
+
     res.render('professor_dashboard', {
         aba,
         alunos: resultado.alunos,
@@ -175,10 +199,11 @@ router.get('/dashboard', async (req, res) => {
         totalPaginas,
         tamanhoPagina: TAMANHO_PAGINA,
         filtros,
-        filtroPersonalizado: Boolean(filtroEnviado),
+        filtroPersonalizado,
         ordenacao,
         solicitacoesPendentes,
         minhasBancas,
+        facPendentes,
     });
 });
 
