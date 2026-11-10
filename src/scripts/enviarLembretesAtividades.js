@@ -4,7 +4,8 @@ const { obterConfiguracaoEmail, escaparHtml } = require('../services/email');
 const ELEGIVEL = `a.status = 'em_andamento' AND a.arquivado = false
     AND a.encerrado_em IS NULL
     AND a.relatorio_atualizado_em < NOW() - INTERVAL '5 days'
-    AND (l.proximo_envio_em IS NULL OR l.proximo_envio_em <= NOW())`;
+    AND (l.proximo_envio_em IS NULL OR l.proximo_envio_em <= NOW())
+    AND (SELECT pref.receber_lembretes_atividades FROM usuarios pref WHERE pref.id = a.usuario_id)`;
 
 function montarEmail(aluno, urlAplicacao) {
     const link = `${urlAplicacao}/aluno/nova-atividade`;

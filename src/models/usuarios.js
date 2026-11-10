@@ -291,6 +291,14 @@ async function atualizarPerfil(usuarioId, nome) {
     return rows[0];
 }
 
+// Preferências de e-mail escolhidas no perfil (o resumo semanal fica em professores).
+async function definirPreferenciasEmail(usuarioId, { bancas, lembretes }) {
+    await pool.query(
+        'UPDATE usuarios SET receber_email_bancas = $2, receber_lembretes_atividades = $3 WHERE id = $1',
+        [usuarioId, Boolean(bancas), Boolean(lembretes)]
+    );
+}
+
 async function atualizarAvatar(usuarioId, avatarEmoji) {
     const { rows } = await pool.query(
         `UPDATE usuarios SET avatar_emoji = $2 WHERE id = $1 RETURNING *`,
@@ -319,4 +327,5 @@ module.exports = {
     confirmarNome,
     atualizarPerfil,
     atualizarAvatar,
+    definirPreferenciasEmail,
 };

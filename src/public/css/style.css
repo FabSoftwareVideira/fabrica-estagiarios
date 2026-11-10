@@ -913,6 +913,10 @@ html.alto-contraste .curso-ambar { --curso-cor: #ffd700; }
 .curso-option input:focus-visible + .curso-choice { box-shadow: var(--foco); }
 
 .avatar-fieldset { margin-top: 18px; }
+.email-fieldset { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--borda-suave); }
+.email-fieldset legend { font-weight: 700; color: var(--azul-900); padding-top: 18px; }
+.email-fieldset .profile-email-preference { align-items: flex-start; margin-top: 12px; }
+.email-fieldset .profile-email-preference small { display: block; font-weight: 400; font-size: 13px; color: var(--texto-suave); }
 .avatar-fieldset legend { font-weight: 700; margin-bottom: 4px; color: var(--azul-900); }
 .avatar-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; margin-top: 12px; }
 .avatar-option { margin: 0; cursor: pointer; position: relative; }

@@ -28,15 +28,6 @@
                         <p class="text-muted">O e-mail não pode ser alterado porque identifica sua conta Google ou
                             GitHub.</p>
 
-                        <% if (usuario.tipo === 'professor') { %>
-                            <label class="schedule-toggle profile-email-preference">
-                                <input type="checkbox" name="receber_relatorio_semanal"
-                                    <%= professor && professor.receber_relatorio_semanal ? 'checked' : '' %>>
-                                <span>Receber o resumo semanal de estágio por e-mail</span>
-                            </label>
-                            <p class="text-muted">Se desativado, você não será incluído nos envios semanais nem nos envios manuais do administrador.</p>
-                        <% } %>
-
                         <% if (usuario.tipo==='aluno' ) { %>
                             <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
                             <input type="text" id="matricula" name="matricula" maxlength="30"
@@ -50,6 +41,27 @@
                             </select>
                         <% } %>
                         <%- include('partials/avatar-picker', { avatares, selectedAvatar: usuario.avatar_emoji || '' }) %>
+
+                        <fieldset class="email-fieldset">
+                            <legend>E-mails da plataforma</legend>
+                            <p class="text-muted">Escolha o que você quer receber em <%= usuario.email %>. Desmarcar não muda o que aparece no sistema.</p>
+                            <label class="schedule-toggle profile-email-preference">
+                                <input type="checkbox" name="receber_email_bancas" <%= usuario.receber_email_bancas === false ? '' : 'checked' %>>
+                                <span>Avisos de banca<small>Agendamento, remarcação e cancelamento, com convite para a agenda.</small></span>
+                            </label>
+                            <% if (usuario.tipo === 'professor') { %>
+                                <label class="schedule-toggle profile-email-preference">
+                                    <input type="checkbox" name="receber_relatorio_semanal"
+                                        <%= professor && professor.receber_relatorio_semanal ? 'checked' : '' %>>
+                                    <span>Resumo semanal de estágio<small>Inclui os envios semanais e os envios manuais do administrador.</small></span>
+                                </label>
+                            <% } else { %>
+                                <label class="schedule-toggle profile-email-preference">
+                                    <input type="checkbox" name="receber_lembretes_atividades" <%= usuario.receber_lembretes_atividades === false ? '' : 'checked' %>>
+                                    <span>Lembretes de atividades<small>Enviados quando você fica mais de 5 dias sem registrar atividades.</small></span>
+                                </label>
+                            <% } %>
+                        </fieldset>
 
                                 <div class="button-group">
                                     <button type="submit" class="btn-success">Salvar alterações</button>

@@ -158,13 +158,15 @@ A interface usa sempre o tema claro. O botão "Alto contraste" na barra superior
 
 Ao agendar, remarcar ou cancelar uma banca, o sistema envia um e-mail ao orientador, aos dois avaliadores e ao estudante, com um convite de calendário (`banca.ics`) anexado. Gmail/Google Agenda, Outlook e Apple Mail oferecem "Adicionar à agenda"; remarcar atualiza o mesmo evento e cancelar o remove. Quem é substituído na banca recebe o cancelamento. O envio usa o mesmo SMTP do relatório semanal (`SMTP_*` e `APP_URL`); se o e-mail falhar, o agendamento é mantido e a tela avisa que os participantes não foram notificados.
 
+Cada pessoa escolhe em **Meu perfil → E-mails da plataforma** o que quer receber: avisos de banca (todos), resumo semanal (professores) e lembretes de atividades (estudantes). Quem desativa os avisos de banca fica fora do e-mail e do convite, mas continua vendo a banca no sistema. As preferências ficam em `usuarios.receber_email_bancas` e `usuarios.receber_lembretes_atividades` (migração `025_preferencias_email.sql`), ligadas por padrão.
+
 No painel do professor, o cartão **Suas próximas bancas** lista as bancas em que ele é orientador ou avaliador, e a agenda tem o filtro **Somente as minhas**.
 
 ## Avaliação do supervisor (FAC)
 
 Após o estudante cumprir as horas, o supervisor vinculado acessa **Fichas → Avaliações dos meus supervisionados** ou **Aluno → Fichas → FAC**. O formulário segue o modelo `docs/Ficha-de-Avaliacao-do-Estagiario-pela-Concedente.pdf`: dados do estágio (empresa/entidade com até 60 caracteres e período com até 35), curso, dez critérios de 0 a 10 com até duas casas decimais, atividades e comentários (até 300 caracteres cada), local e data. A média é calculada com uma casa decimal e usada automaticamente na ata; a nota manual continua disponível para fichas em papel quando não há FAC salva.
 
-Somente o supervisor vinculado pode alterar a FAC, enquanto o estágio estiver aberto e não arquivado. O aluno pode baixar sua própria ficha; orientador e administrador podem consultá-la e emitir o PDF. Após o encerramento, a ficha fica disponível para consulta/impressão. O PDF preserva os campos para assinaturas e ciência, e textos extensos continuam em anexo. A nota da FAC na ata encerrada mantém o valor salvo no encerramento.
+Somente o supervisor vinculado pode alterar a FAC, enquanto o estágio estiver aberto, não arquivado e a ata da banca não tiver sido emitida. O aluno pode baixar sua própria ficha; orientador e administrador podem consultá-la e emitir o PDF. Após o encerramento, a ficha fica disponível para consulta/impressão. O PDF preserva os campos para assinaturas e ciência, e textos extensos continuam em anexo. A nota da FAC na ata encerrada mantém o valor salvo no encerramento.
 
 Aplicar a migração `017_ficha_supervisor.sql`. O modelo PDF deve acompanhar a versão implantada. O agendamento da banca permanece como melhoria futura em [docs/atualizacoes-futuras.md](docs/atualizacoes-futuras.md).
 

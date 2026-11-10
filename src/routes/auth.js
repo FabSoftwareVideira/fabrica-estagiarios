@@ -86,6 +86,13 @@ router.post('/perfil', requireAuth, async (req, res) => {
         await usuarios.atualizarAvatar(req.session.user.id, avatarEmoji);
         req.session.user.avatarEmoji = avatarEmoji;
 
+        // caixa desmarcada não é enviada pelo navegador: ausente = não receber.
+        // O lembrete de atividades só existe para estudantes; para os demais fica ligado.
+        await usuarios.definirPreferenciasEmail(req.session.user.id, {
+            bancas: req.body.receber_email_bancas === 'on',
+            lembretes: req.session.user.tipo === 'aluno' ? req.body.receber_lembretes_atividades === 'on' : true,
+        });
+
         if (req.session.user.tipo === 'aluno') {
             const aluno = await alunos.buscarPorUsuarioId(req.session.user.id);
             if (aluno) {

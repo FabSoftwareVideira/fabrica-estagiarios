@@ -31,13 +31,14 @@ function paraUtc(data, hora) {
     return new Date(`${data}T${hora}:00-03:00`).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
 
+// Quem desativou os avisos de banca no perfil fica fora da lista.
 function participantesDaBanca(banca) {
     return [
-        { papel: 'Orientador', nome: banca.orientador_nome, email: banca.orientador_email },
-        { papel: 'Avaliador 1', nome: banca.avaliador_1_nome, email: banca.avaliador_1_email },
-        { papel: 'Avaliador 2', nome: banca.avaliador_2_nome, email: banca.avaliador_2_email },
-        { papel: 'Estudante', nome: banca.aluno_nome, email: banca.aluno_email },
-    ].filter((p) => p.email);
+        { papel: 'Orientador', nome: banca.orientador_nome, email: banca.orientador_email, recebe: banca.orientador_recebe_email },
+        { papel: 'Avaliador 1', nome: banca.avaliador_1_nome, email: banca.avaliador_1_email, recebe: banca.avaliador_1_recebe_email },
+        { papel: 'Avaliador 2', nome: banca.avaliador_2_nome, email: banca.avaliador_2_email, recebe: banca.avaliador_2_recebe_email },
+        { papel: 'Estudante', nome: banca.aluno_nome, email: banca.aluno_email, recebe: banca.aluno_recebe_email },
+    ].filter((p) => p.email && p.recebe !== false);
 }
 
 function gerarIcs(banca, { cancelada = false, organizador, dominio, participantes = participantesDaBanca(banca), agora = new Date() } = {}) {

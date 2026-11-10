@@ -181,3 +181,22 @@ test('painel e agenda destacam as bancas em que o professor participa', async ()
     const minhas = await (await http('/professor/bancas?minhas=1', { user: 102 })).text();
     assert.match(minhas, /Sala 12/); assert.doesNotMatch(minhas, /Sala 20/);
 });
+test('quem desativou os avisos de banca no perfil não recebe e-mail nem entra no convite', async () => {
+    const { usarConfiguracaoEmail } = require('../src/services/conviteBanca');
+    const enviados = [];
+    usarConfiguracaoEmail(() => ({ remetente: 'estagios@example.test', enderecoRemetente: 'estagios@example.test',
+        urlAplicacao: 'https://estagios.example.test', transporte: { async sendMail(mail) { enviados.push(mail); return { rejected: [] }; } } }));
+    try {
+        await db.exec('UPDATE usuarios SET receber_email_bancas = false WHERE id IN (102, 201)');
+        assert.equal((await http('/professor/aluno/201/banca', { body: dados() })).status, 302);
+        assert.deepEqual(enviados[0].to.map((p) => p.address).sort(), ['101@example.test', '103@example.test']);
+        assert.doesNotMatch(enviados[0].icalEvent.content, /102@example\.test|ana@example\.test/);
+        // a banca continua aparecendo no painel de quem desativou o e-mail
+        assert.match(await (await http('/professor/dashboard', { user: 102 })).text(), /Suas próximas bancas/);
+
+        // ninguém quer receber: nada é enviado e o agendamento segue normalmente
+        await db.exec('UPDATE usuarios SET receber_email_bancas = false');
+        assert.equal((await http('/professor/aluno/201/banca/situacao', { body: { versao: '1', situacao: 'cancelada' } })).status, 302);
+        assert.equal(enviados.length, 1);
+    } finally { usarConfiguracaoEmail(null); }
+});

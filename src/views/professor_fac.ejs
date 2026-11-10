@@ -23,7 +23,7 @@
             </div>
         <% } %>
         <% if (rascunhoSalvo) { %><div class="aviso aviso-info" role="status">Rascunho da FAC salvo em <%= dataBr(rascunhoSalvo.atualizado_em) %>. Continue o preenchimento quando quiser.</div><% } %>
-        <% if (!aluno.curso) { %><p class="aviso aviso-info">O estudante ainda não selecionou o curso em seu perfil; a FAC fica bloqueada até essa informação ser preenchida.</p><% } else if (!podeEditar) { %><p class="aviso aviso-info">Consulta da avaliação. O supervisor pode preenchê-la após o cumprimento das horas, enquanto o estágio estiver aberto e não arquivado.</p><% } %>
+        <% if (!aluno.curso) { %><p class="aviso aviso-info">O estudante ainda não selecionou o curso em seu perfil; a FAC fica bloqueada até essa informação ser preenchida.</p><% } else if (ataEmitida) { %><p class="aviso aviso-info">A ata da banca já foi emitida. A FAC não pode mais ser alterada.</p><% } else if (!podeEditar) { %><p class="aviso aviso-info">Consulta da avaliação. O supervisor pode preenchê-la após o cumprimento das horas, enquanto o estágio estiver aberto e não arquivado.</p><% } %>
         <% if (erros.length) { %><div class="flash flash-error" role="alert"><ul><% erros.forEach((erro) => { %><li><%= erro %></li><% }) %></ul></div><% } %>
         <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/fac">
             <fieldset <%= podeEditar ? '' : 'disabled' %>>

@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
     -- vir incompleto (ex.: só o primeiro nome); esse campo controla se a
     -- pessoa já passou pela telinha de confirmar/editar o nome completo
     nome_confirmado BOOLEAN    NOT NULL DEFAULT false,
+    -- preferências de e-mail escolhidas no perfil
+    receber_email_bancas BOOLEAN NOT NULL DEFAULT true,
+    receber_lembretes_atividades BOOLEAN NOT NULL DEFAULT true,
     criado_em     TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 

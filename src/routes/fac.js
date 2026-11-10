@@ -18,14 +18,23 @@ async function carregar(req, res, next) {
     next();
 }
 
+function ataEmitida(aluno) {
+    return Boolean(aluno.encerrado_em);
+}
+
 function podeEditar(aluno, user) {
+    // A FAC só pode ser alterada enquanto a ata da banca não foi emitida;
+    // ao concluir o estágio o orientador grava encerrado_em e a ficha trava.
     return Number(aluno.supervisor_id) === Number(user.id) && aluno.status === 'concluido'
-        && !aluno.encerrado_em && !aluno.arquivado && Boolean(aluno.curso);
+        && !ataEmitida(aluno) && !aluno.arquivado && Boolean(aluno.curso);
 }
 
 async function renderizar(req, res, valores, erros = []) {
     const fac = await facs.buscarPorAluno(req.aluno.usuario_id);
-    const rascunhoSalvo = await fichasRascunhos.buscar(req.aluno.usuario_id, 'FAC');
+    // depois da ata emitida a ficha é somente leitura: ignora rascunhos antigos
+    const rascunhoSalvo = ataEmitida(req.aluno)
+        ? null
+        : await fichasRascunhos.buscar(req.aluno.usuario_id, 'FAC');
     const registros = await atividades.listarPorAluno(req.aluno.usuario_id);
     const base = fac ? { ...fac, curso: req.aluno.curso || fac.curso, data_assinatura: dataParaInput(fac.data_assinatura) } : {
         empresa: (req.aluno.empresa || '').slice(0, 60), curso: req.aluno.curso || '', periodo: periodoDasAtividades(registros),
@@ -38,6 +47,7 @@ async function renderizar(req, res, valores, erros = []) {
     res.render('professor_fac', {
         aluno: req.aluno, fac, erros, criterios: CRITERIOS_FAC, rascunhoSalvo,
         podeEditar: podeEditar(req.aluno, req.session.user),
+        ataEmitida: ataEmitida(req.aluno),
         valores: valores || valoresIniciais,
     });
 }
@@ -51,8 +61,8 @@ router.post('/aluno/:id/fac', carregar, async (req, res) => {
             empresa: campo(req.body.empresa, 200),
             periodo: campo(req.body.periodo, 80),
             notas: Array.from({ length: 10 }, (_, i) => campo(req.body[`nota_${i}`], 10)),
-            atividades: campo(req.body.atividades, 1500),
-            comentarios: campo(req.body.comentarios, 1500),
+            atividades: campo(req.body.atividades, 300),
+            comentarios: campo(req.body.comentarios, 300),
             local_assinatura: campo(req.body.local_assinatura, 80),
             data_assinatura: campo(req.body.data_assinatura, 10),
         };

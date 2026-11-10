@@ -1013,7 +1013,12 @@ test('FAC: permissões, encerramento, arquivamento e dados inválidos bloqueiam 
     }
     assert.equal(await facs.buscarPorAluno(1), null);
     await db.exec('UPDATE alunos SET encerrado_em=NOW() WHERE usuario_id=1');
-    assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 403);
+    const facEncerrada = await requisitar('/professor/aluno/1/fac', { user: 101 });
+    assert.equal(facEncerrada.status, 200);
+    assert.match(await facEncerrada.text(), /A ata da banca já foi emitida/);
+    assert.equal((await requisitar('/professor/aluno/1/fac', { user: 101, method: 'POST', body: form() })).status, 403);
+    // nem rascunho pode ser salvo depois da ata emitida
+    assert.equal((await requisitar('/professor/aluno/1/fac', { user: 101, method: 'POST', body: { ...form(), acao: 'rascunho' } })).status, 403);
     await db.exec('UPDATE alunos SET encerrado_em=NULL, arquivado=true WHERE usuario_id=1');
     assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 403);
 
@@ -1036,4 +1041,28 @@ test('PDF preserva textos longos em anexo e média aceita zero', async () => {
         ...form(), notas: Array(10).fill(10), atividades: 'Atividade detalhada. '.repeat(70), comentarios: 'Comentário extenso. '.repeat(70), supervisor_nome: 'Supervisor Teste',
     } });
     assert.equal((await PDFDocument.load(bytes)).getPageCount(), 4);
+});
+test('perfil guarda as preferências de e-mail e o lembrete respeita a escolha do estudante', async () => {
+    const cursos = require('../src/config/cursos').CURSOS;
+    const prefs = async (id) => (await consultar('SELECT receber_email_bancas AS bancas, receber_lembretes_atividades AS lembretes FROM usuarios WHERE id=$1', [id])).rows[0];
+    assert.deepEqual(await prefs(1), { bancas: true, lembretes: true });
+    assert.match(await (await requisitar('/perfil', { user: 1 })).text(), /E-mails da plataforma/);
+
+    // caixas desmarcadas não chegam no formulário: o estudante deixa de receber os dois
+    const base = { nome: 'Estudante 1', matricula: 'TESTE1', curso: cursos[0] };
+    await requisitar('/perfil', { user: 1, method: 'POST', body: base });
+    assert.deepEqual(await prefs(1), { bancas: false, lembretes: false });
+    await db.exec("UPDATE alunos SET relatorio_atualizado_em = NOW() WHERE usuario_id > 1");
+    const enviadas = [];
+    assert.deepEqual(await executar(emailTeste(enviadas)), { enviados: 0, falhas: 0 });
+
+    await requisitar('/perfil', { user: 1, method: 'POST', body: { ...base, receber_lembretes_atividades: 'on' } });
+    assert.deepEqual(await prefs(1), { bancas: false, lembretes: true });
+    assert.equal((await executar(emailTeste(enviadas))).enviados, 1);
+
+    // professor: escolhe só os avisos de banca; o lembrete de atividades não se aplica a ele
+    await requisitar('/perfil', { user: 101, method: 'POST', body: { nome: 'Professor 101' } });
+    assert.deepEqual(await prefs(101), { bancas: false, lembretes: true });
+    await requisitar('/perfil', { user: 101, method: 'POST', body: { nome: 'Professor 101', receber_email_bancas: 'on' } });
+    assert.deepEqual(await prefs(101), { bancas: true, lembretes: true });
 });
