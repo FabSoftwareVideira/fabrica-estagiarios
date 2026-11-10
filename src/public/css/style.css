@@ -1121,6 +1121,7 @@ html.alto-contraste .public-flow-number { background: #1a1a1a; }
 .agenda-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; }
 .agenda-filters .form-field { flex: 1 1 160px; }
 .agenda-count { margin: 0 0 16px; }
+.agenda-minhas { display: inline-flex; align-items: center; gap: 8px; margin: 0; min-height: 44px; cursor: pointer; white-space: nowrap; }
 .agenda-fields { margin-top: 20px; }
 .agenda-card { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; }
 .agenda-date { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; background: var(--azul-50); color: var(--azul-900); border-radius: var(--raio-campo); padding: 20px 12px; }

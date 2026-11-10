@@ -16,6 +16,7 @@ const { ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
 const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTrabalho');
 const { CURSOS, ehCurso } = require('../config/cursos');
+const bancasModel = require('../models/bancas');
 
 router.use(requireRole('professor'));
 
@@ -153,6 +154,9 @@ router.get('/dashboard', async (req, res) => {
         direcao,
     });
 
+    // bancas em que o professor participa aparecem em destaque no painel
+    const minhasBancas = isSupervisor ? [] : await bancasModel.listarProximasDoProfessor(req.session.user.id);
+
     let resultado = await consultar();
     const totalPaginas = Math.max(1, Math.ceil(resultado.total / TAMANHO_PAGINA));
 
@@ -172,6 +176,7 @@ router.get('/dashboard', async (req, res) => {
         filtroPersonalizado: Boolean(filtroEnviado),
         ordenacao,
         solicitacoesPendentes,
+        minhasBancas,
     });
 });
 

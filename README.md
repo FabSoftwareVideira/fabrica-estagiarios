@@ -154,6 +154,12 @@ A migração `016_lembretes_atividades.sql` permanece no histórico de deploy e 
 
 A interface usa sempre o tema claro. O botão "Alto contraste" na barra superior alterna o modo de alto contraste em todas as páginas; a escolha é salva em `localStorage` (chave `contraste`) e reaplicada nas próximas visitas.
 
+## Avisos e convites da banca
+
+Ao agendar, remarcar ou cancelar uma banca, o sistema envia um e-mail ao orientador, aos dois avaliadores e ao estudante, com um convite de calendário (`banca.ics`) anexado. Gmail/Google Agenda, Outlook e Apple Mail oferecem "Adicionar à agenda"; remarcar atualiza o mesmo evento e cancelar o remove. Quem é substituído na banca recebe o cancelamento. O envio usa o mesmo SMTP do relatório semanal (`SMTP_*` e `APP_URL`); se o e-mail falhar, o agendamento é mantido e a tela avisa que os participantes não foram notificados.
+
+No painel do professor, o cartão **Suas próximas bancas** lista as bancas em que ele é orientador ou avaliador, e a agenda tem o filtro **Somente as minhas**.
+
 ## Avaliação do supervisor (FAC)
 
 Após o estudante cumprir as horas, o supervisor vinculado acessa **Fichas → Avaliações dos meus supervisionados** ou **Aluno → Fichas → FAC**. O formulário segue o modelo `docs/Ficha-de-Avaliacao-do-Estagiario-pela-Concedente.pdf`: dados do estágio, curso, período, dez critérios de 0 a 10, atividades, comentários, local e data. A média é calculada com uma casa decimal e usada automaticamente na ata; a nota manual continua disponível para fichas em papel quando não há FAC salva.

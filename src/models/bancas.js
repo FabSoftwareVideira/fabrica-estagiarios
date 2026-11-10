@@ -4,7 +4,8 @@ const { agoraBrasilia } = require('../utils/bancas');
 
 const SELECT = `SELECT b.*, TO_CHAR(b.data, 'YYYY-MM-DD') AS data, u.nome AS aluno_nome, a.matricula, a.empresa,
     o.nome AS orientador_nome, p1.nome AS avaliador_1_nome, p2.nome AS avaliador_2_nome,
-    editor.nome AS atualizado_por_nome, a.encerrado_em
+    editor.nome AS atualizado_por_nome, a.encerrado_em,
+    u.email AS aluno_email, o.email AS orientador_email, p1.email AS avaliador_1_email, p2.email AS avaliador_2_email
     FROM bancas b JOIN alunos a ON a.usuario_id = b.aluno_id
     JOIN usuarios u ON u.id = b.aluno_id JOIN usuarios o ON o.id = b.orientador_id
     JOIN usuarios p1 ON p1.id = b.avaliador_1_id JOIN usuarios p2 ON p2.id = b.avaliador_2_id
@@ -16,10 +17,21 @@ async function buscarPorAluno(alunoId) {
     const { rows } = await pool.query(`${SELECT} WHERE b.aluno_id = $1`, [alunoId]);
     return normalizar(rows[0]);
 }
-async function listar({ inicio = '', fim = '', situacao = '' } = {}) {
+// participanteId (opcional) restringe às bancas em que o professor é orientador ou avaliador.
+async function listar({ inicio = '', fim = '', situacao = '', participanteId = null } = {}) {
     const { rows } = await pool.query(`${SELECT}
         WHERE ($1::date IS NULL OR b.data >= $1::date) AND ($2::date IS NULL OR b.data <= $2::date)
-        AND ($3::text = '' OR b.situacao = $3) ORDER BY b.data, b.hora_inicio, u.nome`, [inicio || null, fim || null, situacao]);
+        AND ($3::text = '' OR b.situacao = $3)
+        AND ($4::integer IS NULL OR $4::integer IN (b.orientador_id, b.avaliador_1_id, b.avaliador_2_id))
+        ORDER BY b.data, b.hora_inicio, u.nome`, [inicio || null, fim || null, situacao, participanteId || null]);
+    return rows.map(normalizar);
+}
+// Próximas bancas (agendadas ou remarcadas) em que o professor participa.
+async function listarProximasDoProfessor(professorId, hoje = agoraBrasilia().data) {
+    const { rows } = await pool.query(`${SELECT}
+        WHERE b.data >= $2::date AND b.situacao IN ('agendada', 'remarcada')
+        AND $1::integer IN (b.orientador_id, b.avaliador_1_id, b.avaliador_2_id)
+        ORDER BY b.data, b.hora_inicio, u.nome`, [professorId, hoje]);
     return rows.map(normalizar);
 }
 async function listarAlunosDisponiveis(user) {
@@ -104,4 +116,4 @@ async function definirSituacao(alunoId, user, versao, situacao) {
     });
 }
 
-module.exports = { buscarPorAluno, listar, listarAlunosDisponiveis, salvar, definirSituacao };
+module.exports = { buscarPorAluno, listar, listarProximasDoProfessor, listarAlunosDisponiveis, salvar, definirSituacao };

@@ -119,3 +119,65 @@ test('realização só após término; marcar realizada não encerra o estágio 
     assert.equal((await query('SELECT encerrado_em FROM alunos WHERE usuario_id=201')).rows[0].encerrado_em, null);
     await assert.rejects(bancas.salvar(201, orientador, dados({ versao: '2' })), /realizadas/);
 });
+test('agendar, remarcar, trocar avaliador e cancelar avisam por e-mail com convite de calendário', async () => {
+    const { usarConfiguracaoEmail } = require('../src/services/conviteBanca');
+    const enviados = [];
+    usarConfiguracaoEmail(() => ({ remetente: 'Estágios <estagios@example.test>', enderecoRemetente: 'estagios@example.test',
+        urlAplicacao: 'https://estagios.example.test', transporte: { async sendMail(mail) { enviados.push(mail); return { rejected: [] }; } } }));
+    try {
+        assert.equal((await http('/professor/aluno/201/banca', { body: dados({ observacoes: 'Trazer; relatório, impresso' }) })).status, 302);
+        assert.equal(enviados.length, 1);
+        const convite = enviados[0];
+        assert.match(convite.subject, /agendada · Ana Teste/);
+        assert.deepEqual(convite.to.map((p) => p.address).sort(), ['101@example.test', '102@example.test', '103@example.test', 'ana@example.test']);
+        assert.equal(convite.icalEvent.method, 'REQUEST');
+        const ics = convite.icalEvent.content.replace(/\r\n /g, '');
+        assert.match(ics, /UID:banca-201@estagios\.example\.test/);
+        assert.match(ics, /SEQUENCE:1\r\n/);
+        assert.match(ics, new RegExp(`DTSTART:${amanha.replace(/-/g, '')}T170000Z`)); // 14:00 em Brasília
+        assert.match(ics, /LOCATION:Sala 12/);
+        assert.ok(ics.includes('Trazer\\; relatório\\, impresso'));
+        assert.match(ics, /ATTENDEE;CN=Professor 102;[^\r]*:mailto:102@example\.test/);
+        assert.ok(convite.icalEvent.content.split('\r\n').every((linha) => Buffer.byteLength(linha) <= 75));
+
+        // salvar sem mudar nada não reenvia
+        assert.equal((await http('/professor/aluno/201/banca', { body: dados({ versao: '1', observacoes: 'Trazer; relatório, impresso' }) })).status, 302);
+        assert.equal(enviados.length, 1);
+
+        // remarcar trocando um avaliador: convite novo para a banca atual e cancelamento para quem saiu
+        assert.equal((await http('/professor/aluno/201/banca', { body: dados({ versao: '2', hora_inicio: '16:00', hora_fim: '17:00', avaliador_2_id: '105' }) })).status, 302);
+        assert.equal(enviados.length, 3);
+        assert.match(enviados[1].subject, /remarcada/);
+        assert.ok(enviados[1].to.some((p) => p.address === '105@example.test'));
+        assert.ok(!enviados[1].to.some((p) => p.address === '103@example.test'));
+        assert.match(enviados[1].icalEvent.content, /SEQUENCE:3\r\n/);
+        assert.deepEqual(enviados[2].to.map((p) => p.address), ['103@example.test']);
+        assert.equal(enviados[2].icalEvent.method, 'CANCEL');
+
+        assert.equal((await http('/professor/aluno/201/banca/situacao', { body: { versao: '3', situacao: 'cancelada' } })).status, 302);
+        assert.equal(enviados.length, 4);
+        assert.equal(enviados[3].icalEvent.method, 'CANCEL');
+        assert.match(enviados[3].icalEvent.content, /STATUS:CANCELLED/);
+
+        // falha no e-mail não impede o agendamento
+        usarConfiguracaoEmail(() => { throw new Error('SMTP fora do ar'); });
+        assert.equal((await http('/professor/aluno/202/banca', { user: 104, body: dados({ avaliador_1_id: '105', avaliador_2_id: '106', sala: 'Sala 20' }) })).status, 302);
+        assert.equal((await bancas.buscarPorAluno(202)).situacao, 'agendada');
+    } finally { usarConfiguracaoEmail(null); }
+});
+test('painel e agenda destacam as bancas em que o professor participa', async () => {
+    await bancas.salvar(201, orientador, dados());
+    await bancas.salvar(202, { id: 104 }, dados({ avaliador_1_id: '105', avaliador_2_id: '106', sala: 'Sala 20' }));
+    assert.deepEqual((await bancas.listarProximasDoProfessor(102)).map((b) => b.aluno_id), [201]);
+    assert.deepEqual((await bancas.listarProximasDoProfessor(999)), []);
+
+    const painelAvaliador = await (await http('/professor/dashboard', { user: 102 })).text();
+    assert.match(painelAvaliador, /Suas próximas bancas/); assert.match(painelAvaliador, /Avaliador 1 · Sala 12/);
+    assert.doesNotMatch(painelAvaliador, /Sala 20/);
+    assert.doesNotMatch(await (await http('/professor/dashboard', { user: 103 })).text(), /Sala 20/);
+
+    const todas = await (await http('/professor/bancas', { user: 102 })).text();
+    assert.match(todas, /Sala 12/); assert.match(todas, /Sala 20/); assert.match(todas, /Você é avaliador 1/);
+    const minhas = await (await http('/professor/bancas?minhas=1', { user: 102 })).text();
+    assert.match(minhas, /Sala 12/); assert.doesNotMatch(minhas, /Sala 20/);
+});

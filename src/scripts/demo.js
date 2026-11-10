@@ -79,6 +79,13 @@ async function iniciar() {
     const mensagens = [];
     let resultado = null;
     const port = Number(process.env.DEMO_PORT || 3001);
+    // avisos de banca também caem na caixa local da demonstração
+    const capturaBancas = nodemailer.createTransport({ jsonTransport: true });
+    require('../services/conviteBanca').usarConfiguracaoEmail(() => ({ remetente: 'estagios@example.test',
+        enderecoRemetente: 'estagios@example.test', urlAplicacao: `http://127.0.0.1:${port}`,
+        transporte: { async sendMail(mail) {
+            const info = await capturaBancas.sendMail(mail); mensagens.push(JSON.parse(info.message)); return info;
+        } } }));
     app.get('/demo', async (req, res) => {
         const { rows: alunos } = await query(`SELECT u.nome,a.status,
             FLOOR(EXTRACT(EPOCH FROM (NOW()-a.relatorio_atualizado_em))/86400)::int AS dias,
