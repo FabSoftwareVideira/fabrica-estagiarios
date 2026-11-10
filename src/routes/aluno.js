@@ -209,7 +209,7 @@ router.get('/faa', requireEstagioConcluido, async (req, res) => {
 
 router.post('/faa', requireEstagioConcluido, async (req, res) => {
     if (req.aluno.encerrado_em) {
-        setFlash(req, 'error', 'O estágio foi encerrado e a FAA não pode mais ser alterada. Você pode apenas imprimir os documentos.');
+        setFlash(req, 'error', 'O estágio foi encerrado e a FAA não pode mais ser alterada. Você pode apenas imprimir as fichas.');
         return res.redirect('/aluno/dashboard?aba=fichas');
     }
 

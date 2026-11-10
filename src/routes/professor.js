@@ -272,6 +272,7 @@ router.get('/aluno/:id', async (req, res) => {
         fare,
         facRascunho,
         cursos: CURSOS,
+        aba: typeof req.query.aba === 'string' ? req.query.aba : '',
     });
 });
 
@@ -450,20 +451,34 @@ router.post('/aluno/:id', async (req, res) => {
         setFlash(req, 'error', 'Aluno não encontrado.');
         return res.redirect('/professor/dashboard');
     }
+    // erros e sucesso voltam para a aba de edição da tela do estudante
+    const voltar = `/professor/aluno/${req.params.id}?aba=estagio`;
     if (aluno.arquivado) {
         setFlash(req, 'error', 'Não é possível editar um estágio arquivado. Desarquive primeiro.');
-        return res.redirect('/professor/aluno/' + req.params.id);
+        return res.redirect(voltar);
     }
     if (aluno.encerrado_em) {
         setFlash(req, 'error', 'O estágio foi encerrado. Reabra a ata da banca para alterar os dados.');
-        return res.redirect('/professor/aluno/' + req.params.id);
+        return res.redirect(voltar);
     }
 
     const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
 
+    // o curso vem junto no formulário, mas só o orientador atual pode trocá-lo
+    const cursoInformado = typeof req.body.curso === 'string' ? req.body.curso : '';
+    const mudouCurso = Boolean(cursoInformado) && cursoInformado !== aluno.curso;
+    if (mudouCurso && Number(aluno.orientador_id) !== Number(req.session.user.id)) {
+        setFlash(req, 'error', 'Apenas o professor orientador pode alterar o curso do estudante.');
+        return res.redirect(voltar);
+    }
+    if (mudouCurso && !ehCurso(cursoInformado)) {
+        setFlash(req, 'error', 'Selecione um dos cursos técnicos disponíveis.');
+        return res.redirect(voltar);
+    }
+
     if (!empresa || !empresa.trim()) {
         setFlash(req, 'error', 'Informe a empresa onde o aluno está realizando o estágio.');
-        return res.redirect('/professor/aluno/' + req.params.id);
+        return res.redirect(voltar);
     }
 
     const { horarioTrabalho, erro: erroHorario } = validarHorarioTrabalho(
@@ -472,7 +487,7 @@ router.post('/aluno/:id', async (req, res) => {
     );
     if (erroHorario) {
         setFlash(req, 'error', erroHorario);
-        return res.redirect('/professor/aluno/' + req.params.id);
+        return res.redirect(voltar);
     }
 
     // "concluido" só é atribuído automaticamente pelo modelo quando as horas
@@ -483,13 +498,13 @@ router.post('/aluno/:id', async (req, res) => {
     // fora da lista de espera o estágio precisa de um orientador
     if (status !== 'lista_espera' && !orientador_id) {
         setFlash(req, 'error', 'Selecione o professor orientador. Só estudantes na lista de espera podem ficar sem orientador.');
-        return res.redirect('/professor/aluno/' + req.params.id);
+        return res.redirect(voltar);
     }
 
     const erroResponsaveis = await validarResponsaveis(supervisor_id, orientador_id);
     if (erroResponsaveis) {
         setFlash(req, 'error', erroResponsaveis);
-        return res.redirect('/professor/aluno/' + req.params.id);
+        return res.redirect(voltar);
     }
 
     await alunosModel.atualizarEstagio(req.params.id, {
@@ -500,9 +515,10 @@ router.post('/aluno/:id', async (req, res) => {
         cargaHoraria: Number(carga_horaria),
         horarioTrabalho,
     });
+    if (mudouCurso) await alunosModel.atualizarCurso(req.params.id, cursoInformado);
 
     setFlash(req, 'success', 'Estágio atualizado com sucesso.');
-    res.redirect('/professor/aluno/' + req.params.id);
+    res.redirect(voltar);
 });
 
 // ── Validação das horas ───────────────────────────────────────────────────

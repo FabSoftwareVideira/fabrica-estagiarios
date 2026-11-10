@@ -554,6 +554,14 @@ function iniciarWizard(form) {
             mensagem = 'Supervisor e orientador não podem ser a mesma pessoa.';
         }
         if (!mensagem && passo.hasAttribute('data-passo-horarios')) mensagem = validarHorarios(passo);
+        // regras declaradas no próprio campo: valor diferente de outro campo / horário depois de outro
+        passo.querySelectorAll('[data-diferente-de], [data-depois-de]').forEach((campo) => {
+            if (mensagem || !campo.value) return;
+            const igual = campo.dataset.diferenteDe && form.querySelector(campo.dataset.diferenteDe);
+            const antes = campo.dataset.depoisDe && form.querySelector(campo.dataset.depoisDe);
+            if (igual && igual.value === campo.value) mensagem = campo.dataset.diferenteMsg || 'Escolha valores diferentes.';
+            else if (antes && antes.value && campo.value <= antes.value) mensagem = campo.dataset.depoisMsg || 'Revise os horários.';
+        });
         mostrarErro(mensagem);
         return !mensagem;
     }
@@ -575,9 +583,11 @@ function iniciarWizard(form) {
             let valor = campo.tagName === 'SELECT'
                 ? (campo.value ? campo.options[campo.selectedIndex].textContent.trim() : '')
                 : campo.value.trim();
+            if (valor && campo.type === 'date') valor = valor.split('-').reverse().join('/');
             if (valor && campo.dataset.resumoSufixo) valor += campo.dataset.resumoSufixo;
             resumo.append(linhaResumo(campo.dataset.resumo, valor || campo.dataset.resumoVazio || '—'));
         });
+        if (!form.querySelector('input[name="dias_trabalho"]')) return;
         const horarios = linhaResumo('Dias e horários', '');
         horarios.classList.add('wizard-resumo-horarios');
         const dd = horarios.querySelector('dd');
@@ -645,5 +655,7 @@ function iniciarWizard(form) {
         });
     });
 
-    mostrar(0, false);
+    // depois de um erro do servidor o fluxo pode reabrir num passo adiante
+    const inicio = Number(form.dataset.wizardInicio) || 0;
+    mostrar(Math.min(Math.max(inicio, 0), passos.length - 1), false);
 }

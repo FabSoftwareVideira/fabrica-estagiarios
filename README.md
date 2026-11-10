@@ -156,7 +156,7 @@ A interface usa sempre o tema claro. O botão "Alto contraste" na barra superior
 
 ## Avaliação do supervisor (FAC)
 
-Após o estudante cumprir as horas, o supervisor vinculado acessa **Fichas → Avaliações dos meus supervisionados** ou **Aluno → Documentos → FAC**. O formulário segue o modelo `docs/Ficha-de-Avaliacao-do-Estagiario-pela-Concedente.pdf`: dados do estágio, curso, período, dez critérios de 0 a 10, atividades, comentários, local e data. A média é calculada com uma casa decimal e usada automaticamente na ata; a nota manual continua disponível para fichas em papel quando não há FAC salva.
+Após o estudante cumprir as horas, o supervisor vinculado acessa **Fichas → Avaliações dos meus supervisionados** ou **Aluno → Fichas → FAC**. O formulário segue o modelo `docs/Ficha-de-Avaliacao-do-Estagiario-pela-Concedente.pdf`: dados do estágio, curso, período, dez critérios de 0 a 10, atividades, comentários, local e data. A média é calculada com uma casa decimal e usada automaticamente na ata; a nota manual continua disponível para fichas em papel quando não há FAC salva.
 
 Somente o supervisor vinculado pode alterar a FAC, enquanto o estágio estiver aberto e não arquivado. O aluno pode baixar sua própria ficha; orientador e administrador podem consultá-la e emitir o PDF. Após o encerramento, a ficha fica disponível para consulta/impressão. O PDF preserva os campos para assinaturas e ciência, e textos extensos continuam em anexo. A nota da FAC na ata encerrada mantém o valor salvo no encerramento.
 

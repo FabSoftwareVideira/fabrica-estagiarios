@@ -9,34 +9,69 @@
 <main id="conteudo" class="container">
     <%- include('partials/breadcrumb', { itens: [{ texto: 'Agenda de bancas', href: '/professor/bancas' }, { texto: aluno.nome }] }) %>
     <%- include('partials/flash') %>
+    <%
+        // primeiro agendamento: fluxo em passos; remarcar/consultar: formulário completo
+        const emFluxo = podeEditar && !banca;
+        const avaliadoresPossiveis = professores.filter((p) => Number(p.id) !== Number(aluno.orientador_id));
+    %>
     <div class="page-head"><div><h1><%= banca ? 'Agendamento da banca' : 'Agendar banca' %></h1><p><strong><%= aluno.nome %></strong> · <%= aluno.empresa || 'Empresa não informada' %></p></div>
         <% if (banca) { %><span class="status status-progress"><%= situacoes[banca.situacao] %></span><% } %>
     </div>
     <% if (erros.length) { %><div class="flash flash-error" role="alert"><ul><% erros.forEach((e) => { %><li><%= e %></li><% }) %></ul></div><% } %>
     <% if (!podeEditar) { %><p class="aviso aviso-info">Consulta do agendamento. Para agendar ou remarcar, é necessário ser o orientador ou administrador, com as horas cumpridas e o estágio aberto.</p><% } %>
-    <form action="/professor/aluno/<%= aluno.usuario_id %>/banca" method="POST">
+    <form action="/professor/aluno/<%= aluno.usuario_id %>/banca" method="POST" class="card wizard" <%- emFluxo ? 'data-wizard data-wizard-inicio="' + (erros.length ? 1 : 0) + '"' : '' %>>
         <input type="hidden" name="versao" value="<%= valores.versao %>">
+        <ol class="wizard-etapas" data-wizard-etapas hidden></ol>
+        <p class="wizard-erro flash flash-error" data-wizard-erro role="alert" hidden></p>
         <fieldset <%= podeEditar ? '' : 'disabled' %>>
-            <section class="card"><h2>Participantes</h2><p class="form-note">Orientador: <strong><%= aluno.orientador_nome || 'Não definido' %></strong>. O orientador é vinculado ao cadastro do estágio.</p>
+            <section class="form-secao" data-passo data-titulo="Avaliadores">
+                <h2><%= emFluxo ? 'Quem vai avaliar?' : 'Participantes' %></h2>
+                <p class="text-muted">A banca tem o orientador e dois professores avaliadores.</p>
+                <dl class="summary-details banca-orientador">
+                    <div><dt>Orientador</dt><dd><%= aluno.orientador_nome || 'Não definido' %></dd></div>
+                </dl>
                 <div class="form-grid agenda-fields">
-                    <% [1,2].forEach((n) => { %><div class="form-field"><label for="avaliador_<%= n %>_id">Avaliador <%= n %></label><select id="avaliador_<%= n %>_id" name="avaliador_<%= n %>_id" required>
-                        <option value="">Selecione um professor</option><% professores.filter((p) => Number(p.id) !== Number(aluno.orientador_id)).forEach((p) => { %><option value="<%= p.id %>" <%= String(valores['avaliador_' + n + '_id']) === String(p.id) ? 'selected' : '' %>><%= p.nome %></option><% }) %>
+                    <% [1,2].forEach((n) => { %><div class="form-field"><label for="avaliador_<%= n %>_id">Avaliador <%= n %></label><select id="avaliador_<%= n %>_id" name="avaliador_<%= n %>_id" required data-resumo="Avaliador <%= n %>"<% if (n === 2) { %> data-diferente-de="#avaliador_1_id" data-diferente-msg="Escolha dois avaliadores diferentes."<% } %>>
+                        <option value="">Selecione um professor</option><% avaliadoresPossiveis.forEach((p) => { %><option value="<%= p.id %>" <%= String(valores['avaliador_' + n + '_id']) === String(p.id) ? 'selected' : '' %>><%= p.nome %></option><% }) %>
                     </select></div><% }) %>
                 </div>
             </section>
-            <section class="card"><h2>Quando e onde</h2><p class="text-muted">Todos os horários seguem Brasília (America/Sao_Paulo).</p>
+
+            <section class="form-secao" data-passo data-titulo="Data e horário">
+                <h2><%= emFluxo ? 'Quando será a banca?' : 'Data e horário' %></h2>
+                <p class="text-muted">Todos os horários seguem Brasília (America/Sao_Paulo).</p>
                 <div class="form-grid agenda-fields">
-                    <div class="form-field"><label for="data">Data da banca</label><input type="date" id="data" name="data" min="<%= hoje %>" value="<%= valores.data %>" required></div>
-                    <div class="form-field"><label for="hora_inicio">Horário de início</label><input type="time" id="hora_inicio" name="hora_inicio" value="<%= valores.hora_inicio %>" required></div>
-                    <div class="form-field"><label for="hora_fim">Horário de término</label><input type="time" id="hora_fim" name="hora_fim" value="<%= valores.hora_fim %>" required></div>
+                    <div class="form-field"><label for="data">Data da banca</label><input type="date" id="data" name="data" min="<%= hoje %>" value="<%= valores.data %>" required data-resumo="Data"></div>
+                    <div class="form-field"><label for="hora_inicio">Horário de início</label><input type="time" id="hora_inicio" name="hora_inicio" value="<%= valores.hora_inicio %>" required data-resumo="Início"></div>
+                    <div class="form-field"><label for="hora_fim">Horário de término</label><input type="time" id="hora_fim" name="hora_fim" value="<%= valores.hora_fim %>" required data-resumo="Término" data-depois-de="#hora_inicio" data-depois-msg="O horário de término deve ser depois do início."></div>
                 </div>
-                <label for="sala">Sala / local</label><input type="text" id="sala" name="sala" maxlength="120" value="<%= valores.sala %>" placeholder="Ex.: Sala 12 · Bloco B" required>
-                <label for="link_reuniao">Link da reunião (opcional)</label><input type="url" id="link_reuniao" name="link_reuniao" maxlength="1000" value="<%= valores.link_reuniao %>" placeholder="https://...">
-                <small class="text-muted">Em bancas remotas, informe também um nome para a sala virtual.</small>
-                <label for="observacoes">Observações (opcional)</label><textarea id="observacoes" name="observacoes" maxlength="1000" placeholder="Orientações de acesso ou preparação para a apresentação"><%= valores.observacoes %></textarea>
-                <p class="form-note">Ao salvar, o sistema verifica se a sala, o orientador ou os avaliadores já estão ocupados nesse período.</p>
             </section>
-            <% if (podeEditar) { %><div class="form-actions"><button type="submit"><%- icone('calendario') %> <%= banca ? 'Salvar alterações' : 'Confirmar agendamento' %></button></div><% } %>
+
+            <section class="form-secao" data-passo data-titulo="Local">
+                <h2><%= emFluxo ? 'Onde será a banca?' : 'Local' %></h2>
+                <div class="form-grid">
+                    <div class="form-field"><label for="sala">Sala / local</label><input type="text" id="sala" name="sala" maxlength="120" value="<%= valores.sala %>" placeholder="Ex.: Sala 12 · Bloco B" required data-resumo="Sala / local"></div>
+                    <div class="form-field"><label for="link_reuniao">Link da reunião <span class="text-muted">(opcional)</span></label><input type="url" id="link_reuniao" name="link_reuniao" maxlength="1000" value="<%= valores.link_reuniao %>" placeholder="https://..." data-resumo="Link da reunião" data-resumo-vazio="Sem link">
+                        <small>Em bancas remotas, informe também um nome para a sala virtual.</small></div>
+                </div>
+                <div class="form-field agenda-fields"><label for="observacoes">Observações <span class="text-muted">(opcional)</span></label><textarea id="observacoes" name="observacoes" maxlength="1000" placeholder="Orientações de acesso ou preparação para a apresentação" data-resumo="Observações" data-resumo-vazio="Nenhuma"><%= valores.observacoes %></textarea></div>
+            </section>
+
+            <section class="form-secao" data-passo data-titulo="Revisão" hidden>
+                <h2>Revise e confirme</h2>
+                <p class="text-muted">A banca de <%= aluno.nome %> aparecerá na agenda e na área do estudante. Ao confirmar, o sistema verifica se a sala, o orientador ou os avaliadores já estão ocupados nesse período.</p>
+                <dl class="summary-details" data-wizard-resumo></dl>
+            </section>
+
+            <% if (podeEditar) { %>
+                <% if (banca) { %><p class="form-note banca-nota">Ao salvar, o sistema verifica se a sala, o orientador ou os avaliadores já estão ocupados nesse período.</p><% } %>
+                <div class="form-actions wizard-acoes">
+                    <button type="button" class="btn-secondary" data-wizard-voltar hidden><%- icone('esquerda') %> Voltar</button>
+                    <button type="button" data-wizard-avancar hidden>Continuar <%- icone('direita') %></button>
+                    <button type="submit" data-wizard-enviar><%- icone('calendario') %> <%= banca ? 'Salvar alterações' : 'Confirmar agendamento' %></button>
+                    <a class="btn btn-ghost wizard-cancelar" href="/professor/bancas"><%= banca ? 'Voltar à agenda' : 'Cancelar' %></a>
+                </div>
+            <% } %>
         </fieldset>
     </form>
     <% if (banca) { %>
@@ -48,7 +83,7 @@
             </div>
         <% } %>
     <% } %>
-    <div class="form-actions"><a class="btn btn-secondary" href="/professor/bancas">Voltar à agenda</a></div>
+    <% if (!podeEditar) { %><div class="form-actions"><a class="btn btn-secondary" href="/professor/bancas">Voltar à agenda</a></div><% } %>
 </main>
 <%- include('partials/footer') %>
 </body></html>

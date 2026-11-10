@@ -1,5 +1,5 @@
 // Área de Fichas do orientador: FAPO (já existente em professor.js), ata da
-// banca (FARE) e emissão de documentos. Montado dentro de /professor, depois
+// banca (FARE) e emissão de fichas. Montado dentro de /professor, depois
 // de requireRole('professor') e requireNomeConfirmado.
 
 const router = require('express').Router();
@@ -218,7 +218,7 @@ router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, 
 
         if (finalizar) {
             await faresModel.encerrar(aluno.usuario_id);
-            setFlash(req, 'success', 'Estágio concluído. A ata está pronta para impressão e o aluno agora só pode consultar e imprimir os documentos.');
+            setFlash(req, 'success', 'Estágio concluído. A ata está pronta para impressão e o aluno agora só pode consultar e imprimir as fichas.');
         } else {
             setFlash(req, 'success', 'Rascunho da ata salvo.');
         }
@@ -267,7 +267,7 @@ router.post('/aluno/:id/fare/reabrir', carregarAluno, async (req, res) => {
     res.redirect(ehOrientador ? `/professor/aluno/${aluno.usuario_id}/fare` : '/professor/aluno/' + aluno.usuario_id);
 });
 
-// ── Documentos do aluno para impressão (qualquer professor) ───────────────
+// ── Fichas do aluno para impressão (qualquer professor) ───────────────
 router.get('/aluno/:id/ficha-acompanhamento', carregarAluno, async (req, res) => {
     const atividades = await atividadesModel.listarPorAluno(req.aluno.usuario_id);
     try {

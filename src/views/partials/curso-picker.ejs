@@ -1,0 +1,33 @@
+<%
+    // Cartões de escolha do curso. Parâmetros: cursos, selecionado (opcional),
+    // legenda (opcional) e emLinha (opcional: cartões lado a lado em telas largas).
+    // Cursos novos sem aparência definida caem no visual padrão (azul).
+    const visuaisCurso = {
+        'Agropecuária': { emoji: '🌱', cor: 'verde' },
+        'Eletroeletrônica': { emoji: '⚡', cor: 'ambar' },
+        'Informática': { emoji: '💻', cor: 'azul' },
+    };
+    const cursoSelecionado = typeof selecionado !== 'undefined' ? selecionado : '';
+    const legendaCurso = typeof legenda !== 'undefined' ? legenda : 'Qual é o seu curso?';
+    const cursoEmLinha = typeof emLinha !== 'undefined' && emLinha;
+%>
+<fieldset class="curso-fieldset">
+    <legend><%= legendaCurso %></legend>
+    <div class="curso-picker <%= cursoEmLinha ? 'curso-picker-linha' : '' %>">
+        <% cursos.forEach((curso) => { %>
+            <% const nomeCurto = curso.replace(/^Curso Técnico (de|em) /, '').replace(/ Integrado ao Ensino Médio$/, ''); %>
+            <% const visual = visuaisCurso[nomeCurto] || { emoji: '🎓', cor: 'azul' }; %>
+            <label class="curso-option curso-<%= visual.cor %>">
+                <input type="radio" name="curso" value="<%= curso %>" <%= cursoSelecionado === curso ? 'checked' : '' %> required>
+                <span class="curso-choice">
+                    <span class="curso-emoji" aria-hidden="true"><%= visual.emoji %></span>
+                    <span class="curso-texto">
+                        <span class="curso-nome"><%= nomeCurto %></span>
+                        <% if (nomeCurto !== curso) { %><span class="curso-detalhe">Técnico integrado ao ensino médio</span><% } %>
+                    </span>
+                    <span class="curso-marca" aria-hidden="true"><%- icone('check') %></span>
+                </span>
+            </label>
+        <% }); %>
+    </div>
+</fieldset>

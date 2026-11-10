@@ -42,7 +42,7 @@
                 <%- icone('check') %>
                 <div>
                     <strong>Estágio concluído em <%= dataBr(aluno.encerrado_em) %></strong>
-                    A ata está pronta para impressão. O aluno só pode consultar e imprimir os documentos.
+                    A ata está pronta para impressão. O aluno só pode consultar e imprimir as fichas.
                 </div>
             </div>
 
@@ -75,7 +75,7 @@
 
                 <section class="card proximo-passo">
                     <div>
-                        <h2>Documentos</h2>
+                        <h2>Fichas</h2>
                         <p>Baixe a ata e a FAPO para imprimir e colher as assinaturas.</p>
                     </div>
                     <div class="button-group">
@@ -265,7 +265,7 @@
                                     <a href="/professor/aluno/<%= aluno.usuario_id %>/fare/pdf" class="btn btn-secondary"><%- icone('olho') %> Prévia em PDF</a>
                                 <% } %>
                                 <button type="submit" name="acao" value="finalizar" class="btn-success"
-                                    data-confirmar="Concluir o estágio? Depois disso o aluno só poderá consultar e imprimir os documentos. Você ainda poderá reabrir se precisar corrigir algo.">
+                                    data-confirmar="Concluir o estágio? Depois disso o aluno só poderá consultar e imprimir as fichas. Você ainda poderá reabrir se precisar corrigir algo.">
                                     <%- icone('cadeado') %> Concluir estágio e emitir ata
                                 </button>
                             </div>

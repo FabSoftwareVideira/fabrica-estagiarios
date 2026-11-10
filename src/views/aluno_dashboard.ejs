@@ -55,7 +55,7 @@
                 <%- icone('check') %>
                 <div>
                     <strong>Estágio encerrado em <%= dataBr(aluno.encerrado_em) %></strong>
-                    Seus dados estão fechados para edição. Você pode consultar e imprimir todos os documentos na aba Fichas.
+                    Seus dados estão fechados para edição. Você pode consultar e imprimir todas as fichas na aba Fichas.
                 </div>
             </div>
         <% } %>
@@ -97,7 +97,7 @@
                         <h2 id="titulo-passo">Aguarde a banca</h2>
                         <p>Sua FAA está salva. O orientador vai lançar as notas da banca e concluir o estágio. Você pode corrigir a FAA até lá.</p>
                     <% } else { %>
-                        <h2 id="titulo-passo">Imprima seus documentos</h2>
+                        <h2 id="titulo-passo">Imprima suas fichas</h2>
                         <p>Todas as fichas e a ata da banca estão prontas para impressão.</p>
                     <% } %>
                 </div>
@@ -106,7 +106,7 @@
                 <% } else if (concluidoHoras && !encerrado) { %>
                     <a href="/aluno/faa" class="btn"><%- icone('caneta') %> <%= faaSalva ? 'Revisar a FAA' : 'Preencher a FAA' %></a>
                 <% } else if (encerrado) { %>
-                    <a href="/aluno/dashboard?aba=fichas" class="btn"><%- icone('imprimir') %> Ver documentos</a>
+                    <a href="/aluno/dashboard?aba=fichas" class="btn"><%- icone('imprimir') %> Ver fichas</a>
                 <% } %>
             </section>
         </div>
@@ -206,7 +206,7 @@
             <section class="dashboard-tab-panel" id="panel-fichas" role="tabpanel" aria-labelledby="tab-fichas" tabindex="0" <%= abaSelecionada === 'fichas' ? '' : 'hidden' %>>
                 <div class="card fichas-center">
                     <h2>Fichas do estágio</h2>
-                    <p class="text-muted">Documentos gerados com os dados do seu estágio, prontos para imprimir.</p>
+                    <p class="text-muted">Fichas geradas com os dados do seu estágio, prontas para imprimir.</p>
 
                     <div class="fichas-grid">
                         <article class="ficha-item <%= aluno.status !== 'lista_espera' ? 'pronta' : '' %>">

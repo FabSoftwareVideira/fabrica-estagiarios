@@ -360,7 +360,8 @@ fieldset:disabled { opacity: 1; }
   list-style: none; display: flex; gap: 4px; margin: 0 0 24px; padding: 0 0 20px;
   border-bottom: 1px solid var(--borda-suave); overflow-x: auto;
 }
-.wizard-etapas li { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.wizard-etapas li { flex: 1 1 auto; display: flex; align-items: center; gap: 4px; }
+.wizard-etapas li:last-child { flex: none; }
 .wizard-etapas li:not(:last-child)::after { content: ""; flex: 1; min-width: 8px; height: 2px; background: var(--borda-suave); }
 .wizard-etapas li:has(.feito)::after { background: var(--verde-600); }
 .wizard-etapas .wizard-etapa {
@@ -389,6 +390,8 @@ html.alto-contraste .wizard-etapa.feito .wizard-etapa-numero { color: #000; }
 .wizard-campo { max-width: 480px; }
 .wizard-acoes { align-items: center; }
 .wizard-acoes .wizard-cancelar { margin-left: auto; }
+.banca-orientador { margin-top: 12px; padding-top: 12px; }
+.banca-nota { margin-top: 20px; }
 .wizard-resumo-horarios { grid-column: 1 / -1; }
 .wizard-resumo-horarios dd span { display: block; }
 .wizard [hidden] { display: none; }
@@ -832,6 +835,14 @@ html.alto-contraste .login-box h1 { color: #ffd700; }
 .curso-fieldset { margin-top: 18px; }
 .curso-fieldset legend { font-weight: 700; margin-bottom: 4px; color: var(--azul-900); }
 .curso-picker { display: grid; gap: 10px; margin-top: 8px; }
+.curso-picker-linha { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.form-secao .curso-fieldset { margin-top: 0; }
+.form-secao .curso-fieldset legend { font-size: 20px; color: var(--azul-900); margin-bottom: 10px; }
+.form-campo-curto { max-width: 480px; }
+.tab-contador {
+  margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  background: var(--amarelo-100); color: var(--amarelo-700);
+}
 .curso-option { margin: 0; cursor: pointer; position: relative; --curso-cor: #1351b4; --curso-fundo: #e8effa; }
 .curso-verde { --curso-cor: #216e1f; --curso-fundo: #e3f4e0; }
 .curso-ambar { --curso-cor: #9a5b00; --curso-fundo: #fff1cc; }

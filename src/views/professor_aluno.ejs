@@ -29,6 +29,15 @@
                 ? Math.min(100, Math.round((horasRealizadas / cargaHoraria) * 100))
                 : 0;
             const totalAtividades = atividades.length;
+
+            // abas: cada assunto da tela fica no seu painel
+            const temFichas = aluno.status !== 'lista_espera';
+            const podeEditar = !encerrado && !aluno.arquivado && user.cargo !== 'supervisor';
+            const abas = [['atividades', 'Atividades']];
+            if (temFichas) abas.push(['fichas', 'Fichas']);
+            if (podeEditar) abas.push(['estagio', 'Editar estágio']);
+            const abaPedida = typeof aba !== 'undefined' ? aba : '';
+            const abaSelecionada = abas.some(([chave]) => chave === abaPedida) ? abaPedida : 'atividades';
         %>
 
         <section class="card student-summary">
@@ -69,34 +78,21 @@
             <dl class="summary-details">
                 <div>
                     <dt>Curso</dt>
-                    <dd>
-                        <%= aluno.curso || 'Não informado' %>
-                        <% if (ehOrientador) { %>
-                            <form action="/professor/aluno/<%= aluno.usuario_id %>/curso" method="POST" class="form-grid" style="margin-top: 10px;">
-                                <div class="form-field">
-                                    <label for="curso">Corrigir curso do estudante</label>
-                                    <select id="curso" name="curso" required>
-                                        <option value="">Selecione o curso</option>
-                                        <% cursos.forEach((curso) => { %>
-                                            <option value="<%= curso %>" <%= aluno.curso === curso ? 'selected' : '' %>><%= curso %></option>
-                                        <% }) %>
-                                    </select>
-                                </div>
-                                <button type="submit" class="btn btn-secondary btn-sm">Atualizar curso</button>
-                            </form>
-                        <% } %>
-                    </dd>
+                    <dd><%= aluno.curso || 'Não informado' %></dd>
                 </div>
                 <div>
-                    <dt>Supervisor</dt>
-                    <dd><%= aluno.supervisor_nome || '—' %></dd>
+                    <dt>Empresa</dt>
+                    <dd><%= aluno.empresa || '—' %></dd>
                 </div>
                 <div>
                     <dt>Orientador</dt>
                     <dd><%= aluno.orientador_nome || '—' %></dd>
                 </div>
+                <div>
+                    <dt>Supervisor</dt>
+                    <dd><%= aluno.supervisor_nome || '—' %></dd>
+                </div>
             </dl>
-
         </section>
 
         <% if (encerrado && user.cargo !== 'supervisor') { %>
@@ -113,56 +109,6 @@
                     <% } %>
                 </div>
             </div>
-        <% } %>
-
-        <% if (aluno.status !== 'lista_espera') { %>
-            <section class="card" aria-labelledby="titulo-docs">
-                <h2 id="titulo-docs">Documentos</h2>
-                <ul class="docs-lista">
-                    <% if (aluno.status === 'concluido') { %>
-                        <li><span class="doc-nome">Agendamento da banca<small>Data, sala e participantes</small></span><a href="/professor/aluno/<%= aluno.usuario_id %>/banca" class="btn btn-secondary btn-sm"><%- icone('calendario') %> Consultar / agendar</a></li>
-                    <% } %>
-                    <li>
-                        <span class="doc-nome">Ficha de acompanhamento<small>Atividades validadas e horas</small></span>
-                        <a href="/professor/aluno/<%= aluno.usuario_id %>/ficha-acompanhamento" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a>
-                    </li>
-                    <li>
-                        <span class="doc-nome">FAA · Autoavaliação<small><%= faa ? 'Preenchida pelo aluno' : 'Ainda não preenchida' %></small></span>
-                        <% if (faa) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/faa/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
-                    </li>
-                    <% if (ehSupervisor || ehOrientador || user.cargo === 'admin') { %>
-                        <li>
-                            <span class="doc-nome">FAC · Avaliação do supervisor<small><%= fac ? 'Média ' + fac.nota.toFixed(1).replace('.', ',') : (facRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
-                            <span class="table-actions">
-                                <% if (fac || (ehSupervisor && aluno.status === 'concluido' && !encerrado && !aluno.arquivado)) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac" class="btn btn-secondary btn-sm"><%= ehSupervisor && !encerrado && !aluno.arquivado ? (facRascunho && !fac ? 'Continuar rascunho' : 'Preencher/editar') : 'Consultar' %></a><% } %>
-                                <% if (fac) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
-                            </span>
-                        </li>
-                    <% } %>
-                    <% if (aluno.status === 'concluido') { %>
-                        <li>
-                            <span class="doc-nome">FAPO · Avaliação do orientador<small><%= fapo ? 'Nota ' + String(fapo.nota).replace('.', ',') : (fapoRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
-                            <span class="table-actions">
-                                <% if (podeGerarFapo) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo" class="btn btn-success btn-sm"><%- icone('caneta') %> <%= fapo ? 'Editar' : (fapoRascunho ? 'Continuar rascunho' : 'Preencher') %></a><% } %>
-                                <% if (fapo && ehOrientador) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
-                            </span>
-                        </li>
-                        <li>
-                            <span class="doc-nome">Ata da banca<small><%= encerrado ? 'Estágio encerrado' : (fare ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
-                            <span class="table-actions">
-                                <% if (ehOrientador) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fare" class="btn <%= encerrado ? 'btn-secondary' : 'btn-success' %> btn-sm"><%- icone('caneta') %> <%= encerrado ? 'Ver' : (fare ? 'Continuar' : 'Preencher') %></a><% } %>
-                                <% if (fare && ehOrientador) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fare/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
-                            </span>
-                        </li>
-                    <% } %>
-                </ul>
-                <% if (aluno.status === 'concluido' && !ehOrientador) { %>
-                    <p class="text-muted" style="margin-top: 10px;">A FAPO e a ata da banca são preenchidas pelo orientador do aluno.</p>
-                <% } %>
-            </section>
-        <% } %>
-
-        <% if (encerrado) { %>
         <% } else if (aluno.arquivado && user.cargo !== 'supervisor') { %>
             <div class="card archived-banner">
                 <div>
@@ -179,184 +125,274 @@
                     <a href="/professor/arquivados" class="btn btn-secondary">Voltar</a>
                 </div>
             </div>
-        <% } else if (user.cargo !== 'supervisor') { %>
-            <details class="card details-card">
-                <summary>
-                    <span class="details-title">
-                        <strong>Editar estágio</strong>
-                        <small>Status, supervisor, orientador e carga horária</small>
-                    </span>
-                    <span class="details-toggle" aria-hidden="true">+</span>
-                </summary>
+        <% } %>
 
-                <form action="/professor/aluno/<%= aluno.usuario_id %>" method="POST" class="details-body">
-                    <% if (aluno.status === 'concluido') { %>
-                        <label>Status do Estágio</label>
-                        <p><span class="status status-completed">Concluído</span></p>
-                        <p class="text-muted">
-                            A conclusão é automática. Remova a validação de alguma atividade para que o
-                            aluno volte para "Em andamento".
-                        </p>
-                        <input type="hidden" name="status" value="em_andamento">
-                    <% } else { %>
-                        <label for="status">Status do Estágio</label>
-                        <select id="status" name="status">
-                            <option value="lista_espera" <%= aluno.status === 'lista_espera' ? 'selected' : '' %>>Lista de Espera</option>
-                            <option value="em_andamento" <%= aluno.status === 'em_andamento' ? 'selected' : '' %>>Em Andamento</option>
-                        </select>
-                        <p class="text-muted">
-                            O status "Concluído" é definido automaticamente quando as horas validadas
-                            atingem a carga horária.
-                        </p>
+        <section class="student-dashboard-tabs" data-dashboard-tabs>
+            <div class="dashboard-tab-list" role="tablist" aria-label="Seções do estudante">
+                <% abas.forEach(([chave, rotulo]) => { %>
+                    <button type="button" class="dashboard-tab <%= abaSelecionada === chave ? 'is-active' : '' %>" id="tab-<%= chave %>" role="tab"
+                        aria-selected="<%= abaSelecionada === chave %>" aria-controls="panel-<%= chave %>" tabindex="<%= abaSelecionada === chave ? '0' : '-1' %>"><%= rotulo %><% if (chave === 'atividades' && horasPendentes > 0) { %> <span class="tab-contador" title="Horas aguardando validação"><%= horasPendentes %>h</span><% } %></button>
+                <% }) %>
+            </div>
+
+            <!-- Atividades -->
+            <section class="dashboard-tab-panel" id="panel-atividades" role="tabpanel" aria-labelledby="tab-atividades" tabindex="0" <%= abaSelecionada === 'atividades' ? '' : 'hidden' %>>
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2>Atividades</h2>
+                            <p class="text-muted">
+                                <%= totalAtividades %> atividade(s)
+                                <% if (horasPendentes > 0) { %> · <%= horasPendentes %>h pendentes de validação<% } %>
+                            </p>
+                        </div>
+                    </div>
+
+                    <p class="text-muted">
+                        A validação das horas é responsabilidade do supervisor atribuído ao estágio.
+                        Ao invalidar uma atividade, as horas deixam de contar e o aluno precisará registrar outra.
+                        <% if (!aluno.arquivado && !podeValidarAtividades) { %>
+                            Você pode consultar as atividades, mas somente o supervisor pode validá-las ou invalidá-las.
+                        <% } %>
+                    </p>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Horário</th>
+                                    <th>Descrição</th>
+                                    <th>Horas</th>
+                                    <th>Validação</th>
+                                    <% if (podeValidarAtividades) { %><th>Ações</th><% } %>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (atividades.length === 0) { %>
+                                    <tr>
+                                        <td colspan="<%= podeValidarAtividades ? 6 : 5 %>">Nenhuma atividade registrada ainda.</td>
+                                    </tr>
+                                <% } else { %>
+                                    <% atividades.forEach((a) => { %>
+                                        <tr>
+                                            <td><%= new Date(a.data).toLocaleDateString('pt-BR') %></td>
+                                            <td>
+                                                <% if (a.hora_inicio && a.hora_fim) { %>
+                                                    <span class="atividade-horario">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                            <polyline points="12 6 12 12 16 14"></polyline>
+                                                        </svg>
+                                                        <%= a.hora_inicio.slice(0, 5) %> – <%= a.hora_fim.slice(0, 5) %>
+                                                    </span>
+                                                <% } else { %>
+                                                    <span class="text-muted">—</span>
+                                                <% } %>
+                                            </td>
+                                            <td><%= a.descricao %></td>
+                                            <td><%= a.horas %>h</td>
+                                            <td>
+                                                <%- include('partials/status_atividade', { atividade: a }) %>
+                                            </td>
+                                            <% if (podeValidarAtividades) { %>
+                                                <td>
+                                                    <% if (a.status_validacao === 'invalidada') { %>
+                                                        <form
+                                                            action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/validar"
+                                                            method="POST">
+                                                            <button type="submit" class="btn-success btn-icon" title="Validar novamente" aria-label="Validar novamente">
+                                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                                </svg>
+                                                            </button>
+                                                        </form>
+                                                    <% } else if (a.status_validacao === 'validada') { %>
+                                                        <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
+                                                            method="POST">
+                                                            <button type="submit" class="btn-danger btn-icon" title="Invalidar (desfazer validação)" aria-label="Invalidar">
+                                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                                </svg>
+                                                            </button>
+                                                        </form>
+                                                    <% } else { %>
+                                                        <div class="table-actions">
+                                                            <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/validar"
+                                                                method="POST">
+                                                                <button type="submit" class="btn-success btn-icon" title="Aprovar horas" aria-label="Aprovar horas">
+                                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                                                    </svg>
+                                                                </button>
+                                                            </form>
+                                                            <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
+                                                                method="POST">
+                                                                <button type="submit" class="btn-danger btn-icon" title="Não aprovar horas" aria-label="Não aprovar horas">
+                                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                                    </svg>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    <% } %>
+                                                </td>
+                                            <% } %>
+                                        </tr>
+                                    <% }) %>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <% if (temFichas) { %>
+            <!-- Fichas -->
+            <section class="dashboard-tab-panel" id="panel-fichas" role="tabpanel" aria-labelledby="tab-fichas" tabindex="0" <%= abaSelecionada === 'fichas' ? '' : 'hidden' %>>
+                <div class="card">
+                    <h2>Fichas</h2>
+                    <ul class="docs-lista">
+                        <% if (aluno.status === 'concluido') { %>
+                            <li><span class="doc-nome">Agendamento da banca<small>Data, sala e participantes</small></span><a href="/professor/aluno/<%= aluno.usuario_id %>/banca" class="btn btn-secondary btn-sm"><%- icone('calendario') %> Consultar / agendar</a></li>
+                        <% } %>
+                        <li>
+                            <span class="doc-nome">Ficha de acompanhamento<small>Atividades validadas e horas</small></span>
+                            <a href="/professor/aluno/<%= aluno.usuario_id %>/ficha-acompanhamento" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a>
+                        </li>
+                        <li>
+                            <span class="doc-nome">FAA · Autoavaliação<small><%= faa ? 'Preenchida pelo aluno' : 'Ainda não preenchida' %></small></span>
+                            <% if (faa) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/faa/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
+                        </li>
+                        <% if (ehSupervisor || ehOrientador || user.cargo === 'admin') { %>
+                            <li>
+                                <span class="doc-nome">FAC · Avaliação do supervisor<small><%= fac ? 'Média ' + fac.nota.toFixed(1).replace('.', ',') : (facRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
+                                <span class="table-actions">
+                                    <% if (fac || (ehSupervisor && aluno.status === 'concluido' && !encerrado && !aluno.arquivado)) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac" class="btn btn-secondary btn-sm"><%= ehSupervisor && !encerrado && !aluno.arquivado ? (facRascunho && !fac ? 'Continuar rascunho' : 'Preencher/editar') : 'Consultar' %></a><% } %>
+                                    <% if (fac) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fac/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
+                                </span>
+                            </li>
+                        <% } %>
+                        <% if (aluno.status === 'concluido') { %>
+                            <li>
+                                <span class="doc-nome">FAPO · Avaliação do orientador<small><%= fapo ? 'Nota ' + String(fapo.nota).replace('.', ',') : (fapoRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
+                                <span class="table-actions">
+                                    <% if (podeGerarFapo) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo" class="btn btn-success btn-sm"><%- icone('caneta') %> <%= fapo ? 'Editar' : (fapoRascunho ? 'Continuar rascunho' : 'Preencher') %></a><% } %>
+                                    <% if (fapo && ehOrientador) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fapo/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
+                                </span>
+                            </li>
+                            <li>
+                                <span class="doc-nome">Ata da banca<small><%= encerrado ? 'Estágio encerrado' : (fare ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
+                                <span class="table-actions">
+                                    <% if (ehOrientador) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fare" class="btn <%= encerrado ? 'btn-secondary' : 'btn-success' %> btn-sm"><%- icone('caneta') %> <%= encerrado ? 'Ver' : (fare ? 'Continuar' : 'Preencher') %></a><% } %>
+                                    <% if (fare && ehOrientador) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/fare/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
+                                </span>
+                            </li>
+                        <% } %>
+                    </ul>
+                    <% if (aluno.status === 'concluido' && !ehOrientador) { %>
+                        <p class="text-muted" style="margin-top: 10px;">A FAPO e a ata da banca são preenchidas pelo orientador do aluno.</p>
+                    <% } %>
+                </div>
+            </section>
+            <% } %>
+
+            <% if (podeEditar) { %>
+            <!-- Editar estágio -->
+            <section class="dashboard-tab-panel" id="panel-estagio" role="tabpanel" aria-labelledby="tab-estagio" tabindex="0" <%= abaSelecionada === 'estagio' ? '' : 'hidden' %>>
+                <form action="/professor/aluno/<%= aluno.usuario_id %>" method="POST" class="card">
+                    <section class="form-secao">
+                        <h2>Situação</h2>
+                        <% if (aluno.status === 'concluido') { %>
+                            <p><span class="status status-completed">Concluído</span></p>
+                            <p class="text-muted">
+                                A conclusão é automática. Remova a validação de alguma atividade para que o
+                                aluno volte para "Em andamento".
+                            </p>
+                            <input type="hidden" name="status" value="em_andamento">
+                        <% } else { %>
+                            <div class="form-field form-campo-curto">
+                                <label for="status">Status do estágio</label>
+                                <select id="status" name="status">
+                                    <option value="lista_espera" <%= aluno.status === 'lista_espera' ? 'selected' : '' %>>Lista de espera</option>
+                                    <option value="em_andamento" <%= aluno.status === 'em_andamento' ? 'selected' : '' %>>Em andamento</option>
+                                </select>
+                                <small>"Concluído" é definido automaticamente quando as horas validadas atingem a carga horária.</small>
+                            </div>
+                        <% } %>
+                    </section>
+
+                    <% if (ehOrientador) { %>
+                        <section class="form-secao">
+                            <%- include('partials/curso-picker', { cursos, selecionado: aluno.curso || '', legenda: 'Curso do estudante', emLinha: true }) %>
+                        </section>
                     <% } %>
 
-                    <label for="supervisor">Supervisor</label>
-                    <select id="supervisor" name="supervisor_id">
-                        <option value="">Selecione um supervisor</option>
-                        <% supervisores.forEach((p) => { %>
-                            <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
-                        <% }) %>
-                        <% professores.forEach((p) => { %>
-                            <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
-                        <% }) %>
-                    </select>
+                    <section class="form-secao">
+                        <h2>Responsáveis</h2>
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="orientador">Professor orientador</label>
+                                <select id="orientador" name="orientador_id">
+                                    <option value="">Selecione um professor</option>
+                                    <% professores.forEach((p) => { %>
+                                        <option value="<%= p.id %>" <%= aluno.orientador_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
+                                    <% }) %>
+                                </select>
+                                <small>Obrigatório fora da lista de espera.</small>
+                            </div>
+                            <div class="form-field">
+                                <label for="supervisor">Supervisor</label>
+                                <select id="supervisor" name="supervisor_id">
+                                    <option value="">Selecione um supervisor</option>
+                                    <% if (supervisores.length) { %>
+                                        <optgroup label="Supervisores externos">
+                                            <% supervisores.forEach((p) => { %>
+                                                <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
+                                            <% }) %>
+                                        </optgroup>
+                                    <% } %>
+                                    <optgroup label="Professores">
+                                        <% professores.forEach((p) => { %>
+                                            <option value="<%= p.id %>" <%= aluno.supervisor_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
+                                        <% }) %>
+                                    </optgroup>
+                                </select>
+                                <small>Valida as atividades. Não pode ser o próprio orientador.</small>
+                            </div>
+                        </div>
+                    </section>
 
-                    <label for="orientador">Orientador</label>
-                    <select id="orientador" name="orientador_id">
-                        <option value="">Selecione um professor</option>
-                        <% professores.forEach((p) => { %>
-                            <option value="<%= p.id %>" <%= aluno.orientador_id === p.id ? 'selected' : '' %>><%= p.nome %></option>
-                        <% }) %>
-                    </select>
+                    <section class="form-secao">
+                        <h2>Estágio</h2>
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="empresa">Empresa/Entidade concedente</label>
+                                <input type="text" id="empresa" name="empresa" required value="<%= aluno.empresa || '' %>" placeholder="Nome da empresa ou entidade">
+                            </div>
+                            <div class="form-field">
+                                <label for="carga">Carga horária total <span class="text-muted">(horas)</span></label>
+                                <input type="number" id="carga" name="carga_horaria" min="1" value="<%= aluno.carga_horaria %>">
+                            </div>
+                        </div>
+                    </section>
 
-                    <label for="empresa">Empresa/Entidade concedente</label>
-                    <input type="text" id="empresa" name="empresa" required value="<%= aluno.empresa || '' %>" placeholder="Nome da empresa ou entidade">
+                    <section class="form-secao">
+                        <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {} }) %>
+                    </section>
 
-                    <label for="carga">Carga Horária Total</label>
-                    <input type="number" id="carga" name="carga_horaria" min="1" value="<%= aluno.carga_horaria %>">
-
-                    <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {} }) %>
-
-                    <div class="button-group form-actions">
-                        <button type="submit">Salvar Alterações</button>
+                    <div class="form-actions">
+                        <button type="submit">Salvar alterações</button>
                         <% if (user.cargo === 'admin' || aluno.status === 'lista_espera' || (aluno.status === 'concluido' && aluno.encerrado_em)) { %>
                             <button type="submit" formaction="/professor/aluno/<%= aluno.usuario_id %>/arquivar" formnovalidate class="btn-secondary">Arquivar</button>
                         <% } %>
                     </div>
                 </form>
-            </details>
-        <% } %>
-
-        <div class="card">
-            <div class="card-header">
-                <div>
-                    <h2>Atividades</h2>
-                    <p class="text-muted">
-                        <%= totalAtividades %> atividade(s)
-                        <% if (horasPendentes > 0) { %> · <%= horasPendentes %>h pendentes de validação<% } %>
-                    </p>
-                </div>
-            </div>
-
-            <p class="text-muted">
-                A validação das horas é responsabilidade do supervisor atribuído ao estágio.
-                Ao invalidar uma atividade, as horas deixam de contar e o aluno precisará registrar outra.
-                <% if (!aluno.arquivado && !podeValidarAtividades) { %>
-                    Você pode consultar as atividades, mas somente o supervisor pode validá-las ou invalidá-las.
-                <% } %>
-            </p>
-
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Horário</th>
-                            <th>Descrição</th>
-                            <th>Horas</th>
-                            <th>Validação</th>
-                            <% if (podeValidarAtividades) { %><th>Ações</th><% } %>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% if (atividades.length === 0) { %>
-                            <tr>
-                                <td colspan="<%= podeValidarAtividades ? 6 : 5 %>">Nenhuma atividade registrada ainda.</td>
-                            </tr>
-                        <% } else { %>
-                            <% atividades.forEach((a) => { %>
-                                <tr>
-                                    <td><%= new Date(a.data).toLocaleDateString('pt-BR') %></td>
-                                    <td>
-                                        <% if (a.hora_inicio && a.hora_fim) { %>
-                                            <span class="atividade-horario">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                    <circle cx="12" cy="12" r="10"></circle>
-                                                    <polyline points="12 6 12 12 16 14"></polyline>
-                                                </svg>
-                                                <%= a.hora_inicio.slice(0, 5) %> – <%= a.hora_fim.slice(0, 5) %>
-                                            </span>
-                                        <% } else { %>
-                                            <span class="text-muted">—</span>
-                                        <% } %>
-                                    </td>
-                                    <td><%= a.descricao %></td>
-                                    <td><%= a.horas %>h</td>
-                                    <td>
-                                        <%- include('partials/status_atividade', { atividade: a }) %>
-                                    </td>
-                                    <% if (podeValidarAtividades) { %>
-                                        <td>
-                                            <% if (a.status_validacao === 'invalidada') { %>
-                                                <form
-                                                    action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/validar"
-                                                    method="POST">
-                                                    <button type="submit" class="btn-success btn-icon" title="Validar novamente" aria-label="Validar novamente">
-                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                            <polyline points="20 6 9 17 4 12"></polyline>
-                                                        </svg>
-                                                    </button>
-                                                </form>
-                                            <% } else if (a.status_validacao === 'validada') { %>
-                                                <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
-                                                    method="POST">
-                                                    <button type="submit" class="btn-danger btn-icon" title="Invalidar (desfazer validação)" aria-label="Invalidar">
-                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                                                        </svg>
-                                                    </button>
-                                                </form>
-                                            <% } else { %>
-                                                <div class="table-actions">
-                                                    <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/validar"
-                                                        method="POST">
-                                                        <button type="submit" class="btn-success btn-icon" title="Aprovar horas" aria-label="Aprovar horas">
-                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                                <polyline points="20 6 9 17 4 12"></polyline>
-                                                            </svg>
-                                                        </button>
-                                                    </form>
-                                                    <form action="/professor/aluno/<%= aluno.usuario_id %>/atividade/<%= a.id %>/invalidar"
-                                                        method="POST">
-                                                        <button type="submit" class="btn-danger btn-icon" title="Não aprovar horas" aria-label="Não aprovar horas">
-                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                                                            </svg>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            <% } %>
-                                        </td>
-                                    <% } %>
-                                </tr>
-                            <% }) %>
-                        <% } %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+            </section>
+            <% } %>
+        </section>
     </main>
 
     <%- include('partials/footer') %>

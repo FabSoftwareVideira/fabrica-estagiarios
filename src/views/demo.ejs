@@ -18,5 +18,5 @@
         <% if (!mensagens.length) { %><p class="empty-state">Nenhuma mensagem capturada ainda.</p><% } %>
         <ul class="docs-lista"><% mensagens.forEach((m,i) => { %><li><span class="doc-nome"><%= m.subject %><small>Para: <%= m.to.map((p) => p.address).join(', ') %></small></span><a href="/demo/emails/<%= i %>" class="btn btn-secondary">Abrir mensagem</a></li><% }) %></ul>
     </section>
-    <section class="card"><h2>PDF da avaliação</h2><p>Depois de salvar a FAC da Ana, confira o documento preenchido.</p><div class="card-actions"><a class="btn btn-secondary" href="/demo/fac/201/visualizar">Visualizar PDF da Ana</a></div></section>
+    <section class="card"><h2>PDF da avaliação</h2><p>Depois de salvar a FAC da Ana, confira a ficha preenchida.</p><div class="card-actions"><a class="btn btn-secondary" href="/demo/fac/201/visualizar">Visualizar PDF da Ana</a></div></section>
 </main><%- include('partials/footer') %></body></html>
