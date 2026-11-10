@@ -35,6 +35,14 @@ const USUARIOS_DEV = {
         tipo: 'professor',
         cargo: 'admin',
     },
+    servidor: {
+        nome: 'Servidor de Teste',
+        email: `servidor.dev${DOMINIO_PROFESSOR}`,
+        googleId: 'dev-google-servidor',
+        avatarUrl: null,
+        tipo: 'professor',
+        cargo: 'servidor',
+    },
     aluno: {
         nome: 'Aluno de Teste',
         email: 'aluno.dev@exemplo.com',
@@ -134,6 +142,7 @@ async function entrarComo(tipo, req, res) {
 
 router.get('/professor', apenasDev, (req, res) => entrarComo('professor', req, res));
 router.get('/professor-admin', apenasDev, (req, res) => entrarComo('professorAdmin', req, res));
+router.get('/servidor', apenasDev, (req, res) => entrarComo('servidor', req, res));
 router.get('/aluno', apenasDev, (req, res) => entrarComo('aluno', req, res));
 router.get('/supervisor-seed', apenasDev, (req, res) => entrarComo('supervisorSeed', req, res));
 router.get('/supervisor-externo-seed', apenasDev, (req, res) => entrarComo('supervisorExternoSeed', req, res));

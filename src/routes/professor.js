@@ -17,6 +17,15 @@ const avatares = require('../config/avatares');
 const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTrabalho');
 const { CURSOS, ehCurso } = require('../config/cursos');
 const bancasModel = require('../models/bancas');
+const acompanhamentoModel = require('../models/acompanhamento');
+const { veTodosOsEstagios, podeOrientar } = require('../config/papeis');
+
+// Acompanhamento geral: administradores e servidores do setor de estágios.
+function requireVisaoGeral(req, res, next) {
+    if (veTodosOsEstagios(req.session.user)) return next();
+    setFlash(req, 'error', 'Apenas administradores e servidores do setor de estágios têm acesso a essa área.');
+    return res.redirect('/professor/dashboard');
+}
 
 router.use(requireRole('professor'));
 
@@ -164,7 +173,7 @@ router.get('/dashboard', async (req, res) => {
         status,
         busca,
         arquivados,
-        professorId: isAdmin || isSupervisor ? null : req.session.user.id,
+        professorId: veTodosOsEstagios(req.session.user) || isSupervisor ? null : req.session.user.id,
         supervisorId: isSupervisor ? req.session.user.id : null,
         limite: TAMANHO_PAGINA,
         offset: (pagina - 1) * TAMANHO_PAGINA,
@@ -173,7 +182,7 @@ router.get('/dashboard', async (req, res) => {
     });
 
     // bancas em que o professor participa aparecem em destaque no painel
-    const minhasBancas = isSupervisor ? [] : await bancasModel.listarProximasDoProfessor(req.session.user.id);
+    const minhasBancas = isSupervisor || req.session.user.cargo === 'servidor' ? [] : await bancasModel.listarProximasDoProfessor(req.session.user.id);
     // destaque do supervisor: quem cumpriu as horas e ainda falta a FAC
     const facPendentes = isSupervisor
         ? await alunosModel.listarPendentesFac(req.session.user.id)
@@ -465,10 +474,10 @@ async function validarResponsaveis(supervisorId, orientadorId) {
         orientadorId ? professoresModel.buscarPorUsuarioId(orientadorId) : null,
     ]);
 
-    if (supervisorId && (!supervisor || !supervisor.aprovado)) {
+    if (supervisorId && (!supervisor || !supervisor.aprovado || supervisor.cargo === 'servidor')) {
         return 'Selecione um supervisor aprovado.';
     }
-    if (orientadorId && (!orientador || !orientador.aprovado || orientador.cargo === 'supervisor')) {
+    if (orientadorId && (!orientador || !orientador.aprovado || !podeOrientar(orientador.cargo))) {
         return 'O orientador deve ser um professor da instituição.';
     }
     if (supervisorId && orientadorId && Number(supervisorId) === Number(orientadorId)) {
@@ -733,7 +742,7 @@ router.get('/usuarios', requireRole('professor'), async (req, res) => {
         });
     }
 
-    const tipo = ['aluno', 'professor', 'supervisor'].includes(req.query.tipo) ? req.query.tipo : '';
+    const tipo = ['aluno', 'professor', 'servidor', 'supervisor'].includes(req.query.tipo) ? req.query.tipo : '';
     const situacao = ['ativo', 'desativado', 'pendente', 'aprovado'].includes(req.query.situacao)
         ? req.query.situacao
         : '';
@@ -775,6 +784,29 @@ router.get('/usuarios', requireRole('professor'), async (req, res) => {
 
 router.get('/usuarios/novo', requireAdmin, (req, res) => {
     res.render('professor_usuario_novo', { cursos: CURSOS });
+});
+
+// Dashboard do administrador: situação de cada estudante e de cada curso.
+router.get('/acompanhamento', requireVisaoGeral, async (req, res) => {
+    const { ETAPAS_ACOMPANHAMENTO, formatarHoras } = acompanhamentoModel;
+    const filtros = {
+        curso: ehCurso(req.query.curso) ? req.query.curso : '',
+        etapa: ETAPAS_ACOMPANHAMENTO.some((e) => e.chave === req.query.etapa) ? req.query.etapa : '',
+        pendencias: req.query.pendencias === '1',
+    };
+    const todos = await acompanhamentoModel.listarEstudantes();
+    // os totais consideram todos; os filtros valem só para a lista de estudantes
+    const estudantes = todos.filter((a) => (!filtros.curso || a.curso === filtros.curso)
+        && (!filtros.etapa || a.etapa === filtros.etapa)
+        && (!filtros.pendencias || a.pendencias.length > 0));
+    res.render('professor_acompanhamento', {
+        resumo: acompanhamentoModel.resumir(todos),
+        estudantes,
+        filtros,
+        etapas: ETAPAS_ACOMPANHAMENTO,
+        cursos: CURSOS,
+        formatarHoras,
+    });
 });
 
 router.get(['/professores', '/cadastros'], requireAdmin, (req, res) => {
@@ -840,7 +872,7 @@ router.post('/usuarios', requireAdmin, async (req, res) => {
     const funcao = String(req.body.funcao || '').trim();
 
     if (!nome || nome.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-        || !['aluno', 'professor', 'supervisor'].includes(tipo)
+        || !['aluno', 'professor', 'servidor', 'supervisor'].includes(tipo)
         || (tipo === 'supervisor' && (!empresa || empresa.length > 200 || !funcao || funcao.length > 150))
         || (tipo === 'aluno' && (matricula && matricula.length > 30 || !ehCurso(curso)))) {
         setFlash(req, 'error', 'Confira os dados obrigatórios e o tipo de acesso selecionado.');
@@ -975,7 +1007,15 @@ router.post('/professores/:id/cargo', requireAdmin, async (req, res) => {
     if (Number(req.params.id) === req.session.user.id) {
         return res.redirect('/professor/usuarios');
     }
-    const cargo = req.body.cargo === 'admin' ? 'admin' : 'comum';
+    const cargo = ['admin', 'servidor'].includes(req.body.cargo) ? req.body.cargo : 'comum';
+    if (cargo === 'servidor') {
+        // servidor não orienta, não supervisiona e não avalia: os vínculos precisam sair antes
+        const vinculos = await professoresModel.contarVinculos(req.params.id);
+        if (vinculos.estudantes || vinculos.bancas) {
+            setFlash(req, 'error', `Esta pessoa ainda é orientadora ou supervisora de ${vinculos.estudantes} estudante(s) e participa de ${vinculos.bancas} banca(s) em aberto. Troque os responsáveis antes de torná-la servidora.`);
+            return res.redirect('/professor/usuarios');
+        }
+    }
     if (!await professoresModel.definirCargo(req.params.id, cargo)) {
         setFlash(req, 'error', 'O cargo deste usuário não pode ser alterado por esta tela.');
         return res.redirect('/professor/usuarios');

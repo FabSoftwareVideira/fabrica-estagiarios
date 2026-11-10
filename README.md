@@ -154,6 +154,16 @@ A migração `016_lembretes_atividades.sql` permanece no histórico de deploy e 
 
 A interface usa sempre o tema claro. O botão "Alto contraste" na barra superior alterna o modo de alto contraste em todas as páginas; a escolha é salva em `localStorage` (chave `contraste`) e reaplicada nas próximas visitas.
 
+## Papel de servidor (setor de estágios)
+
+Além de estudante, professor, administrador e supervisor externo, existe o papel **servidor**, para pessoas do setor de estágios do campus com e-mail `@ifc.edu.br` que não são professores. O servidor vê todos os estudantes no painel e tem acesso ao **Acompanhamento dos estágios**; pode aprovar cadastros e editar os dados do estágio como qualquer professor. Não aparece como opção de orientador, supervisor ou avaliador de banca, e não gerencia usuários.
+
+Como o e-mail institucional não distingue professor de técnico, todo `@ifc.edu.br` entra como professor no primeiro acesso. O administrador define o papel em **Administração → Gerenciar usuários**: pelo botão "Tornar servidor" na linha da pessoa (bloqueado enquanto ela for orientadora, supervisora ou avaliadora de algo em aberto) ou cadastrando a conta já como "Servidor (setor de estágios)". O papel fica em `professores.cargo = 'servidor'` (migração `026_papel_servidor.sql`). Em desenvolvimento, a tela de login tem o atalho "Entrar como Servidor".
+
+## Acompanhamento (administrador e servidor)
+
+Em **Administração → Acompanhamento dos estágios** (ou no menu **Acompanhamento**, para o servidor; `/professor/acompanhamento`), o administrador ou o servidor vê quantos estudantes estão em cada etapa (lista de espera, em andamento, aguardando banca, encerrado), a distribuição por curso e a lista de estudantes com horas, responsáveis, última atividade e pendências (cadastro a aprovar, sem orientador ou supervisor, mais de 5 dias sem registrar, horas aguardando validação, banca não agendada, curso não informado). Estágios arquivados e contas desativadas não entram.
+
 ## Avisos e convites da banca
 
 Ao agendar, remarcar ou cancelar uma banca, o sistema envia um e-mail ao orientador, aos dois avaliadores e ao estudante, com um convite de calendário (`banca.ics`) anexado. Gmail/Google Agenda, Outlook e Apple Mail oferecem "Adicionar à agenda"; remarcar atualiza o mesmo evento e cancelar o remove. Quem é substituído na banca recebe o cancelamento. O envio usa o mesmo SMTP do relatório semanal (`SMTP_*` e `APP_URL`); se o e-mail falhar, o agendamento é mantido e a tela avisa que os participantes não foram notificados.

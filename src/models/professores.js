@@ -73,6 +73,18 @@ async function listarExceto(usuarioIdAtual) {
     return rows;
 }
 
+// Estudantes e bancas em aberto que dependem da pessoa como orientadora,
+// supervisora ou avaliadora. Quem tem vínculos não pode virar servidor.
+async function contarVinculos(usuarioId) {
+    const { rows } = await pool.query(
+        `SELECT (SELECT COUNT(*) FROM alunos WHERE orientador_id = $1 OR supervisor_id = $1)::int AS estudantes,
+                (SELECT COUNT(*) FROM bancas WHERE situacao IN ('agendada', 'remarcada')
+                    AND $1 IN (orientador_id, avaliador_1_id, avaliador_2_id))::int AS bancas`,
+        [usuarioId]
+    );
+    return rows[0];
+}
+
 async function definirCargo(usuarioId, cargo) {
     const { rowCount } = await pool.query(
         "UPDATE professores SET cargo = $2 WHERE usuario_id = $1 AND cargo <> 'supervisor'",
@@ -101,6 +113,7 @@ module.exports = {
     aprovarSupervisor,
     listarExceto,
     definirCargo,
+    contarVinculos,
     definirRecebimentoRelatorio,
     excluir,
 };

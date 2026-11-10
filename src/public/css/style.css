@@ -609,7 +609,7 @@ html.alto-contraste .proximo-passo { background: #000; border-color: #ffd700; }
 .user-form-grid [data-user-field="empresa"] { grid-area: empresa; }
 .user-form-grid [data-user-field="funcao"] { grid-area: funcao; }
 .user-form-grid [data-user-field="acoes"] { grid-area: acoes; }
-.user-form-grid[data-user-type="professor"] { grid-template-areas: "nome email" "tipo tipo" "acoes acoes"; }
+.user-form-grid[data-user-type="professor"], .user-form-grid[data-user-type="servidor"] { grid-template-areas: "nome email" "tipo tipo" "acoes acoes"; }
 .user-form-grid[data-user-type="aluno"] { grid-template-areas: "nome email" "tipo matricula" "acoes acoes"; }
 .user-form-grid[data-user-type="supervisor"] { grid-template-areas: "nome email" "tipo tipo" "empresa funcao" "acoes acoes"; }
 .user-form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 0; }
@@ -1006,6 +1006,7 @@ html.alto-contraste .curso-ambar { --curso-cor: #ffd700; }
   .users-filter-form button, .users-filter-form .btn { width: 100%; }
   .user-form-grid,
   .user-form-grid[data-user-type="professor"],
+  .user-form-grid[data-user-type="servidor"],
   .user-form-grid[data-user-type="aluno"],
   .user-form-grid[data-user-type="supervisor"] {
     grid-template-columns: minmax(0, 1fr);
@@ -1164,6 +1165,46 @@ html.alto-contraste .public-flow-number { background: #1a1a1a; }
 .agenda-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; }
 .agenda-filters .form-field { flex: 1 1 160px; }
 .agenda-count { margin: 0 0 16px; }
+
+/* Acompanhamento (administrador). As cores das etapas foram conferidas para
+   daltonismo; a tabela ao lado da barra traz sempre os números. */
+:root { --etapa-espera: #8792b0; --etapa-andamento: #1351b4; --etapa-banca: #e8a400; --etapa-encerrado: #136f20; }
+html.alto-contraste { --etapa-espera: #8f9ac0; --etapa-andamento: #2f7df0; --etapa-banca: #e0a400; --etapa-encerrado: #178f33; }
+.acomp-lista_espera { background: var(--etapa-espera); }
+.acomp-em_andamento { background: var(--etapa-andamento); }
+.acomp-aguardando_banca { background: var(--etapa-banca); }
+.acomp-encerrado { background: var(--etapa-encerrado); }
+.acomp-cor { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.acomp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.acomp-tile {
+  display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; text-decoration: none; color: var(--texto);
+  background: var(--superficie); border: 1px solid var(--borda-suave); border-radius: var(--raio-cartao); box-shadow: var(--sombra);
+}
+.acomp-tile:hover { border-color: var(--azul-700); }
+.acomp-tile.ativo { border-color: var(--azul-700); box-shadow: 0 0 0 2px var(--azul-200); }
+.acomp-tile-rotulo { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--texto-suave); }
+.acomp-tile-rotulo svg { width: 16px; height: 16px; flex: none; }
+.acomp-tile strong { font-size: 32px; line-height: 1; font-weight: 800; color: var(--azul-900); }
+html.alto-contraste .acomp-tile strong { color: #ffd700; }
+.acomp-legenda { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--texto-suave); }
+.acomp-legenda li { display: inline-flex; align-items: center; gap: 6px; }
+.acomp-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.acomp-col-barra { min-width: 140px; width: 24%; }
+.acomp-cursos th, .acomp-cursos td { padding-left: 10px; padding-right: 10px; }
+.acomp-cursos th.acomp-num { white-space: normal; }
+.acomp-barra { display: flex; gap: 2px; height: 16px; }
+.acomp-segmento { min-width: 6px; border-radius: 3px; }
+.acomp-segmento:hover { outline: 2px solid var(--texto); outline-offset: 1px; }
+.acomp-filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; margin: 4px 0 16px; }
+.acomp-filtros .form-field { flex: 1 1 200px; max-width: 320px; }
+.acomp-sub { display: block; font-size: 13px; color: var(--texto-suave); }
+.acomp-horas { min-width: 150px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.acomp-progresso { height: 6px; margin-top: 6px; }
+.acomp-pendencia {
+  display: inline-block; margin: 2px 4px 2px 0; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--amarelo-100); color: var(--amarelo-700); border: 1px solid #f2d36b; white-space: nowrap;
+}
+@media (max-width: 720px) { .acomp-col-barra { min-width: 0; width: auto; } .acomp-num { text-align: left; } }
 .agenda-minhas { display: inline-flex; align-items: center; gap: 8px; margin: 0; min-height: 44px; cursor: pointer; white-space: nowrap; }
 .agenda-fields { margin-top: 20px; }
 .agenda-card { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; }

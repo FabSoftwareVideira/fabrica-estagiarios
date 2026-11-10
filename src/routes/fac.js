@@ -11,7 +11,7 @@ const { gerarFacPdf } = require('../services/facPdf');
 async function carregar(req, res, next) {
     const aluno = await alunos.buscarPorUsuarioId(req.params.id);
     const user = req.session.user;
-    if (!aluno || ![aluno.supervisor_id, aluno.orientador_id].some((id) => Number(id) === Number(user.id)) && user.cargo !== 'admin') {
+    if (!aluno || ![aluno.supervisor_id, aluno.orientador_id].some((id) => Number(id) === Number(user.id)) && !['admin', 'servidor'].includes(user.cargo)) {
         return res.status(403).send('Você não tem acesso à avaliação deste estudante.');
     }
     req.aluno = aluno;

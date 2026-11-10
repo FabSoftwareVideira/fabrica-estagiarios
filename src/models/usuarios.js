@@ -58,7 +58,8 @@ async function listarTodos({
         condicoes.push(`(u.nome ILIKE $${valores.length} OR u.email ILIKE $${valores.length})`);
     }
     if (tipo === 'aluno') condicoes.push("u.tipo = 'aluno'");
-    if (tipo === 'professor') condicoes.push("u.tipo = 'professor' AND COALESCE(p.cargo, 'comum') <> 'supervisor'");
+    if (tipo === 'professor') condicoes.push("u.tipo = 'professor' AND COALESCE(p.cargo, 'comum') IN ('comum', 'admin')");
+    if (tipo === 'servidor') condicoes.push("u.tipo = 'professor' AND p.cargo = 'servidor'");
     if (tipo === 'supervisor') condicoes.push("u.tipo = 'professor' AND p.cargo = 'supervisor'");
     if (situacao === 'ativo') condicoes.push('u.ativo = true');
     if (situacao === 'desativado') condicoes.push('u.ativo = false');
@@ -68,7 +69,7 @@ async function listarTodos({
     const orderBy = {
         nome: 'u.nome',
         email: 'u.email',
-        tipo: "CASE WHEN u.tipo = 'aluno' THEN 'Estudante' WHEN p.cargo = 'supervisor' THEN 'Supervisor externo' ELSE 'Professor' END",
+        tipo: "CASE WHEN u.tipo = 'aluno' THEN 'Estudante' WHEN p.cargo = 'supervisor' THEN 'Supervisor externo' WHEN p.cargo = 'servidor' THEN 'Servidor' ELSE 'Professor' END",
         criado_em: 'u.criado_em',
         situacao: `CASE WHEN u.ativo = false THEN 2 WHEN p.cargo = 'supervisor' AND p.aprovado = false THEN 1 ELSE 0 END`,
     }[ordenarPor] || 'u.nome';
@@ -140,7 +141,7 @@ async function criarContaAdministrada({ nome, email, tipo, matricula, curso, emp
             INSERT INTO professores
                 (usuario_id, cargo, aprovado, empresa_externa, funcao_externa, receber_relatorio_semanal)
             SELECT id,
-                   CASE WHEN $4 = 'supervisor' THEN 'supervisor' ELSE 'comum' END,
+                   CASE WHEN $4 = 'supervisor' THEN 'supervisor' WHEN $4 = 'servidor' THEN 'servidor' ELSE 'comum' END,
                    $4 <> 'supervisor',
                    CASE WHEN $4 = 'supervisor' THEN $6 ELSE NULL END,
                    CASE WHEN $4 = 'supervisor' THEN $7 ELSE NULL END,
@@ -255,7 +256,7 @@ async function listarProfessores() {
         `SELECT u.id, u.nome, u.email FROM usuarios u
          JOIN professores p ON p.usuario_id = u.id
          WHERE u.tipo = 'professor' AND u.ativo = true
-           AND p.cargo <> 'supervisor' AND p.aprovado = true
+           AND p.cargo IN ('comum', 'admin') AND p.aprovado = true
          ORDER BY u.nome`
     );
     return rows;

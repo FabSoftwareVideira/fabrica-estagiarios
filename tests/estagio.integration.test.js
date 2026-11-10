@@ -1066,3 +1066,95 @@ test('perfil guarda as preferências de e-mail e o lembrete respeita a escolha d
     await requisitar('/perfil', { user: 101, method: 'POST', body: { nome: 'Professor 101', receber_email_bancas: 'on' } });
     assert.deepEqual(await prefs(101), { bancas: true, lembretes: true });
 });
+test('acompanhamento: só o administrador vê; totais por curso, etapas, pendências e filtros', async () => {
+    const info = 'Curso Técnico em Informática Integrado ao Ensino Médio';
+    await db.exec(`UPDATE alunos SET relatorio_atualizado_em = NOW();
+        UPDATE alunos SET status = 'lista_espera', orientador_id = NULL, supervisor_id = NULL WHERE usuario_id = 2;
+        UPDATE alunos SET status = 'concluido', curso = '${info}', carga_horaria = 60 WHERE usuario_id IN (3, 4);
+        UPDATE alunos SET encerrado_em = NOW() WHERE usuario_id = 4;
+        UPDATE alunos SET arquivado = true WHERE usuario_id = 5;
+        UPDATE alunos SET curso = NULL, supervisor_id = NULL, relatorio_atualizado_em = NOW() - INTERVAL '9 days' WHERE usuario_id = 6;
+        INSERT INTO atividades (aluno_id, data, horas, descricao, status_validacao) VALUES
+            (1, '2026-03-02', 4, 'Pendente de validação', 'pendente'), (3, '2026-03-03', 30, 'Validada', 'validada');
+        UPDATE alunos SET relatorio_atualizado_em = NOW() WHERE usuario_id IN (1, 3);`);
+
+    const comum = await requisitar('/professor/acompanhamento', { user: 102 });
+    assert.equal(comum.status, 302);
+    assert.equal(comum.headers.get('location'), '/professor/dashboard');
+
+    const modelo = require('../src/models/acompanhamento');
+    const todos = await modelo.listarEstudantes();
+    const { geral, cursos } = modelo.resumir(todos);
+    assert.equal(geral.total, 9); // o arquivado fica de fora
+    assert.deepEqual(geral.etapas, { lista_espera: 1, em_andamento: 6, aguardando_banca: 1, encerrado: 1 });
+    const porNome = Object.fromEntries(cursos.map((c) => [c.nome, c]));
+    assert.equal(porNome['Informática'].total, 2);
+    assert.equal(porNome['Informática'].progressoMedio, 25); // 50% e 0%
+    assert.equal(porNome['Eletroeletrônica'].total, 0);
+    assert.equal(porNome['Curso não informado'].total, 1);
+
+    const pendencias = Object.fromEntries(todos.map((a) => [a.usuario_id, a.pendencias]));
+    assert.deepEqual(pendencias[1], ['4h aguardando validação']);
+    assert.deepEqual(pendencias[2], ['Aguardando aprovação do cadastro']);
+    assert.deepEqual(pendencias[3], ['Banca não agendada']);
+    assert.deepEqual(pendencias[4], []);
+    assert.deepEqual(pendencias[6], ['Curso não informado', 'Sem supervisor', 'Sem registrar há 9 dias']);
+    assert.deepEqual(pendencias[7], []);
+    assert.equal(geral.comPendencias, 4);
+
+    const pagina = await requisitar('/professor/acompanhamento', { user: 104 });
+    assert.equal(pagina.status, 200);
+    const html = await pagina.text();
+    assert.match(html, /Acompanhamento dos estágios/);
+    assert.match(html, /Estudante 6/); assert.doesNotMatch(html, /Estudante 5</);
+
+    const filtrada = await (await requisitar('/professor/acompanhamento?etapa=aguardando_banca&curso=' + encodeURIComponent(info), { user: 104 })).text();
+    assert.match(filtrada, /Estudante 3</); assert.doesNotMatch(filtrada, /Estudante 4</); assert.doesNotMatch(filtrada, /Estudante 1</);
+    const soPendencias = await (await requisitar('/professor/acompanhamento?pendencias=1', { user: 104 })).text();
+    assert.match(soPendencias, /Estudante 6</); assert.doesNotMatch(soPendencias, /Estudante 7</);
+    assert.match(await (await requisitar('/professor/dashboard?aba=administracao', { user: 104 })).text(), /Abrir acompanhamento/);
+});
+test('servidor do setor de estágios vê todos os estudantes, mas não orienta nem administra', async () => {
+    // o administrador cadastra um servidor e também converte um professor sem vínculos
+    const criado = await requisitar('/professor/usuarios', {
+        user: 104, method: 'POST', body: { nome: 'Servidora Nova', email: 'servidora@example.test', tipo: 'servidor' },
+    });
+    assert.equal(criado.headers.get('location'), '/professor/usuarios');
+    const nova = (await consultar("SELECT u.id, u.tipo, p.cargo, p.aprovado FROM usuarios u JOIN professores p ON p.usuario_id=u.id WHERE u.email='servidora@example.test'")).rows[0];
+    assert.deepEqual([nova.tipo, nova.cargo, nova.aprovado], ['professor', 'servidor', true]);
+
+    // quem ainda orienta ou supervisiona não pode virar servidor
+    await requisitar('/professor/professores/102/cargo', { user: 104, method: 'POST', body: { cargo: 'servidor' } });
+    assert.equal((await consultar('SELECT cargo FROM professores WHERE usuario_id=102')).rows[0].cargo, 'comum');
+    await requisitar('/professor/professores/103/cargo', { user: 104, method: 'POST', body: { cargo: 'servidor' } });
+    assert.equal((await consultar('SELECT cargo FROM professores WHERE usuario_id=103')).rows[0].cargo, 'servidor');
+
+    // vê todos os estudantes no painel e o acompanhamento, com o link no menu
+    const painel = await (await requisitar('/professor/dashboard', { user: 103 })).text();
+    assert.match(painel, /Estudante 1</); assert.match(painel, /Estudante 9</);
+    assert.match(painel, /href="\/professor\/acompanhamento"/);
+    assert.doesNotMatch(painel, /aba=administracao/);
+    assert.equal((await requisitar('/professor/acompanhamento', { user: 103 })).status, 200);
+    assert.equal((await requisitar('/professor/aluno/1', { user: 103 })).status, 200);
+    // um professor comum continua vendo só os seus
+    assert.doesNotMatch(await (await requisitar('/professor/dashboard', { user: 101 })).text(), /href="\/professor\/acompanhamento"/);
+
+    // não administra usuários
+    const semAcesso = await requisitar('/professor/usuarios/novo', { user: 103 });
+    assert.equal(semAcesso.status, 302);
+    assert.equal(semAcesso.headers.get('location'), '/professor/dashboard');
+
+    // não aparece nem é aceito como orientador ou supervisor
+    const usuarios = require('../src/models/usuarios');
+    assert.equal((await usuarios.listarProfessores()).some((p) => p.id === 103), false);
+    const edicao = { empresa: 'Empresa Exemplo', carga_horaria: '60', status: 'em_andamento',
+        dias_trabalho: ['1'], horario_inicio_1: '08:00', horario_fim_1: '12:00' };
+    await requisitar('/professor/aluno/1', { user: 104, method: 'POST', body: { ...edicao, orientador_id: '103', supervisor_id: '101' } });
+    await requisitar('/professor/aluno/1', { user: 104, method: 'POST', body: { ...edicao, orientador_id: '102', supervisor_id: '103' } });
+    const responsaveis = (await consultar('SELECT orientador_id, supervisor_id FROM alunos WHERE usuario_id=1')).rows[0];
+    assert.deepEqual([responsaveis.orientador_id, responsaveis.supervisor_id], [102, 101]);
+
+    // o administrador devolve o papel de professor
+    await requisitar('/professor/professores/103/cargo', { user: 104, method: 'POST', body: { cargo: 'comum' } });
+    assert.equal((await usuarios.listarProfessores()).some((p) => p.id === 103), true);
+});

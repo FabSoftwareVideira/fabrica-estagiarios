@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhamento dos estágios</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [
+            user.cargo === 'admin'
+                ? { texto: 'Administração', href: '/professor/dashboard?aba=administracao' }
+                : { texto: 'Alunos', href: '/professor/dashboard' },
+            { texto: 'Acompanhamento' }
+        ] }) %>
+        <%- include('partials/flash') %>
+
+        <%
+            const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+            // link que mantém os outros filtros e troca só um
+            const link = (mudancas) => {
+                const params = new URLSearchParams();
+                const novo = { ...filtros, ...mudancas };
+                if (novo.curso) params.set('curso', novo.curso);
+                if (novo.etapa) params.set('etapa', novo.etapa);
+                if (novo.pendencias) params.set('pendencias', '1');
+                const texto = params.toString();
+                return '/professor/acompanhamento' + (texto ? '?' + texto : '');
+            };
+            const filtrando = Boolean(filtros.curso || filtros.etapa || filtros.pendencias);
+        %>
+
+        <div class="page-head">
+            <div>
+                <h1>Acompanhamento dos estágios</h1>
+                <p>Situação de cada estudante e de cada curso. Estágios arquivados e contas desativadas ficam de fora.</p>
+            </div>
+        </div>
+
+        <!-- Números gerais: cada cartão filtra a lista de estudantes -->
+        <section class="acomp-tiles" aria-label="Resumo geral">
+            <a class="acomp-tile <%= !filtros.etapa && !filtros.pendencias ? 'ativo' : '' %>" href="<%= link({ etapa: '', pendencias: false }) %>#estudantes">
+                <span class="acomp-tile-rotulo">Estudantes</span>
+                <strong><%= resumo.geral.total %></strong>
+            </a>
+            <% etapas.forEach((e) => { %>
+                <a class="acomp-tile <%= filtros.etapa === e.chave ? 'ativo' : '' %>" href="<%= link({ etapa: e.chave, pendencias: false }) %>#estudantes">
+                    <span class="acomp-tile-rotulo"><i class="acomp-cor acomp-<%= e.chave %>" aria-hidden="true"></i><%= e.label %></span>
+                    <strong><%= resumo.geral.etapas[e.chave] %></strong>
+                </a>
+            <% }) %>
+            <a class="acomp-tile acomp-tile-alerta <%= filtros.pendencias ? 'ativo' : '' %>" href="<%= link({ etapa: '', pendencias: true }) %>#estudantes">
+                <span class="acomp-tile-rotulo"><%- icone('alerta') %> Com pendências</span>
+                <strong><%= resumo.geral.comPendencias %></strong>
+            </a>
+        </section>
+
+        <section class="card" aria-labelledby="titulo-cursos">
+            <div class="card-header">
+                <div>
+                    <h2 id="titulo-cursos">Por curso</h2>
+                    <p class="text-muted">Quantos estudantes de cada curso estão em cada etapa do estágio.</p>
+                </div>
+                <ul class="acomp-legenda" aria-label="Legenda das etapas">
+                    <% etapas.forEach((e) => { %><li><i class="acomp-cor acomp-<%= e.chave %>" aria-hidden="true"></i><%= e.label %></li><% }) %>
+                </ul>
+            </div>
+            <div class="table-wrap">
+                <table class="acomp-cursos">
+                    <thead>
+                        <tr>
+                            <th>Curso</th>
+                            <th class="acomp-col-barra">Distribuição</th>
+                            <% etapas.forEach((e) => { %><th class="acomp-num"><%= e.label %></th><% }) %>
+                            <th class="acomp-num">Total</th>
+                            <th class="acomp-num" title="Média do percentual de horas validadas">Horas (média)</th>
+                            <th class="acomp-num">Pendências</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% resumo.cursos.forEach((c) => { %>
+                            <tr>
+                                <td>
+                                    <% if (c.curso) { %><a href="<%= link({ curso: c.curso }) %>#estudantes"><strong><%= c.nome %></strong></a>
+                                    <% } else { %><strong><%= c.nome %></strong><% } %>
+                                </td>
+                                <td class="acomp-col-barra">
+                                    <% if (c.total) { %>
+                                        <div class="acomp-barra" role="img" aria-label="<%= etapas.map((e) => `${e.label}: ${c.etapas[e.chave]}`).join(', ') %>">
+                                            <% etapas.filter((e) => c.etapas[e.chave] > 0).forEach((e) => { %>
+                                                <span class="acomp-segmento acomp-<%= e.chave %>" style="flex-grow: <%= c.etapas[e.chave] %>"
+                                                    title="<%= c.nome %> · <%= e.label %>: <%= plural(c.etapas[e.chave], 'estudante', 'estudantes') %> (<%= Math.round((c.etapas[e.chave] / c.total) * 100) %>%)"></span>
+                                            <% }) %>
+                                        </div>
+                                    <% } else { %>
+                                        <span class="text-muted">Nenhum estudante</span>
+                                    <% } %>
+                                </td>
+                                <% etapas.forEach((e) => { %><td class="acomp-num"><%= c.etapas[e.chave] %></td><% }) %>
+                                <td class="acomp-num"><strong><%= c.total %></strong></td>
+                                <td class="acomp-num"><%= c.total ? c.progressoMedio + '%' : '—' %></td>
+                                <td class="acomp-num"><%= c.comPendencias %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card" id="estudantes" aria-labelledby="titulo-estudantes">
+            <div class="card-header">
+                <div>
+                    <h2 id="titulo-estudantes">Estudantes</h2>
+                    <p class="text-muted">
+                        <%= plural(estudantes.length, 'estudante', 'estudantes') %><%= filtrando ? ' com os filtros aplicados' : '' %>.
+                        Clique no nome para abrir os detalhes.
+                    </p>
+                </div>
+            </div>
+
+            <form action="/professor/acompanhamento#estudantes" method="GET" class="acomp-filtros">
+                <div class="form-field">
+                    <label for="filtro-curso">Curso</label>
+                    <select id="filtro-curso" name="curso">
+                        <option value="">Todos os cursos</option>
+                        <% cursos.forEach((curso) => { %>
+                            <option value="<%= curso %>" <%= filtros.curso === curso ? 'selected' : '' %>><%= curso.replace(/^Curso Técnico (de|em) /, '').replace(/ Integrado ao Ensino Médio$/, '') %></option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="filtro-etapa">Etapa</label>
+                    <select id="filtro-etapa" name="etapa">
+                        <option value="">Todas as etapas</option>
+                        <% etapas.forEach((e) => { %>
+                            <option value="<%= e.chave %>" <%= filtros.etapa === e.chave ? 'selected' : '' %>><%= e.label %></option>
+                        <% }) %>
+                    </select>
+                </div>
+                <label class="agenda-minhas"><input type="checkbox" name="pendencias" value="1" <%= filtros.pendencias ? 'checked' : '' %>> Só com pendências</label>
+                <button type="submit" class="btn-secondary">Filtrar</button>
+                <% if (filtrando) { %><a href="/professor/acompanhamento#estudantes" class="btn btn-ghost">Limpar</a><% } %>
+            </form>
+
+            <div class="table-wrap">
+                <table class="acomp-estudantes">
+                    <thead>
+                        <tr>
+                            <th>Estudante</th>
+                            <th>Curso</th>
+                            <th>Etapa</th>
+                            <th>Horas</th>
+                            <th>Orientador</th>
+                            <th>Supervisor</th>
+                            <th>Última atividade</th>
+                            <th>Pendências</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (!estudantes.length) { %>
+                            <tr><td colspan="8">Nenhum estudante<%= filtrando ? ' com esses filtros' : '' %>.</td></tr>
+                        <% } %>
+                        <% estudantes.forEach((a) => { %>
+                            <tr>
+                                <td>
+                                    <a href="<%= a.etapa === 'lista_espera' ? '/professor/cadastro-aluno/' + a.usuario_id : '/professor/aluno/' + a.usuario_id %>"><strong><%= a.nome %></strong></a>
+                                    <% if (a.empresa) { %><small class="acomp-sub"><%= a.empresa %></small><% } %>
+                                </td>
+                                <td><%= a.cursoCurto %></td>
+                                <td><span class="status <%= a.etapaClasse %>"><%= a.etapaLabel %></span></td>
+                                <td class="acomp-horas">
+                                    <% if (a.carga > 0) { %>
+                                        <span><%= formatarHoras(a.validadas) %> de <%= formatarHoras(a.carga) %> · <%= a.percentual %>%</span>
+                                        <div class="progress acomp-progresso" role="img" aria-label="<%= a.percentual %>% das horas validadas"><div class="progress-bar" data-percent="<%= a.percentual %>"></div></div>
+                                    <% } else { %><span class="text-muted">—</span><% } %>
+                                </td>
+                                <td><%= a.orientador_nome || '—' %></td>
+                                <td><%= a.supervisor_nome || '—' %></td>
+                                <td>
+                                    <%= a.ultima_atividade ? dataBr(a.ultima_atividade) : '—' %>
+                                    <% if (a.banca_data) { %><small class="acomp-sub">Banca em <%= dataBr(a.banca_data) %></small><% } %>
+                                </td>
+                                <td>
+                                    <% if (!a.pendencias.length) { %><span class="text-muted">Nenhuma</span><% } %>
+                                    <% a.pendencias.forEach((p) => { %><span class="acomp-pendencia"><%= p %></span><% }) %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

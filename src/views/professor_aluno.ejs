@@ -281,7 +281,7 @@
                                 <% if (faa) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/faa/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
                             </li>
                         <% } %>
-                        <% if (ehSupervisor || ehOrientador || user.cargo === 'admin') { %>
+                        <% if (ehSupervisor || ehOrientador || ['admin', 'servidor'].includes(user.cargo)) { %>
                             <li>
                                 <span class="doc-nome">FAC · Avaliação do supervisor<small><%= fac ? 'Média ' + fac.nota.toFixed(1).replace('.', ',') : (facRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
                                 <span class="table-actions">

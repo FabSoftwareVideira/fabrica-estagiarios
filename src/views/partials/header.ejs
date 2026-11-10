@@ -43,10 +43,13 @@
                         <a href="/aluno/dashboard?aba=fichas" class="nav-link <%= ativo((noDash && aba === 'fichas') || currentPath.startsWith('/aluno/faa')) %>"><%- icone('arquivo') %> Fichas</a>
                     <% } else { %>
                         <% const emFichas = currentPath === '/professor/fichas' || currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/(fare|fapo|fac|banca)/.test(currentPath); %>
-                        <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
+                        <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros', '/professor/acompanhamento'].includes(currentPath); %>
                         <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> <%= user.cargo === 'supervisor' ? 'Supervisionados' : 'Alunos' %></a>
                         <% if (user.cargo !== 'supervisor' && currentPath !== '/supervisor/pendente') { %>
                             <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
+                        <% } %>
+                        <% if (user.cargo === 'servidor') { %>
+                            <a href="/professor/acompanhamento" class="nav-link <%= ativo(currentPath === '/professor/acompanhamento') %>"><%- icone('olho') %> Acompanhamento</a>
                         <% } %>
                         <% if (user.cargo === 'admin') { %>
                             <a href="/professor/dashboard?aba=administracao" class="nav-link <%= ativo(emAdmin) %>"><%- icone('escudo') %> Administração</a>

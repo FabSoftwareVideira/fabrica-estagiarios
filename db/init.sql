@@ -22,7 +22,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email_lower_unique ON usuarios (L
 
 CREATE TABLE IF NOT EXISTS professores (
     usuario_id  INTEGER PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
-    cargo       VARCHAR(20) NOT NULL DEFAULT 'comum' CHECK (cargo IN ('comum', 'admin', 'supervisor')),
+    cargo       VARCHAR(20) NOT NULL DEFAULT 'comum' CHECK (cargo IN ('comum', 'admin', 'supervisor', 'servidor')),
     aprovado    BOOLEAN NOT NULL DEFAULT true,
     empresa_externa TEXT,
     funcao_externa  TEXT,

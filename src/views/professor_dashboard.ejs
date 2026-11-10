@@ -92,6 +92,11 @@
                         <p class="text-muted">Gerencie todas as contas, permissões e solicitações de acesso, além do relatório semanal.</p>
 
                         <div class="action-grid">
+                            <a href="/professor/acompanhamento" class="action-card">
+                                <h3>Acompanhamento dos estágios</h3>
+                                <p>Veja a situação de cada estudante e de cada curso, e quem tem pendências.</p>
+                                <span class="btn">Abrir acompanhamento</span>
+                            </a>
                             <a href="/professor/usuarios" class="action-card">
                                 <h3>Gerenciar usuários</h3>
                                 <p>Cadastre estudantes, professores e supervisores externos; aprove solicitações e controle o acesso.</p>
@@ -274,7 +279,7 @@
                                                 Nome <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('nome') %></span>
                                             </a>
                                         </th>
-                                        <% if (user.cargo === 'admin') { %>
+                                        <% if (['admin', 'servidor'].includes(user.cargo)) { %>
                                             <th aria-sort="<%= estadoOrdenacao('supervisor') %>">
                                                 <a href="<%= montarOrdenacao('supervisor') %>" class="th-sort">
                                                     Supervisor <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('supervisor') %></span>
@@ -300,7 +305,7 @@
                                 <tbody>
                                     <% if (alunos.length === 0) { %>
                                         <tr>
-                                            <td colspan="<%= user.cargo === 'admin' ? 5 : 6 %>">
+                                            <td colspan="<%= ['admin', 'servidor'].includes(user.cargo) ? 5 : 6 %>">
                                                 <%= filtros.arquivados
                                                     ? 'Nenhum aluno arquivado encontrado.'
                                                     : 'Nenhum aluno encontrado com os filtros atuais.' %>
@@ -310,7 +315,7 @@
                                         <% alunos.forEach((a) => { %>
                                             <tr>
                                                 <td><a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a></td>
-                                                <% if (user.cargo === 'admin') { %>
+                                                <% if (['admin', 'servidor'].includes(user.cargo)) { %>
                                                     <td><%= a.supervisor_nome || '—' %></td>
                                                 <% } else { %>
                                                     <td>
