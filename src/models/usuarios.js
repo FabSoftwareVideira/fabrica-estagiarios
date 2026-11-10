@@ -59,7 +59,7 @@ async function listarTodos({
         condicoes.push(`(u.nome ILIKE $${valores.length} OR u.email ILIKE $${valores.length})`);
     }
     if (tipo === 'aluno') condicoes.push("u.tipo = 'aluno'");
-    if (tipo === 'professor') condicoes.push("u.tipo = 'professor' AND COALESCE(p.cargo, 'comum') <> 'supervisor' AND (p.papel_orientador OR p.papel_supervisor)");
+    if (tipo === 'professor') condicoes.push("u.tipo = 'professor' AND COALESCE(p.cargo, 'comum') <> 'supervisor'");
     if (tipo === 'servidor') condicoes.push("u.tipo = 'professor' AND p.cargo <> 'supervisor' AND p.papel_servidor");
     if (tipo === 'supervisor') condicoes.push("u.tipo = 'professor' AND p.cargo = 'supervisor'");
     if (situacao === 'ativo') condicoes.push('u.ativo = true');

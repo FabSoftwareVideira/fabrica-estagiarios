@@ -47,8 +47,8 @@
                         <% const externo = user.cargo === 'supervisor'; %>
                         <% const emAdmin = currentPath === '/professor/administracao' || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
                         <% const emAcompanhamento = currentPath === '/professor/acompanhamento'; %>
-                        <%# cada papel tem o seu item: acompanhar todos, cuidar dos próprios estudantes, administrar %>
-                        <% if (!externo && (user.cargo === 'admin' || papeis.servidor)) { %>
+                        <%# o servidor mantém acesso direto; para os demais admins, Acompanhamento fica na Administração %>
+                        <% if (!externo && papeis.servidor) { %>
                             <a href="/professor/acompanhamento" class="nav-link <%= ativo(emAcompanhamento) %>"><%- icone('olho') %> Acompanhamento</a>
                         <% } %>
                         <% if (externo || papeis.orientador || papeis.supervisor) { %>

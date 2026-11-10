@@ -39,7 +39,7 @@
             </div>
         </div>
 
-        <form action="<%= editando ? '/professor/usuarios/' + usuario.id : '/professor/usuarios' %>" method="POST" class="card" data-usuario-form>
+        <form action="<%= editando ? '/professor/usuarios/' + usuario.id : '/professor/usuarios' %>" method="POST" class="card user-form-card" data-usuario-form>
             <section class="form-secao">
                 <% if (editando) { %>
                     <h2>Tipo de conta</h2>
@@ -102,10 +102,12 @@
             </section>
 
             <section class="form-secao" data-secao-conta="interno">
-                <h2>Papéis</h2>
-                <p class="text-muted">Marque um ou mais. Uma mesma pessoa pode, por exemplo, ser orientadora, supervisora e administradora.</p>
+                <h2>Papéis e acessos</h2>
+                <p class="text-muted">Os papéis são independentes: um professor ou servidor pode acumular funções, inclusive Supervisor e Administrador. Alunos e fichas ficam disponíveis conforme os papéis de orientação e supervisão; administrar usuários não concede esses acessos.</p>
                 <% if (proprio) { %><p class="aviso aviso-info">Você não pode alterar os próprios papéis. Peça a outro administrador.</p><% } %>
-                <div class="papeis-lista">
+                <fieldset class="papeis-fieldset">
+                    <legend class="sr-only">Selecione os papéis da conta interna</legend>
+                    <div class="papeis-lista">
                     <% PAPEIS.forEach((p) => { %>
                         <% const travado = proprio || (principal && p.chave === 'admin'); %>
                         <label class="papeis-opcao papeis-cartao">
@@ -113,7 +115,8 @@
                             <span><%= p.rotulo %><small><%= p.descricao %><%= principal && p.chave === 'admin' ? ' O administrador principal sempre mantém este papel.' : '' %></small></span>
                         </label>
                     <% }) %>
-                </div>
+                    </div>
+                </fieldset>
             </section>
 
             <section class="form-secao" data-secao-conta="supervisor">

@@ -1112,7 +1112,10 @@ test('acompanhamento: só o administrador vê; totais por curso, etapas, pendên
     assert.match(filtrada, /Estudante 3</); assert.doesNotMatch(filtrada, /Estudante 4</); assert.doesNotMatch(filtrada, /Estudante 1</);
     const soPendencias = await (await requisitar('/professor/acompanhamento?pendencias=1', { user: 104 })).text();
     assert.match(soPendencias, /Estudante 6</); assert.doesNotMatch(soPendencias, /Estudante 7</);
-    assert.match(await (await requisitar('/professor/dashboard', { user: 104 })).text(), /href="\/professor\/acompanhamento" class="nav-link/);
+    const menuAdmin = await (await requisitar('/professor/dashboard', { user: 104 })).text();
+    assert.doesNotMatch(menuAdmin, /href="\/professor\/acompanhamento" class="nav-link/);
+    const painelAdmin = await (await requisitar('/professor/administracao', { user: 104 })).text();
+    assert.match(painelAdmin, /href="\/professor\/acompanhamento" class="action-card"/);
 });
 test('papéis acumuláveis: o administrador combina servidor, orientador, supervisor e administrador', async () => {
     const usuarios = require('../src/models/usuarios');
@@ -1244,5 +1247,9 @@ test('administração separada: página própria, cadastro com papéis e ediçã
     const menu = await (await requisitar('/professor/administracao', { user: 103 })).text();
     assert.doesNotMatch(menu, /href="\/professor\/dashboard" class="nav-link/);
     assert.doesNotMatch(menu, /href="\/professor\/fichas" class="nav-link/);
-    assert.match(menu, /href="\/professor\/acompanhamento" class="nav-link/);
+    assert.doesNotMatch(menu, /href="\/professor\/acompanhamento" class="nav-link/);
+    assert.match(menu, /href="\/professor\/acompanhamento" class="action-card"/);
+    assert.equal((await requisitar('/professor/fichas', { user: 103 })).headers.get('location'), '/professor/inicio');
+    const internos = await (await requisitar('/professor/usuarios?tipo=professor', { user: 104 })).text();
+    assert.match(internos, /outro@example\.test/);
 });

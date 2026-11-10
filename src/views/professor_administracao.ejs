@@ -11,13 +11,13 @@
 <body>
     <%- include('partials/header') %>
 
-    <main id="conteudo" class="container">
+    <main id="conteudo" class="container admin-page">
         <%- include('partials/flash') %>
 
         <div class="page-head">
             <div>
                 <h1>Administração</h1>
-                <p>Contas, papéis e configurações da plataforma. O acompanhamento dos estágios fica no menu, em Acompanhamento.</p>
+                <p>Gerencie contas, papéis e configurações da plataforma.</p>
             </div>
         </div>
 
@@ -32,6 +32,13 @@
         <% } %>
 
         <div class="action-grid">
+            <% if (!(user.papeis && user.papeis.servidor)) { %>
+                <a href="/professor/acompanhamento" class="action-card">
+                    <h3><%- icone('olho') %> Acompanhamento</h3>
+                    <p>Consulte a situação geral dos estágios, acompanhe pendências e filtre os estudantes.</p>
+                    <span class="btn btn-secondary">Ver acompanhamento</span>
+                </a>
+            <% } %>
             <a href="/professor/usuarios" class="action-card">
                 <h3><%- icone('usuarios') %> Usuários e papéis</h3>
                 <p>Cadastre e edite estudantes, professores, servidores e supervisores externos; defina os papéis de cada conta.</p>

@@ -26,7 +26,14 @@ function enviarPdf(res, prefixo, nome, bytes) {
 }
 
 // ── Painel de fichas ──────────────────────────────────────────────────────
-router.get('/fichas', async (req, res) => {
+function requirePapelFicha(req, res, next) {
+    const papeis = req.session.user.papeis || {};
+    if (req.session.user.cargo === 'supervisor' || papeis.orientador || papeis.supervisor) return next();
+    setFlash(req, 'error', 'A tela de fichas é exclusiva de orientadores e supervisores.');
+    return res.redirect('/professor/inicio');
+}
+
+router.get('/fichas', requirePapelFicha, async (req, res) => {
     const orientandos = await faresModel.listarPorOrientador(req.session.user.id);
 
     res.render('professor_fichas', {

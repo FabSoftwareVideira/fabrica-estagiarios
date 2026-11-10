@@ -103,7 +103,7 @@
                         <select id="filtro-tipo" name="tipo">
                             <option value="">Todos os tipos</option>
                             <option value="aluno" <%= filtros.tipo === 'aluno' ? 'selected' : '' %>>Estudante</option>
-                            <option value="professor" <%= filtros.tipo === 'professor' ? 'selected' : '' %>>Professor / orientador</option>
+                            <option value="professor" <%= filtros.tipo === 'professor' ? 'selected' : '' %>>Professor ou servidor (interno)</option>
                             <option value="servidor" <%= filtros.tipo === 'servidor' ? 'selected' : '' %>>Servidor (setor de estágios)</option>
                             <option value="supervisor" <%= filtros.tipo === 'supervisor' ? 'selected' : '' %>>Supervisor externo</option>
                         </select>
@@ -140,7 +140,9 @@
                                     const supervisor = usuario.tipo === 'professor' && usuario.cargo === 'supervisor';
                                     const interno = usuario.tipo === 'professor' && !supervisor;
                                     const papeisUsuario = interno ? papeisDoPerfil(usuario) : {};
-                                    const tipo = usuario.tipo === 'aluno' ? 'Estudante' : 'Supervisor externo';
+                                    const tipo = usuario.tipo === 'aluno'
+                                        ? 'Estudante'
+                                        : (supervisor ? 'Supervisor externo' : 'Conta interna');
                                     const proprio = Number(usuario.id) === Number(user.id);
                                     const principal = usuario.email.toLowerCase() === ADMIN_PRINCIPAL_EMAIL.toLowerCase();
                                 %>
