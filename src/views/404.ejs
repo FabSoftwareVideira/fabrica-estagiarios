@@ -13,6 +13,11 @@
     <%- include('partials/header') %>
 
     <main id="conteudo" class="container">
+        <%# a 404 também roda fora do attachUser: sem raizNav, a trilha começa no site %>
+        <%- include('partials/breadcrumb', { itens: [
+            locals.raizNav ? locals.raizNav(locals.user || null) : { texto: 'Início', href: '/' },
+            { texto: 'Página não encontrada' }
+        ] }) %>
         <div class="login-box text-center">
             <h1>Página não encontrada</h1>
             <p>O endereço que você tentou abrir não existe ou foi movido.</p>

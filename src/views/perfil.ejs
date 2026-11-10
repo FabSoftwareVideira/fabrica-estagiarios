@@ -16,6 +16,7 @@
 
         <main id="conteudo" class="container">
             <%- include('partials/flash') %>
+            <%- include('partials/breadcrumb', { itens: [raizNav(user), { texto: 'Meu perfil' }] }) %>
 
                 <div class="login-box">
                     <h1>Meu Perfil</h1>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= user.cargo === 'supervisor' ? 'Dashboard do Supervisor' : 'Dashboard do Professor' %></title>
+    <title><%= user.cargo === 'supervisor' ? 'Supervisionados' : 'Estagiários' %> · Controle de Estágio</title>
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme.css">
@@ -16,6 +16,7 @@
 
         <main id="conteudo" class="container">
             <%- include('partials/flash') %>
+            <%- include('partials/breadcrumb', { itens: [{ texto: user.cargo === 'supervisor' ? 'Supervisionados' : 'Estagiários' }] }) %>
 
                 <% if (solicitacoesPendentes > 0) { %>
                     <section class="card pending-requests-banner" aria-label="Solicitações de supervisores externos">
@@ -54,30 +55,6 @@
                     </section>
                 <% } %>
 
-                <% if (typeof minhasBancas !== 'undefined' && minhasBancas.length && aba !== 'administracao') { %>
-                    <section class="card" aria-labelledby="titulo-minhas-bancas">
-                        <div class="card-header">
-                            <div>
-                                <h2 id="titulo-minhas-bancas">Suas próximas bancas</h2>
-                                <p class="text-muted">Bancas em que você é orientador ou avaliador. Horários de Brasília.</p>
-                            </div>
-                            <a href="/professor/bancas?minhas=1" class="btn btn-secondary btn-sm"><%- icone('calendario') %> Ver na agenda</a>
-                        </div>
-                        <ul class="docs-lista">
-                            <% minhasBancas.forEach((b) => { %>
-                                <% const papel = Number(user.id) === Number(b.orientador_id) ? 'Orientador' : Number(user.id) === Number(b.avaliador_1_id) ? 'Avaliador 1' : 'Avaliador 2'; %>
-                                <li>
-                                    <span class="doc-nome"><%= dataBr(b.data) %> · <%= b.hora_inicio %>–<%= b.hora_fim %> · <%= b.aluno_nome %><small><%= papel %> · <%= b.sala %><% if (b.situacao === 'remarcada') { %> · Remarcada<% } %></small></span>
-                                    <span class="table-actions">
-                                        <% if (b.link_reuniao) { %><a href="<%= b.link_reuniao %>" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">Acessar reunião</a><% } %>
-                                        <a href="/professor/aluno/<%= b.aluno_id %>/banca" class="btn btn-secondary btn-sm">Detalhes</a>
-                                    </span>
-                                </li>
-                            <% }) %>
-                        </ul>
-                    </section>
-                <% } %>
-
                 <% { %>
                     <div class="card filters-card">
                         <form action="/professor/dashboard" method="GET" class="filters-form">
@@ -89,7 +66,7 @@
                             <% } %>
                             <div class="filters-top">
                                 <input type="search" name="q" value="<%= filtros.q %>"
-                                    placeholder="Buscar por nome, matrícula ou e-mail" aria-label="Buscar <%= user.cargo === 'supervisor' ? 'supervisionados' : 'alunos' %>">
+                                    placeholder="Buscar por nome, matrícula ou e-mail" aria-label="Buscar <%= user.cargo === 'supervisor' ? 'supervisionados' : 'estagiários' %>">
                                 <button type="submit"><%- icone('lupa', 18) %> Buscar</button>
                                 <% if (filtroPersonalizado) { %>
                                     <a href="/professor/dashboard?aba=<%= aba %>" class="btn btn-secondary">Limpar</a>
@@ -150,6 +127,30 @@
                             </div>
                         </form>
                     </div>
+
+                    <%# bancas do professor: informação de apoio, recolhida para não competir com a lista %>
+                    <% if (typeof minhasBancas !== 'undefined' && minhasBancas.length) { %>
+                        <% const papelNaBanca = (b) => Number(user.id) === Number(b.orientador_id) ? 'orientador' : (Number(user.id) === Number(b.avaliador_1_id) ? 'avaliador 1' : 'avaliador 2'); %>
+                        <% const proxima = minhasBancas[0]; %>
+                        <details class="bancas-resumo">
+                            <summary>
+                                <%- icone('calendario') %>
+                                <span>Próxima banca: <strong><%= dataBr(proxima.data) %>, <%= proxima.hora_inicio %>–<%= proxima.hora_fim %></strong> · <%= proxima.aluno_nome %> · você é <%= papelNaBanca(proxima) %></span>
+                                <% if (minhasBancas.length > 1) { %><span class="bancas-resumo-mais">+<%= minhasBancas.length - 1 %></span><% } %>
+                            </summary>
+                            <ul>
+                                <% minhasBancas.forEach((b) => { %>
+                                    <li>
+                                        <span><strong><%= dataBr(b.data) %>, <%= b.hora_inicio %>–<%= b.hora_fim %></strong> · <%= b.aluno_nome %> · <%= papelNaBanca(b) %> · <%= b.sala %><% if (b.situacao === 'remarcada') { %> · remarcada<% } %></span>
+                                        <span class="bancas-resumo-links">
+                                            <% if (b.link_reuniao) { %><a href="<%= b.link_reuniao %>" target="_blank" rel="noopener noreferrer">Reunião</a><% } %>
+                                            <a href="/professor/aluno/<%= b.aluno_id %>/banca">Detalhes</a>
+                                        </span>
+                                    </li>
+                                <% }) %>
+                            </ul>
+                        </details>
+                    <% } %>
 
                     <%
                         const ordenacaoAtual = ordenacao || { campo: null, direcao: 'asc' };
@@ -276,8 +277,8 @@
                                         <tr>
                                             <td colspan="<%= user.cargo === 'admin' ? 5 : 6 %>">
                                                 <%= filtros.arquivados
-                                                    ? 'Nenhum aluno arquivado encontrado.'
-                                                    : 'Nenhum aluno encontrado com os filtros atuais.' %>
+                                                    ? 'Nenhum estagiário arquivado encontrado.'
+                                                    : 'Nenhum estagiário encontrado com os filtros atuais.' %>
                                             </td>
                                         </tr>
                                     <% } else { %>
@@ -327,7 +328,7 @@
 
                         <div class="pagination">
                             <span class="pagination-info">
-                                Mostrando <%= inicioExibido %>–<%= fimExibido %> de <%= total %> <%= user.cargo === 'supervisor' ? 'supervisionado(s)' : 'aluno(s)' %>
+                                Mostrando <%= inicioExibido %>–<%= fimExibido %> de <%= total %> <%= user.cargo === 'supervisor' ? 'supervisionado(s)' : 'estagiário(s)' %>
                             </span>
 
                             <% if (totalPaginas > 1) { %>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incluir estágio · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Inclusão de estágios', href: '/professor/estagios' },
+            { texto: rascunhoId ? 'Continuar rascunho' : 'Incluir estágio' }
+        ] }) %>
+        <%- include('partials/flash') %>
+
+        <div class="page-head">
+            <div>
+                <h1><%= rascunhoId ? 'Continuar inclusão de estágio' : 'Incluir estágio' %></h1>
+                <p>Ao concluir, o estágio fica em andamento e o estudante já pode registrar atividades. Use "Salvar rascunho" para parar e continuar depois.</p>
+            </div>
+        </div>
+
+        <% if (erros.length) { %><div class="flash flash-error" role="alert"><ul><% erros.forEach((e) => { %><li><%= e %></li><% }) %></ul></div><% } %>
+
+        <form action="/professor/estagios" method="POST" class="card wizard" data-wizard data-wizard-inicio="<%= etapaInicial %>">
+            <input type="hidden" name="rascunho_id" value="<%= rascunhoId %>">
+            <input type="hidden" name="passo" value="<%= valores.passo || 0 %>">
+            <ol class="wizard-etapas" data-wizard-etapas hidden></ol>
+            <p class="wizard-erro flash flash-error" data-wizard-erro role="alert" hidden></p>
+
+            <section class="form-secao" data-passo data-titulo="Estagiário" data-estagiario>
+                <h2>Quem é o estagiário?</h2>
+                <fieldset class="curso-fieldset">
+                    <legend class="sr-only">Origem do cadastro</legend>
+                    <div class="curso-picker curso-picker-linha">
+                        <label class="curso-option curso-verde">
+                            <input type="radio" name="modo" value="existente" <%= valores.modo === 'existente' ? 'checked' : '' %> <%= emEspera.length ? '' : 'disabled' %>>
+                            <span class="curso-choice">
+                                <span class="curso-emoji" aria-hidden="true">📋</span>
+                                <span class="curso-texto">
+                                    <span class="curso-nome">Estudante já cadastrado</span>
+                                    <span class="curso-detalhe"><%= emEspera.length ? emEspera.length + ' aguardando na lista de espera' : 'Ninguém na lista de espera' %></span>
+                                </span>
+                                <span class="curso-marca" aria-hidden="true"><%- icone('check') %></span>
+                            </span>
+                        </label>
+                        <label class="curso-option curso-azul">
+                            <input type="radio" name="modo" value="novo" <%= valores.modo === 'novo' ? 'checked' : '' %>>
+                            <span class="curso-choice">
+                                <span class="curso-emoji" aria-hidden="true">➕</span>
+                                <span class="curso-texto">
+                                    <span class="curso-nome">Novo estudante</span>
+                                    <span class="curso-detalhe">Cria a conta agora; ele entra depois com a conta Google ou GitHub deste e-mail.</span>
+                                </span>
+                                <span class="curso-marca" aria-hidden="true"><%- icone('check') %></span>
+                            </span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <div class="estagio-modo" data-modo="existente">
+                    <div class="form-field form-campo-curto">
+                        <label for="aluno_id">Estudante na lista de espera</label>
+                        <select id="aluno_id" name="aluno_id" required data-resumo="Estagiário">
+                            <option value="">Selecione o estudante</option>
+                            <% emEspera.forEach((a) => { %>
+                                <option value="<%= a.id %>" <%= String(valores.aluno_id) === String(a.id) ? 'selected' : '' %>><%= a.nome %> · <%= a.email %><%= a.curso ? ' · ' + a.curso.replace(/^Curso Técnico (de|em) /, '').replace(/ Integrado ao Ensino Médio$/, '') : '' %></option>
+                            <% }) %>
+                        </select>
+                        <small>São os estudantes que já entraram no sistema e aguardam a definição do estágio.</small>
+                    </div>
+                </div>
+
+                <div class="estagio-modo" data-modo="novo">
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="nome">Nome completo</label>
+                            <input type="text" id="nome" name="nome" maxlength="150" required value="<%= valores.nome || '' %>" data-resumo="Estagiário">
+                        </div>
+                        <div class="form-field">
+                            <label for="email">E-mail</label>
+                            <input type="email" id="email" name="email" maxlength="150" required value="<%= valores.email || '' %>" data-resumo="E-mail">
+                            <small>Conta Google ou GitHub que o estudante usará para entrar.</small>
+                        </div>
+                        <div class="form-field">
+                            <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
+                            <input type="text" id="matricula" name="matricula" maxlength="30" value="<%= valores.matricula || '' %>">
+                        </div>
+                    </div>
+                    <div class="agenda-fields">
+                        <%- include('partials/curso-picker', { cursos, selecionado: valores.curso || '', legenda: 'Curso', emLinha: true }) %>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-secao" data-passo data-titulo="Responsáveis">
+                <h2>Quem acompanha o estágio?</h2>
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="orientador">Professor orientador</label>
+                        <select id="orientador" name="orientador_id" required data-resumo="Orientador">
+                            <option value="">Selecione um professor</option>
+                            <% professores.forEach((p) => { %>
+                                <option value="<%= p.id %>" <%= String(valores.orientador_id) === String(p.id) ? 'selected' : '' %>><%= p.nome %></option>
+                            <% }) %>
+                        </select>
+                        <small>Acompanha o estágio, marca a banca e preenche a FAPO e a ata.</small>
+                    </div>
+                    <div class="form-field">
+                        <label for="supervisor">Supervisor <span class="text-muted">(opcional)</span></label>
+                        <select id="supervisor" name="supervisor_id" data-resumo="Supervisor" data-resumo-vazio="Definir depois"
+                            data-diferente-de="#orientador" data-diferente-msg="Supervisor e orientador não podem ser a mesma pessoa.">
+                            <option value="">Definir depois</option>
+                            <% if (supervisores.length) { %>
+                                <optgroup label="Supervisores externos">
+                                    <% supervisores.forEach((p) => { %>
+                                        <option value="<%= p.id %>" <%= String(valores.supervisor_id) === String(p.id) ? 'selected' : '' %>><%= p.nome %></option>
+                                    <% }) %>
+                                </optgroup>
+                            <% } %>
+                            <optgroup label="Professores e servidores">
+                                <% supervisoresInternos.forEach((p) => { %>
+                                    <option value="<%= p.id %>" <%= String(valores.supervisor_id) === String(p.id) ? 'selected' : '' %>><%= p.nome %></option>
+                                <% }) %>
+                            </optgroup>
+                        </select>
+                        <small>Valida as atividades na empresa.</small>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-secao" data-passo data-titulo="Estágio">
+                <h2>Onde e por quanto tempo?</h2>
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="empresa">Empresa/Entidade concedente</label>
+                        <input type="text" id="empresa" name="empresa" maxlength="200" required value="<%= valores.empresa || '' %>" placeholder="Nome da empresa ou entidade" data-resumo="Empresa">
+                    </div>
+                    <div class="form-field">
+                        <label for="carga">Carga horária total <span class="text-muted">(horas)</span></label>
+                        <input type="number" id="carga" name="carga_horaria" min="1" max="9999" required value="<%= valores.carga_horaria || '60' %>" data-resumo="Carga horária" data-resumo-sufixo=" horas">
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-secao" data-passo data-titulo="Horários" data-passo-horarios data-horarios-opcionais>
+                <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho, opcional: true }) %>
+            </section>
+
+            <section class="form-secao" data-passo data-titulo="Revisão" hidden>
+                <h2>Revise e conclua</h2>
+                <p class="text-muted">Ao concluir, o estágio fica em andamento<span data-modo-texto="novo"> e a conta do estudante é criada</span>.</p>
+                <dl class="summary-details" data-wizard-resumo></dl>
+            </section>
+
+            <div class="form-actions wizard-acoes">
+                <button type="button" class="btn-secondary" data-wizard-voltar hidden><%- icone('esquerda') %> Voltar</button>
+                <button type="button" data-wizard-avancar hidden>Continuar <%- icone('direita') %></button>
+                <button type="submit" class="btn-success" data-wizard-enviar><%- icone('check') %> Concluir inclusão</button>
+                <button type="submit" class="btn-secondary" formaction="/professor/estagios/rascunho" formnovalidate data-wizard-livre>Salvar rascunho</button>
+                <a href="/professor/estagios" class="btn btn-ghost wizard-cancelar">Cancelar</a>
+            </div>
+        </form>
+    </main>
+    <script>
+        // estudante já cadastrado × novo: mostra só os campos da opção escolhida
+        document.querySelectorAll('[data-estagiario]').forEach((secao) => {
+            const form = secao.closest('form');
+            const atualizar = () => {
+                const marcado = form.querySelector('input[name="modo"]:checked');
+                const modo = marcado ? marcado.value : 'novo';
+                secao.querySelectorAll('.estagio-modo').forEach((bloco) => {
+                    const ativo = bloco.dataset.modo === modo;
+                    bloco.hidden = !ativo;
+                    bloco.querySelectorAll('input, select').forEach((campo) => { campo.disabled = !ativo; });
+                });
+                form.querySelectorAll('[data-modo-texto]').forEach((t) => { t.hidden = t.dataset.modoTexto !== modo; });
+            };
+            form.querySelectorAll('input[name="modo"]').forEach((r) => r.addEventListener('change', atualizar));
+            atualizar();
+        });
+    </script>
+    <%- include('partials/footer') %>
+</body>
+</html>

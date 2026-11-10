@@ -14,13 +14,13 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/flash') %>
+        <%- include('partials/breadcrumb', { itens: [{ texto: 'Fichas' }] }) %>
 
         <div class="page-head">
             <div>
                 <h1>Fichas de estágio</h1>
                 <p>Preencha as avaliações dos seus supervisionados e as fichas e atas dos seus orientandos.</p>
             </div>
-            <a class="btn btn-secondary" href="/professor/bancas"><%- icone('calendario') %> Agenda de bancas</a>
         </div>
 
         <h2 class="secao-titulo">Avaliações dos meus supervisionados <span class="contagem"><%= supervisionados.length %></span></h2>

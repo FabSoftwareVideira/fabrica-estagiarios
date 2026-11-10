@@ -582,7 +582,7 @@ function iniciarWizard(form) {
     // mesmas regras do servidor, para o erro aparecer no passo certo
     function validarHorarios(passo) {
         const dias = Array.from(passo.querySelectorAll('input[name="dias_trabalho"]:checked'));
-        if (dias.length === 0) return 'Selecione ao menos um dia de trabalho.';
+        if (dias.length === 0) return passo.hasAttribute('data-horarios-opcionais') ? '' : 'Selecione ao menos um dia de trabalho.';
         for (const dia of dias) {
             const inicio = form.querySelector(`[name="horario_inicio_${dia.value}"]`).value;
             const fim = form.querySelector(`[name="horario_fim_${dia.value}"]`).value;
@@ -636,9 +636,10 @@ function iniciarWizard(form) {
         if (!resumo) return;
         resumo.replaceChildren();
         form.querySelectorAll('[data-resumo]').forEach((campo) => {
+            if (campo.disabled) return; // campos de uma opção não escolhida
             let valor = campo.tagName === 'SELECT'
                 ? (campo.value ? campo.options[campo.selectedIndex].textContent.trim() : '')
-                : campo.value.trim();
+                : (campo.type === 'checkbox' ? (campo.checked ? (campo.dataset.resumoSim || 'Sim') : '') : campo.value.trim());
             if (valor && campo.type === 'date') valor = valor.split('-').reverse().join('/');
             if (valor && campo.dataset.resumoSufixo) valor += campo.dataset.resumoSufixo;
             resumo.append(linhaResumo(campo.dataset.resumo, valor || campo.dataset.resumoVazio || '—'));
@@ -654,11 +655,15 @@ function iniciarWizard(form) {
             linha.textContent = `${dia.closest('label').textContent.trim()}, ${inicio}–${fim}`;
             dd.append(linha);
         });
+        if (!dd.childElementCount) dd.textContent = 'Definir depois';
         resumo.append(horarios);
     }
 
     function mostrar(indice, focar = true) {
         atual = indice;
+        // guarda a etapa para o rascunho reabrir no mesmo ponto
+        const campoPasso = form.querySelector('input[type="hidden"][name="passo"]');
+        if (campoPasso) campoPasso.value = String(indice);
         mostrarErro('');
         const ultimo = atual === passos.length - 1;
         if (ultimo) montarResumo();
@@ -688,6 +693,8 @@ function iniciarWizard(form) {
 
     // Enter num campo avança o passo em vez de enviar o formulário incompleto
     form.addEventListener('submit', (evento) => {
+        // botões como "Salvar rascunho" enviam o formulário como está, em qualquer etapa
+        if (evento.submitter && evento.submitter.hasAttribute('data-wizard-livre')) return;
         if (atual < passos.length - 1) {
             evento.preventDefault();
             if (validar(atual)) mostrar(atual + 1);

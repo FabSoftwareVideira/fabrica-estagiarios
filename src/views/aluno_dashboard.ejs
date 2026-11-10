@@ -13,7 +13,6 @@
     <%- include('partials/header') %>
 
     <main id="conteudo" class="container">
-        <%- include('partials/flash') %>
 
         <%
             const st = estagioStatus(aluno);
@@ -28,6 +27,11 @@
             const etapa = encerrado ? 3 : (concluidoHoras ? 2 : (emAndamento ? 1 : 0));
             const etapas = ['Cadastro', 'Atividades', 'Fichas e banca', 'Encerrado'];
         %>
+
+        <%- include('partials/breadcrumb', { itens: abaSelecionada === 'resumo'
+            ? [{ texto: 'Início' }]
+            : [{ texto: 'Início', href: '/aluno/dashboard' }, { texto: abaSelecionada === 'atividades' ? 'Atividades' : 'Fichas' }] }) %>
+        <%- include('partials/flash') %>
 
         <div class="page-head">
             <div>

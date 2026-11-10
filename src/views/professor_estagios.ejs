@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inclusão de estágios · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [{ texto: 'Inclusão de estágios' }] }) %>
+        <%- include('partials/flash') %>
+
+        <div class="page-head">
+            <div>
+                <h1>Inclusão de estágios</h1>
+                <p>Inclua o estágio de um estudante em etapas: estagiário, responsáveis, empresa e horários. Dá para salvar como rascunho e continuar depois.</p>
+            </div>
+            <a href="/professor/estagios/novo" class="btn btn-success"><%- icone('mais') %> Incluir estágio</a>
+        </div>
+
+        <section class="card" aria-labelledby="titulo-rascunhos">
+            <div class="card-header">
+                <div>
+                    <h2 id="titulo-rascunhos">Rascunhos <span class="contagem"><%= rascunhos.length %></span></h2>
+                    <p class="text-muted">Inclusões começadas e ainda não concluídas. Qualquer pessoa do setor pode continuar.</p>
+                </div>
+            </div>
+            <% if (!rascunhos.length) { %>
+                <p class="empty-state">Nenhum rascunho. Use "Incluir estágio" para começar.</p>
+            <% } else { %>
+                <ul class="docs-lista">
+                    <% rascunhos.forEach((r) => { %>
+                        <% const passo = Number(r.dados && r.dados.passo) || 0; %>
+                        <li>
+                            <span class="doc-nome">
+                                <%= r.estagiario || 'Estagiário ainda não definido' %>
+                                <small>Parou em: <%= etapas[passo] || etapas[0] %> · salvo em <%= new Date(r.atualizado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) %><%= r.atualizado_por_nome ? ' por ' + r.atualizado_por_nome : '' %></small>
+                            </span>
+                            <span class="table-actions">
+                                <a href="/professor/estagios/novo?rascunho=<%= r.id %>" class="btn btn-sm"><%- icone('caneta') %> Continuar</a>
+                                <form action="/professor/estagios/rascunhos/<%= r.id %>/excluir" method="POST">
+                                    <button type="submit" class="btn-ghost btn-sm" data-confirmar="Excluir este rascunho? Os dados preenchidos serão perdidos.">Excluir</button>
+                                </form>
+                            </span>
+                        </li>
+                    <% }) %>
+                </ul>
+            <% } %>
+        </section>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

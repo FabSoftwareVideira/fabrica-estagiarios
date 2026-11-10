@@ -18,6 +18,7 @@ const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTraba
 const { CURSOS, ehCurso } = require('../config/cursos');
 const bancasModel = require('../models/bancas');
 const acompanhamentoModel = require('../models/acompanhamento');
+const { validarResponsaveis } = require('../utils/responsaveis');
 const { PAPEIS, CHAVES_PAPEIS, papeisDoPerfil, veTodosOsEstagios, temAlunosProprios, telaInicial } = require('../config/papeis');
 
 // Acompanhamento geral: administradores e servidores do setor de estágios.
@@ -97,6 +98,7 @@ router.use(requireNomeConfirmado);
 router.use(require('./fichas'));
 router.use(require('./fac'));
 router.use(require('./bancas'));
+router.use(require('./estagios'));
 
 const TAMANHO_PAGINA = 10;
 const TAMANHO_PAGINA_USUARIOS = 10;
@@ -243,7 +245,7 @@ function dataIsoValida(valor) {
 async function requireOrientadorFapo(req, res, next) {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
-        setFlash(req, 'error', 'Aluno não encontrado.');
+        setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
     }
 
@@ -253,7 +255,7 @@ async function requireOrientadorFapo(req, res, next) {
     }
 
     if (Number(aluno.orientador_id) !== Number(req.session.user.id)) {
-        setFlash(req, 'error', 'Apenas o professor orientador do aluno pode gerar a FAPO.');
+        setFlash(req, 'error', 'Apenas o professor orientador do estagiário pode gerar a FAPO.');
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
@@ -270,7 +272,7 @@ async function requireOrientadorFapo(req, res, next) {
 router.get('/aluno/:id', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
-        setFlash(req, 'error', 'Aluno não encontrado.');
+        setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
     }
 
@@ -320,7 +322,7 @@ router.get('/aluno/:id', async (req, res) => {
 router.post('/aluno/:id/curso', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
-        setFlash(req, 'error', 'Aluno não encontrado.');
+        setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
     }
     if (Number(aluno.orientador_id) !== Number(req.session.user.id)) {
@@ -406,7 +408,7 @@ router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
     }
 
     if (acao === 'salvar') {
-        setFlash(req, 'success', 'FAPO salva. O aluno poderá gerar o PDF na área de fichas.');
+        setFlash(req, 'success', 'FAPO salva. O estagiário poderá gerar o PDF na área de fichas.');
         return res.redirect(`/professor/aluno/${req.params.id}/fapo`);
     }
 
@@ -468,28 +470,10 @@ router.get('/aluno/:id/fapo/pdf', requireOrientadorFapo, async (req, res) => {
     }
 });
 
-async function validarResponsaveis(supervisorId, orientadorId) {
-    const [supervisor, orientador] = await Promise.all([
-        supervisorId ? professoresModel.buscarPorUsuarioId(supervisorId) : null,
-        orientadorId ? professoresModel.buscarPorUsuarioId(orientadorId) : null,
-    ]);
-
-    if (supervisorId && (!supervisor || !supervisor.aprovado || !papeisDoPerfil(supervisor).supervisor)) {
-        return 'Selecione um supervisor aprovado.';
-    }
-    if (orientadorId && (!orientador || !orientador.aprovado || orientador.cargo === 'supervisor' || !papeisDoPerfil(orientador).orientador)) {
-        return 'O orientador deve ser um professor da instituição.';
-    }
-    if (supervisorId && orientadorId && Number(supervisorId) === Number(orientadorId)) {
-        return 'Supervisor e orientador não podem ser a mesma pessoa.';
-    }
-    return null;
-}
-
 router.post('/aluno/:id', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
-        setFlash(req, 'error', 'Aluno não encontrado.');
+        setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
     }
     // erros e sucesso voltam para a aba de edição da tela do estudante
@@ -501,6 +485,17 @@ router.post('/aluno/:id', async (req, res) => {
     if (aluno.encerrado_em) {
         setFlash(req, 'error', 'O estágio foi encerrado. Reabra a ata da banca para alterar os dados.');
         return res.redirect(voltar);
+    }
+    // só o orientador do estagiário e o administrador editam o estágio
+    const ehOrientadorDoAluno = Number(aluno.orientador_id) === Number(req.session.user.id);
+    if (!ehOrientadorDoAluno && req.session.user.cargo !== 'admin') {
+        setFlash(req, 'error', 'Apenas o orientador do estagiário ou um administrador pode editar o estágio.');
+        return res.redirect(voltar);
+    }
+    // a primeira definição do estágio é feita no fluxo de aprovação
+    if (aluno.status === 'lista_espera') {
+        setFlash(req, 'error', 'Este cadastro ainda aguarda aprovação. Defina o estágio pelo fluxo de aprovação.');
+        return res.redirect(`/professor/cadastro-aluno/${aluno.usuario_id}`);
     }
 
     const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
@@ -518,27 +513,27 @@ router.post('/aluno/:id', async (req, res) => {
     }
 
     if (!empresa || !empresa.trim()) {
-        setFlash(req, 'error', 'Informe a empresa onde o aluno está realizando o estágio.');
+        setFlash(req, 'error', 'Informe a empresa onde o estagiário está realizando o estágio.');
         return res.redirect(voltar);
     }
 
-    const { horarioTrabalho, erro: erroHorario } = validarHorarioTrabalho(
-        req.body.dias_trabalho,
-        req.body
-    );
+    // o quadro de horários é opcional: sem dia marcado, fica vazio
+    const diasMarcados = [].concat(req.body.dias_trabalho || []).filter(Boolean);
+    const { horarioTrabalho, erro: erroHorario } = diasMarcados.length
+        ? validarHorarioTrabalho(diasMarcados, req.body)
+        : { horarioTrabalho: {} };
     if (erroHorario) {
         setFlash(req, 'error', erroHorario);
         return res.redirect(voltar);
     }
 
-    // "concluido" só é atribuído automaticamente pelo modelo quando as horas
-    // validadas atingem a carga horária; aqui o professor só alterna entre
-    // lista de espera e em andamento.
-    const status = req.body.status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
+    // A edição não muda a situação: ela vem da aprovação, e "concluído" é
+    // recalculado pelo modelo a partir das horas validadas e da carga horária.
+    const status = 'em_andamento';
 
-    // fora da lista de espera o estágio precisa de um orientador
-    if (status !== 'lista_espera' && !orientador_id) {
-        setFlash(req, 'error', 'Selecione o professor orientador. Só estudantes na lista de espera podem ficar sem orientador.');
+    // depois da aprovação o estágio sempre tem orientador
+    if (!orientador_id) {
+        setFlash(req, 'error', 'Selecione o professor orientador do estagiário.');
         return res.redirect(voltar);
     }
 
@@ -567,7 +562,7 @@ router.post('/aluno/:id', async (req, res) => {
 async function alterarValidacao(req, res, status) {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
-        setFlash(req, 'error', 'Aluno não encontrado.');
+        setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
     }
 
@@ -582,7 +577,7 @@ async function alterarValidacao(req, res, status) {
     }
 
     if (Number(aluno.supervisor_id) !== Number(req.session.user.id)) {
-        setFlash(req, 'error', 'Somente o supervisor atribuído ao aluno pode validar ou invalidar as atividades.');
+        setFlash(req, 'error', 'Somente o supervisor atribuído ao estagiário pode validar ou invalidar as atividades.');
         return res.redirect('/professor/aluno/' + req.params.id);
     }
 
@@ -600,12 +595,12 @@ async function alterarValidacao(req, res, status) {
 
     if (status === 'validada') {
         if (resultado.status === 'concluido' && aluno.status !== 'concluido') {
-            setFlash(req, 'success', 'Horas validadas! O aluno completou a carga horária e o estágio foi concluído.');
+            setFlash(req, 'success', 'Horas validadas! O estagiário completou a carga horária e o estágio foi concluído.');
         } else {
             setFlash(req, 'success', 'Atividade validada com sucesso.');
         }
     } else if (resultado.status === 'em_andamento' && aluno.status === 'concluido') {
-        setFlash(req, 'success', 'Atividade invalidada. O aluno voltou para "Em andamento" e deverá registrar outra atividade.');
+        setFlash(req, 'success', 'Atividade invalidada. O estagiário voltou para "Em andamento" e deverá registrar outra atividade.');
     } else {
         setFlash(req, 'success', 'Atividade invalidada. Essas horas não contam mais para a conclusão.');
     }
@@ -640,7 +635,7 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
     }
 
     if (!empresa || !empresa.trim()) {
-        setFlash(req, 'error', 'Informe a empresa onde o aluno está realizando o estágio.');
+        setFlash(req, 'error', 'Informe a empresa onde o estagiário está realizando o estágio.');
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
@@ -649,10 +644,11 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
-    const { horarioTrabalho, erro: erroHorario } = validarHorarioTrabalho(
-        req.body.dias_trabalho,
-        req.body
-    );
+    // o quadro de horários é opcional: sem dia marcado, fica vazio
+    const diasMarcados = [].concat(req.body.dias_trabalho || []).filter(Boolean);
+    const { horarioTrabalho, erro: erroHorario } = diasMarcados.length
+        ? validarHorarioTrabalho(diasMarcados, req.body)
+        : { horarioTrabalho: {} };
     if (erroHorario) {
         setFlash(req, 'error', erroHorario);
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
@@ -680,7 +676,7 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
         horarioTrabalho,
     });
 
-    setFlash(req, 'success', 'Cadastro aprovado! O aluno já pode registrar atividades.');
+    setFlash(req, 'success', 'Cadastro aprovado! O estagiário já pode registrar atividades.');
     res.redirect('/professor/dashboard');
 });
 
@@ -697,16 +693,16 @@ router.post('/aluno/:id/arquivar', async (req, res) => {
     const admin = req.session.user.cargo === 'admin';
     const arquivado = await alunosModel.arquivar(req.params.id, admin);
     if (!arquivado) {
-        setFlash(req, 'error', 'Esse aluno não pode ser arquivado.');
+        setFlash(req, 'error', 'Esse estagiário não pode ser arquivado.');
         return res.redirect(req.headers.referer || '/professor/dashboard');
     }
-    setFlash(req, 'success', 'Aluno arquivado com sucesso.');
+    setFlash(req, 'success', 'Estagiário arquivado com sucesso.');
     res.redirect(req.headers.referer || '/professor/dashboard');
 });
 
 router.post('/aluno/:id/desarquivar', async (req, res) => {
     await alunosModel.desarquivar(req.params.id);
-    setFlash(req, 'success', 'Aluno desarquivado com sucesso.');
+    setFlash(req, 'success', 'Estagiário desarquivado com sucesso.');
     res.redirect('/professor/arquivados');
 });
 
@@ -714,12 +710,12 @@ router.post('/aluno/:id/excluir', requireAdmin, async (req, res) => {
     const resultado = await usuariosModel.excluirSeSemVinculos(Number(req.params.id));
     if (!resultado.excluido) {
         setFlash(req, 'error', resultado.motivo === 'vinculado'
-            ? 'Este aluno possui registros ou vínculos associados e não pode ser excluído, mesmo arquivado. Remova os vínculos antes de tentar novamente.'
-            : 'Aluno não encontrado.');
+            ? 'Este estagiário possui registros ou vínculos associados e não pode ser excluído, mesmo arquivado. Remova os vínculos antes de tentar novamente.'
+            : 'Estagiário não encontrado.');
         return res.redirect('/professor/arquivados');
     }
 
-    setFlash(req, 'success', 'Aluno excluído definitivamente.');
+    setFlash(req, 'success', 'Estagiário excluído definitivamente.');
     res.redirect('/professor/arquivados');
 });
 
@@ -829,24 +825,49 @@ router.get('/usuarios/:id/editar', requireAdmin, carregarUsuarioEditado, (req, r
 });
 
 // Dashboard do administrador: situação de cada estudante e de cada curso.
+const TAMANHO_PAGINA_ACOMPANHAMENTO = 15;
+// ordenação da lista do acompanhamento; empate sempre desfeito pelo nome
+const ORDENACOES_ACOMPANHAMENTO = {
+    nome: (a, b) => a.nome.localeCompare(b.nome, 'pt-BR'),
+    etapa: (a, b, etapas) => etapas.indexOf(a.etapa) - etapas.indexOf(b.etapa),
+    horas: (a, b) => a.percentual - b.percentual,
+    pendencias: (a, b) => a.pendencias.length - b.pendencias.length,
+};
+
 router.get('/acompanhamento', requireVisaoGeral, async (req, res) => {
     const { ETAPAS_ACOMPANHAMENTO, formatarHoras } = acompanhamentoModel;
+    const ordenar = Object.hasOwn(ORDENACOES_ACOMPANHAMENTO, req.query.ordenar) ? req.query.ordenar : 'nome';
     const filtros = {
         q: typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '',
         curso: ehCurso(req.query.curso) ? req.query.curso : '',
         etapa: ETAPAS_ACOMPANHAMENTO.some((e) => e.chave === req.query.etapa) ? req.query.etapa : '',
         pendencias: req.query.pendencias === '1',
+        ordenar,
+        dir: req.query.dir === 'desc' ? 'desc' : 'asc',
     };
     const todos = await acompanhamentoModel.listarEstudantes();
     // os totais consideram todos; os filtros valem só para a lista de estudantes
-    const termo = filtros.q.toLowerCase();
-    const estudantes = todos.filter((a) => (!termo || a.nome.toLowerCase().includes(termo) || a.email.toLowerCase().includes(termo))
+    const termo = filtros.q.toLocaleLowerCase('pt-BR');
+    const filtrados = todos.filter((a) => (!termo || a.nome.toLocaleLowerCase('pt-BR').includes(termo) || a.email.toLowerCase().includes(termo))
         && (!filtros.curso || a.curso === filtros.curso)
         && (!filtros.etapa || a.etapa === filtros.etapa)
         && (!filtros.pendencias || a.pendencias.length > 0));
+
+    const chavesEtapas = ETAPAS_ACOMPANHAMENTO.map((e) => e.chave);
+    const sinal = filtros.dir === 'desc' ? -1 : 1;
+    filtrados.sort((a, b) => sinal * ORDENACOES_ACOMPANHAMENTO[ordenar](a, b, chavesEtapas)
+        || a.nome.localeCompare(b.nome, 'pt-BR'));
+
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / TAMANHO_PAGINA_ACOMPANHAMENTO));
+    let pagina = Number.parseInt(req.query.pagina, 10);
+    if (!Number.isInteger(pagina) || pagina < 1) pagina = 1;
+    pagina = Math.min(pagina, totalPaginas);
+    const inicio = (pagina - 1) * TAMANHO_PAGINA_ACOMPANHAMENTO;
+
     res.render('professor_acompanhamento', {
         resumo: acompanhamentoModel.resumir(todos),
-        estudantes,
+        estudantes: filtrados.slice(inicio, inicio + TAMANHO_PAGINA_ACOMPANHAMENTO),
+        paginacao: { pagina, totalPaginas, total: filtrados.length, inicio, tamanho: TAMANHO_PAGINA_ACOMPANHAMENTO },
         filtros,
         etapas: ETAPAS_ACOMPANHAMENTO,
         cursos: CURSOS,

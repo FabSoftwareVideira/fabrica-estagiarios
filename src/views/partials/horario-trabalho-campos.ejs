@@ -1,6 +1,7 @@
 <fieldset class="horario-trabalho-campos">
-    <legend>Dias e horários de trabalho</legend>
-    <p class="text-muted">Selecione os dias planejados e informe um período contínuo de até 6 horas por dia. Domingo não pode ser selecionado.</p>
+    <% const horariosOpcionais = typeof opcional !== 'undefined' && opcional; %>
+    <legend>Dias e horários de trabalho<% if (horariosOpcionais) { %> <span class="text-muted">(opcional)</span><% } %></legend>
+    <p class="text-muted">Selecione os dias planejados e informe um período contínuo de até 6 horas por dia. Domingo não pode ser selecionado.<% if (horariosOpcionais) { %> Se ainda não souber, deixe em branco e defina depois.<% } %></p>
     <div class="horario-trabalho-grade">
         <% diasTrabalho.forEach((dia) => { %>
             <% const horario = horarioTrabalho[String(dia.id)] || {}; %>

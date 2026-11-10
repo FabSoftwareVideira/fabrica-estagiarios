@@ -15,6 +15,8 @@ function agoraBrasilia(data = new Date()) {
 function lerAgendamento(body, agora = agoraBrasilia()) {
     const texto = (campo) => typeof body[campo] === 'string' ? body[campo].trim() : '';
     const valores = Object.fromEntries(['data', 'hora_inicio', 'hora_fim', 'sala', 'link_reuniao', 'observacoes', 'avaliador_1_id', 'avaliador_2_id', 'versao'].map((k) => [k, texto(k)]));
+    // caixa marcada chega como 'on'; desmarcada não é enviada
+    valores.convidar_supervisor = body.convidar_supervisor === 'on' || body.convidar_supervisor === 'true';
     const erros = [];
     if (!dataIsoValida(valores.data)) erros.push('Informe uma data válida.');
     const horaValida = (hora) => /^([01]\d|2[0-3]):[0-5]\d$/.test(hora);

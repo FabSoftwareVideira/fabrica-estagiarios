@@ -12,6 +12,10 @@
     <%- include('partials/header') %>
     <main id="conteudo" class="container users-page">
         <%- include('partials/flash') %>
+        <%- include('partials/breadcrumb', { itens: [
+            ehAdmin ? { texto: 'Administração', href: '/professor/administracao' } : raizNav(user),
+            { texto: ehAdmin ? 'Usuários' : 'Supervisores externos' }
+        ] }) %>
         <div class="page-head">
             <div>
                 <h1><%= ehAdmin ? 'Gerenciar usuários' : 'Aprovar supervisores externos' %></h1>

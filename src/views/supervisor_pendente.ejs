@@ -11,6 +11,7 @@
 <body>
     <%- include('partials/header') %>
     <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [{ texto: 'Aguardando aprovação' }] }) %>
         <section class="card">
             <h1>Acesso de supervisor em análise</h1>
             <p>Seu pedido foi recebido. Um professor precisa aprovar seu acesso antes que você possa acompanhar estudantes ou preencher avaliações.</p>

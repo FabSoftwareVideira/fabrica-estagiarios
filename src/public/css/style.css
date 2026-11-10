@@ -466,6 +466,12 @@ html.alto-contraste .wizard-etapa.feito .wizard-etapa-numero { color: #000; }
 .wizard-acoes .wizard-cancelar { margin-left: auto; }
 .banca-orientador { margin-top: 12px; padding-top: 12px; }
 .banca-nota { margin-top: 20px; }
+.banca-convite { margin-top: 16px; max-width: 520px; }
+.estagio-modo { margin-top: 18px; }
+.curso-option:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
+.estagio-modo[hidden] { display: none; }
+.wizard-acoes [data-wizard-livre] { margin-left: auto; }
+.wizard-acoes [data-wizard-livre] + .wizard-cancelar { margin-left: 0; }
 .wizard-resumo-horarios { grid-column: 1 / -1; }
 .wizard-resumo-horarios dd span { display: block; }
 .wizard [hidden] { display: none; }
@@ -686,6 +692,24 @@ html.alto-contraste .proximo-passo { background: #000; border-color: #ffd700; }
 .user-form-grid[data-user-type="aluno"] { grid-template-areas: "nome email" "tipo matricula" "acoes acoes"; }
 .user-form-grid[data-user-type="supervisor"] { grid-template-areas: "nome email" "tipo tipo" "empresa funcao" "acoes acoes"; }
 .user-form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 0; }
+/* Próximas bancas no painel: uma linha discreta que abre a lista */
+.bancas-resumo { margin: -6px 0 16px; font-size: 14px; color: var(--texto-suave); }
+.bancas-resumo > summary {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; list-style: none;
+  border: 1px solid var(--borda-suave); border-radius: var(--raio-campo); background: var(--superficie);
+}
+.bancas-resumo > summary::-webkit-details-marker { display: none; }
+.bancas-resumo > summary::after { content: "▾"; margin-left: auto; font-size: 12px; }
+.bancas-resumo[open] > summary::after { content: "▴"; }
+.bancas-resumo > summary:hover { border-color: var(--azul-700); }
+.bancas-resumo > summary svg { width: 16px; height: 16px; flex: none; color: var(--azul-700); }
+.bancas-resumo strong { color: var(--texto); }
+.bancas-resumo-mais { padding: 0 8px; border-radius: 999px; background: var(--azul-50); color: var(--azul-800); font-weight: 700; font-size: 12px; }
+.bancas-resumo ul { list-style: none; margin: 4px 0 0; padding: 4px 12px; border: 1px solid var(--borda-suave); border-radius: var(--raio-campo); background: var(--superficie); }
+.bancas-resumo li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 8px 0; }
+.bancas-resumo li + li { border-top: 1px solid var(--borda-suave); }
+.bancas-resumo-links { display: inline-flex; gap: 14px; }
+
 .pending-requests-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   margin-bottom: 18px; border-left: 4px solid var(--amarelo-700);
@@ -1272,21 +1296,40 @@ html.alto-contraste { --etapa-espera: #8f9ac0; --etapa-andamento: #2f7df0; --eta
 .acomp-tile-rotulo svg { width: 16px; height: 16px; flex: none; }
 .acomp-tile strong { font-size: 32px; line-height: 1; font-weight: 800; color: var(--azul-900); }
 html.alto-contraste .acomp-tile strong { color: #ffd700; }
-.acomp-legenda { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--texto-suave); }
-.acomp-legenda li { display: inline-flex; align-items: center; gap: 6px; }
 .acomp-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.acomp-col-barra { min-width: 180px; width: 60%; }
-.acomp-cursos th, .acomp-cursos td { padding-left: 10px; padding-right: 10px; }
-.acomp-cursos th.acomp-num { white-space: normal; }
-.acomp-barra { display: flex; gap: 2px; height: 24px; }
-.acomp-segmento {
-  min-width: 24px; border-radius: 4px; display: grid; place-items: center;
-  font-size: 13px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums;
+
+/* Por curso: pequenas roscas lado a lado; as cores das fatias são as dos cartões de etapa */
+.acomp-cursos-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.acomp-curso {
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px; text-decoration: none; color: var(--texto);
+  background: var(--superficie); border: 1px solid var(--borda-suave); border-radius: var(--raio-cartao);
 }
-.acomp-segmento.acomp-aguardando_banca { color: #1f1500; }
-.acomp-segmento:hover { outline: 2px solid var(--texto); outline-offset: 1px; }
-.acomp-filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; margin: 4px 0 16px; }
-.acomp-filtros .form-field { flex: 1 1 200px; max-width: 320px; }
+a.acomp-curso:hover { border-color: var(--azul-700); }
+.acomp-curso.ativo { border-color: var(--azul-700); box-shadow: 0 0 0 2px var(--azul-200); }
+.acomp-rosca { width: 64px; height: 64px; flex: none; }
+.acomp-rosca circle { fill: none; stroke-width: 5.5; }
+.acomp-rosca-fundo { stroke: var(--borda-suave); }
+.acomp-fatia { stroke-linecap: butt; }
+.acomp-fatia:hover { stroke-width: 7; }
+.acomp-fatia-lista_espera { stroke: var(--etapa-espera); }
+.acomp-fatia-em_andamento { stroke: var(--etapa-andamento); }
+.acomp-fatia-aguardando_banca { stroke: var(--etapa-banca); }
+.acomp-fatia-encerrado { stroke: var(--etapa-encerrado); }
+.acomp-rosca-total { font-size: 11px; font-weight: 800; fill: var(--azul-900); text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums; }
+html.alto-contraste .acomp-rosca-total { fill: #ffd700; }
+.acomp-curso-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; color: var(--texto-suave); }
+.acomp-curso-texto strong { font-size: 15px; color: var(--azul-900); }
+html.alto-contraste .acomp-curso-texto strong { color: #ffd700; }
+.acomp-curso-alerta { color: var(--amarelo-700); font-weight: 600; }
+
+/* Lista: filtros numa linha e pendências enxutas */
+.acomp-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 4px 0 14px; }
+.acomp-filtros select { width: auto; flex: 0 1 200px; min-height: 42px; }
+.acomp-busca { display: flex; flex: 1 1 260px; min-width: 0; }
+.acomp-busca input { flex: 1; min-width: 0; border-radius: var(--raio-campo) 0 0 var(--raio-campo); }
+.acomp-busca button { border-radius: 0 var(--raio-campo) var(--raio-campo) 0; min-height: 42px; }
+.acomp-filtros .filter-pill { white-space: nowrap; }
+.acomp-pendencia-mais { cursor: help; background: var(--azul-50); color: var(--azul-800); border-color: var(--azul-200); }
 .acomp-sub { display: block; font-size: 13px; color: var(--texto-suave); }
 .acomp-horas { min-width: 150px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .acomp-progresso { height: 6px; margin-top: 6px; }
@@ -1294,7 +1337,6 @@ html.alto-contraste .acomp-tile strong { color: #ffd700; }
   display: inline-block; margin: 2px 4px 2px 0; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
   background: var(--amarelo-100); color: var(--amarelo-700); border: 1px solid #f2d36b; white-space: nowrap;
 }
-@media (max-width: 720px) { .acomp-col-barra { min-width: 0; width: auto; } .acomp-num { text-align: left; } }
 .agenda-minhas { display: inline-flex; align-items: center; gap: 8px; margin: 0; min-height: 44px; cursor: pointer; white-space: nowrap; }
 .agenda-fields { margin-top: 20px; }
 .agenda-card { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; }

@@ -49,7 +49,7 @@ router.get('/fichas', requirePapelFicha, async (req, res) => {
 async function carregarAluno(req, res, next) {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
-        setFlash(req, 'error', 'Aluno não encontrado.');
+        setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
     }
     req.aluno = aluno;
@@ -60,11 +60,11 @@ async function carregarAluno(req, res, next) {
 function requireOrientadorAta(req, res, next) {
     const { aluno } = req;
     if (aluno.status !== 'concluido') {
-        setFlash(req, 'error', 'A ata só pode ser preenchida depois que o aluno cumprir todas as horas.');
+        setFlash(req, 'error', 'A ata só pode ser preenchida depois que o estagiário cumprir todas as horas.');
         return res.redirect('/professor/aluno/' + aluno.usuario_id);
     }
     if (Number(aluno.orientador_id) !== Number(req.session.user.id)) {
-        setFlash(req, 'error', 'Apenas o professor orientador do aluno pode preencher a ata da banca.');
+        setFlash(req, 'error', 'Apenas o professor orientador do estagiário pode preencher a ata da banca.');
         return res.redirect('/professor/aluno/' + aluno.usuario_id);
     }
     next();
@@ -195,7 +195,7 @@ router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, 
         if (!valores.avaliador_1 || !valores.avaliador_2) faltando.push('nome dos dois avaliadores');
         if (!valores.resultado) faltando.push('resultado da banca');
         if (ressalva && !valores.corrigir_relatorio_ate && !valores.refazer_apresentacao_ate) {
-            faltando.push('o que o aluno deve fazer na ressalva, com a data limite');
+            faltando.push('o que o estagiário deve fazer na ressalva, com a data limite');
         }
         if (!valores.data_ata) faltando.push('data da ata');
 
@@ -225,7 +225,7 @@ router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, 
 
         if (finalizar) {
             await faresModel.encerrar(aluno.usuario_id);
-            setFlash(req, 'success', 'Estágio concluído. A ata está pronta para impressão e o aluno agora só pode consultar e imprimir as fichas.');
+            setFlash(req, 'success', 'Estágio concluído. A ata está pronta para impressão e o estagiário agora só pode consultar e imprimir as fichas.');
         } else {
             setFlash(req, 'success', 'Rascunho da ata salvo.');
         }
@@ -240,7 +240,7 @@ router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, 
 router.get('/aluno/:id/fare/pdf', carregarAluno, async (req, res) => {
     const { aluno } = req;
     if (Number(aluno.orientador_id) !== Number(req.session.user.id)) {
-        setFlash(req, 'error', 'Apenas o professor orientador do aluno pode gerar a ata.');
+        setFlash(req, 'error', 'Apenas o professor orientador do estagiário pode gerar a ata.');
         return res.redirect('/professor/aluno/' + aluno.usuario_id);
     }
 
@@ -270,7 +270,7 @@ router.post('/aluno/:id/fare/reabrir', carregarAluno, async (req, res) => {
     }
 
     await faresModel.reabrir(aluno.usuario_id);
-    setFlash(req, 'success', 'Estágio reaberto. O aluno volta a poder editar a FAA e a ata pode ser alterada.');
+    setFlash(req, 'success', 'Estágio reaberto. O estagiário volta a poder editar a FAA e a ata pode ser alterada.');
     res.redirect(ehOrientador ? `/professor/aluno/${aluno.usuario_id}/fare` : '/professor/aluno/' + aluno.usuario_id);
 });
 
@@ -290,7 +290,7 @@ router.get('/aluno/:id/ficha-acompanhamento', carregarAluno, async (req, res) =>
 router.get('/aluno/:id/faa/pdf', carregarAluno, async (req, res) => {
     const faa = await faasModel.buscarPorAluno(req.aluno.usuario_id);
     if (!faa) {
-        setFlash(req, 'error', 'O aluno ainda não preencheu a FAA.');
+        setFlash(req, 'error', 'O estagiário ainda não preencheu a FAA.');
         return res.redirect('/professor/aluno/' + req.aluno.usuario_id);
     }
     try {

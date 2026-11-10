@@ -227,6 +227,8 @@ CREATE TABLE IF NOT EXISTS bancas (
     sala VARCHAR(120) NOT NULL CHECK (length(trim(sala)) > 0),
     link_reuniao TEXT NOT NULL DEFAULT '',
     observacoes VARCHAR(1000) NOT NULL DEFAULT '',
+    -- o supervisor do estagiário pode ser convidado; não é avaliador
+    convidar_supervisor BOOLEAN NOT NULL DEFAULT false,
     situacao VARCHAR(20) NOT NULL DEFAULT 'agendada'
         CHECK (situacao IN ('agendada', 'remarcada', 'cancelada', 'realizada')),
     versao INTEGER NOT NULL DEFAULT 1,
@@ -238,3 +240,15 @@ CREATE TABLE IF NOT EXISTS bancas (
         AND avaliador_1_id <> avaliador_2_id)
 );
 CREATE INDEX IF NOT EXISTS idx_bancas_data ON bancas(data, hora_inicio);
+
+-- Rascunhos do fluxo "Incluir estágio" do setor de estágios. Os dados do
+-- formulário ficam em JSON até a inclusão ser concluída; qualquer pessoa do
+-- setor pode continuar um rascunho iniciado por outra.
+CREATE TABLE IF NOT EXISTS estagios_rascunhos (
+    id            SERIAL PRIMARY KEY,
+    dados         JSONB NOT NULL DEFAULT '{}'::jsonb,
+    criado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    atualizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    criado_em     TIMESTAMP NOT NULL DEFAULT NOW(),
+    atualizado_em TIMESTAMP NOT NULL DEFAULT NOW()
+);

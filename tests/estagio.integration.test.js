@@ -415,7 +415,7 @@ test('supervisor aprovado ou orientador aprova supervisor externo e supervisor p
         INSERT INTO professores (usuario_id,cargo,aprovado) VALUES (106,'supervisor',false),(107,'supervisor',false);`);
 
     const atribuicaoPendente = await requisitar('/professor/aluno/1', {
-        method: 'POST',
+        user: 102, method: 'POST',
         body: { empresa: 'Empresa Exemplo', carga_horaria: '60', status: 'em_andamento', supervisor_id: '106', orientador_id: '102' },
     });
     assert.equal(atribuicaoPendente.status, 302);
@@ -453,7 +453,7 @@ test('supervisor aprovado ou orientador aprova supervisor externo e supervisor p
     assert.equal(result.rows[0].aprovado, true);
 
     const atribuicaoComoOrientador = await requisitar('/professor/aluno/1', {
-        method: 'POST',
+        user: 102, method: 'POST',
         body: { empresa: 'Empresa Exemplo', carga_horaria: '60', status: 'em_andamento', supervisor_id: '101', orientador_id: '105' },
     });
     assert.equal(atribuicaoComoOrientador.status, 302);
@@ -530,7 +530,7 @@ test('aprovação e edição salvam a escala semanal e rejeitam jornadas acima d
     assert.match(await novaAtividade.text(), /Segunda-feira, 08:00–12:00/);
 
     await requisitar('/professor/aluno/1', {
-        method: 'POST',
+        user: 102, method: 'POST',
         body: {
             empresa: 'Empresa Exemplo',
             carga_horaria: '60',
@@ -1269,4 +1269,182 @@ test('administração separada: página própria, cadastro com papéis e ediçã
     assert.equal((await requisitar('/professor/fichas', { user: 103 })).headers.get('location'), '/professor/inicio');
     const internos = await (await requisitar('/professor/usuarios?tipo=professor', { user: 104 })).text();
     assert.match(internos, /outro@example\.test/);
+});
+test('breadcrumbs seguem as seções do menu: administração não vira raiz de alunos e fichas', async () => {
+    const trilha = async (rota, user) => {
+        const html = await (await requisitar(rota, { user })).text();
+        const nav = html.match(/<nav class="breadcrumb"[\s\S]*?<\/nav>/);
+        assert.ok(nav, `sem breadcrumb em ${rota}`);
+        return [...nav[0].matchAll(/<(?:a href="([^"]*)"|span aria-current="page")>([^<]*)</g)].map((m) => m[1] ? `${m[2]}→${m[1]}` : m[2]);
+    };
+    // administrador que também orienta (104 tem papéis padrão)
+    assert.deepEqual(await trilha('/professor/dashboard', 104), ['Estagiários']);
+    assert.deepEqual(await trilha('/professor/fichas', 104), ['Fichas']);
+    assert.deepEqual(await trilha('/professor/bancas', 104), ['Agenda de bancas']);
+    assert.deepEqual(await trilha('/perfil', 104), ['Início→/professor/inicio', 'Meu perfil']);
+    assert.deepEqual(await trilha('/professor/administracao', 104), ['Administração']);
+    assert.deepEqual(await trilha('/professor/usuarios', 104), ['Administração→/professor/administracao', 'Usuários']);
+    // professor comum aprova cadastro voltando para a própria lista, não para o acompanhamento
+    await db.exec("UPDATE alunos SET status='lista_espera', orientador_id=NULL, supervisor_id=NULL WHERE usuario_id=2");
+    assert.deepEqual(await trilha('/professor/cadastro-aluno/2', 102), ['Estagiários→/professor/dashboard', 'Aprovar cadastro de Estudante 2']);
+    assert.deepEqual(await trilha('/professor/aluno/1', 102), ['Estagiários→/professor/dashboard', 'Estudante 1']);
+    // quem é só servidor chega aos estudantes pelo acompanhamento
+    await requisitar('/professor/usuarios/103/papeis', { user: 104, method: 'POST', body: { papeis: ['servidor'] } });
+    assert.deepEqual(await trilha('/professor/aluno/1', 103), ['Acompanhamento→/professor/acompanhamento', 'Estudante 1']);
+    // estudante
+    assert.deepEqual(await trilha('/aluno/dashboard?aba=fichas', 1), ['Início→/aluno/dashboard', 'Fichas']);
+});
+test('Editar estágio: sem campo de situação, só orientador e administrador, lista de espera vai para a aprovação', async () => {
+    const edicao = { empresa: 'Empresa Nova', carga_horaria: '60', orientador_id: '102', supervisor_id: '101',
+        dias_trabalho: ['1'], horario_inicio_1: '08:00', horario_fim_1: '12:00' };
+    const empresa = async (id) => (await consultar('SELECT empresa, status FROM alunos WHERE usuario_id=$1', [id])).rows[0];
+
+    // a tela não oferece mais a troca de situação
+    const tela = await (await requisitar('/professor/aluno/1?aba=estagio', { user: 102 })).text();
+    assert.match(tela, /id="panel-estagio"/);
+    assert.doesNotMatch(tela, /name="status"/);
+
+    // e o servidor ignora uma tentativa de devolver à lista de espera
+    await requisitar('/professor/aluno/1', { user: 102, method: 'POST', body: { ...edicao, status: 'lista_espera' } });
+    assert.deepEqual(await empresa(1), { empresa: 'Empresa Nova', status: 'em_andamento' });
+
+    // supervisor e outro professor não editam; administrador edita
+    assert.doesNotMatch(await (await requisitar('/professor/aluno/1', { user: 101 })).text(), /id="panel-estagio"/);
+    await requisitar('/professor/aluno/1', { user: 101, method: 'POST', body: { ...edicao, empresa: 'Pelo supervisor' } });
+    await requisitar('/professor/aluno/1', { user: 103, method: 'POST', body: { ...edicao, empresa: 'Por outro professor' } });
+    assert.equal((await empresa(1)).empresa, 'Empresa Nova');
+    await requisitar('/professor/aluno/1', { user: 104, method: 'POST', body: { ...edicao, empresa: 'Pelo administrador' } });
+    assert.equal((await empresa(1)).empresa, 'Pelo administrador');
+
+    // lista de espera: sem aba de edição, com o caminho para a aprovação, e o servidor encaminha para lá
+    await db.exec("UPDATE alunos SET status='lista_espera' WHERE usuario_id=2");
+    const espera = await (await requisitar('/professor/aluno/2', { user: 102 })).text();
+    assert.doesNotMatch(espera, /id="panel-estagio"/);
+    assert.match(espera, /href="\/professor\/cadastro-aluno\/2"/);
+    const tentativa = await requisitar('/professor/aluno/2', { user: 102, method: 'POST', body: edicao });
+    assert.equal(tentativa.headers.get('location'), '/professor/cadastro-aluno/2');
+    assert.equal((await empresa(2)).status, 'lista_espera');
+});
+test('inclusão de estágios pelo setor: rascunho, retomada e conclusão para estudante existente ou novo', async () => {
+    const cursos = require('../src/config/cursos').CURSOS;
+    await requisitar('/professor/usuarios/103/papeis', { user: 104, method: 'POST', body: { papeis: ['servidor'] } });
+    const servidor = (rota, opcoes = {}) => requisitar(rota, { user: 103, ...opcoes });
+
+    // professor comum não acessa; servidor vê o item no menu
+    assert.equal((await requisitar('/professor/estagios', { user: 101 })).headers.get('location'), '/professor/inicio');
+    assert.match(await (await servidor('/professor/estagios')).text(), /href="\/professor\/estagios" class="nav-link/);
+
+    // estudante 2 na lista de espera aparece para seleção
+    await db.exec("UPDATE alunos SET status='lista_espera', orientador_id=NULL, supervisor_id=NULL, empresa=NULL WHERE usuario_id=2");
+    assert.match(await (await servidor('/professor/estagios/novo')).text(), /<option value="2"[^>]*>Estudante 2/);
+
+    // salvar rascunho no meio do caminho, sem os horários
+    const parcial = { modo: 'existente', aluno_id: '2', orientador_id: '102', supervisor_id: '', empresa: 'Empresa do Setor', carga_horaria: '80', passo: '3' };
+    assert.equal((await servidor('/professor/estagios/rascunho', { method: 'POST', body: parcial })).headers.get('location'), '/professor/estagios');
+    const rascunho = (await consultar('SELECT id, dados, atualizado_por FROM estagios_rascunhos')).rows[0];
+    assert.equal(rascunho.dados.empresa, 'Empresa do Setor'); assert.equal(rascunho.atualizado_por, 103);
+    const lista = await (await servidor('/professor/estagios')).text();
+    assert.match(lista, /Estudante 2/); assert.match(lista, /Parou em: Horários/);
+    assert.equal((await consultar('SELECT status FROM alunos WHERE usuario_id=2')).rows[0].status, 'lista_espera');
+
+    // outra pessoa do setor (o administrador) continua o rascunho com os dados preenchidos
+    const retomada = await (await requisitar(`/professor/estagios/novo?rascunho=${rascunho.id}`, { user: 104 })).text();
+    assert.match(retomada, /value="Empresa do Setor"/); assert.match(retomada, /data-wizard-inicio="3"/);
+
+    // concluir com horário inválido volta para a tela com os dados e não altera nada
+    const horarioRuim = { ...parcial, rascunho_id: String(rascunho.id), dias_trabalho: ['1'], horario_inicio_1: '08:00', horario_fim_1: '15:00' };
+    const erro = await servidor('/professor/estagios', { method: 'POST', body: horarioRuim });
+    assert.equal(erro.status, 422);
+    const erroHtml = await erro.text();
+    assert.match(erroHtml, /6 horas/); assert.match(erroHtml, /value="Empresa do Setor"/);
+    assert.equal((await consultar('SELECT status FROM alunos WHERE usuario_id=2')).rows[0].status, 'lista_espera');
+
+    // concluir: estágio em andamento e rascunho apagado
+    const ok = await servidor('/professor/estagios', { method: 'POST', body: { ...horarioRuim, horario_fim_1: '12:00', supervisor_id: '101' } });
+    assert.equal(ok.headers.get('location'), '/professor/aluno/2');
+    const aluno2 = (await consultar('SELECT status, empresa, orientador_id, supervisor_id, carga_horaria FROM alunos WHERE usuario_id=2')).rows[0];
+    assert.deepEqual([aluno2.status, aluno2.empresa, aluno2.orientador_id, aluno2.supervisor_id, Number(aluno2.carga_horaria)], ['em_andamento', 'Empresa do Setor', 102, 101, 80]);
+    assert.equal((await consultar('SELECT COUNT(*)::int AS n FROM estagios_rascunhos')).rows[0].n, 0);
+
+    // estudante novo: cria a conta e o estágio de uma vez; e-mail repetido é recusado
+    const novo = { modo: 'novo', nome: 'Nova Estagiária', email: 'Nova@Example.test', curso: cursos[1], orientador_id: '102',
+        empresa: 'Empresa Nova', carga_horaria: '60', dias_trabalho: ['2'], horario_inicio_2: '13:00', horario_fim_2: '17:00' };
+    const criado = await servidor('/professor/estagios', { method: 'POST', body: novo });
+    const nova = (await consultar("SELECT u.id, u.tipo, a.status, a.curso FROM usuarios u JOIN alunos a ON a.usuario_id=u.id WHERE u.email='nova@example.test'")).rows[0];
+    assert.equal(criado.headers.get('location'), `/professor/aluno/${nova.id}`);
+    assert.deepEqual([nova.tipo, nova.status, nova.curso], ['aluno', 'em_andamento', cursos[1]]);
+    assert.equal((await servidor('/professor/estagios', { method: 'POST', body: novo })).status, 422);
+
+    // estudante já com estágio não pode ser incluído de novo
+    const repetido = await servidor('/professor/estagios', { method: 'POST', body: { ...novo, modo: 'existente', aluno_id: '2' } });
+    assert.equal(repetido.status, 422);
+    assert.match(await repetido.text(), /já tem o estágio definido/);
+});
+test('inclusão de estágio: dias e horários de trabalho são opcionais', async () => {
+    await requisitar('/professor/usuarios/103/papeis', { user: 104, method: 'POST', body: { papeis: ['servidor'] } });
+    await db.exec("UPDATE alunos SET status='lista_espera', orientador_id=NULL, supervisor_id=NULL WHERE usuario_id=2");
+    const tela = await (await requisitar('/professor/estagios/novo', { user: 103 })).text();
+    assert.match(tela, /data-horarios-opcionais/); assert.match(tela, /\(opcional\)<\/span><\/legend>/);
+
+    const base = { modo: 'existente', aluno_id: '2', orientador_id: '102', empresa: 'Empresa Sem Horário', carga_horaria: '60' };
+    const ok = await requisitar('/professor/estagios', { user: 103, method: 'POST', body: base });
+    assert.equal(ok.headers.get('location'), '/professor/aluno/2');
+    const aluno = (await consultar('SELECT status, horario_trabalho FROM alunos WHERE usuario_id=2')).rows[0];
+    assert.deepEqual([aluno.status, aluno.horario_trabalho], ['em_andamento', {}]);
+
+    // um dia marcado continua sendo validado
+    await db.exec("UPDATE alunos SET status='lista_espera' WHERE usuario_id=3");
+    const ruim = await requisitar('/professor/estagios', { user: 103, method: 'POST', body: { ...base, aluno_id: '3', dias_trabalho: ['1'], horario_inicio_1: '08:00', horario_fim_1: '15:00' } });
+    assert.equal(ruim.status, 422);
+});
+test('Editar estágio: dias e horários de trabalho são opcionais', async () => {
+    const tela = await (await requisitar('/professor/aluno/1?aba=estagio', { user: 102 })).text();
+    assert.match(tela, /\(opcional\)<\/span><\/legend>/);
+    const base = { empresa: 'Empresa Sem Quadro', carga_horaria: '60', orientador_id: '102', supervisor_id: '101' };
+    await requisitar('/professor/aluno/1', { user: 102, method: 'POST', body: base });
+    const aluno = (await consultar('SELECT empresa, horario_trabalho FROM alunos WHERE usuario_id=1')).rows[0];
+    assert.deepEqual([aluno.empresa, aluno.horario_trabalho], ['Empresa Sem Quadro', {}]);
+    // dia marcado continua validado
+    await requisitar('/professor/aluno/1', { user: 102, method: 'POST', body: { ...base, empresa: 'Outra', dias_trabalho: ['1'], horario_inicio_1: '08:00', horario_fim_1: '15:00' } });
+    assert.equal((await consultar('SELECT empresa FROM alunos WHERE usuario_id=1')).rows[0].empresa, 'Empresa Sem Quadro');
+});
+test('aprovação de cadastro: dias e horários de trabalho são opcionais', async () => {
+    await db.exec("UPDATE alunos SET status='lista_espera', orientador_id=NULL, supervisor_id=NULL WHERE usuario_id=2");
+    const tela = await (await requisitar('/professor/cadastro-aluno/2', { user: 102 })).text();
+    assert.match(tela, /data-horarios-opcionais/); assert.match(tela, /\(opcional\)<\/span><\/legend>/);
+    const ok = await requisitar('/professor/cadastro-aluno/2', { user: 102, method: 'POST', body: { empresa: 'Empresa Exemplo', carga_horaria: '60', orientador_id: '102' } });
+    assert.equal(ok.headers.get('location'), '/professor/dashboard');
+    const aluno = (await consultar('SELECT status, horario_trabalho FROM alunos WHERE usuario_id=2')).rows[0];
+    assert.deepEqual([aluno.status, aluno.horario_trabalho], ['em_andamento', {}]);
+});
+test('acompanhamento: lista de estudantes com ordenação, paginação e roscas por curso', async () => {
+    // 20 estudantes a mais para passar de uma página (15 por página)
+    await db.exec(`INSERT INTO usuarios (id,nome,email,tipo,nome_confirmado)
+        SELECT n, 'Extra ' || LPAD(n::text, 3, '0'), 'extra' || n || '@example.test', 'aluno', true FROM generate_series(301,320) n;
+        INSERT INTO alunos (usuario_id,status,curso) SELECT n,'lista_espera','Curso Técnico em Informática Integrado ao Ensino Médio' FROM generate_series(301,320) n;`);
+    const nomes = (html) => [...html.matchAll(/<a href="\/professor\/(?:aluno|cadastro-aluno)\/\d+"><strong>([^<]+)<\/strong>/g)].map((m) => m[1]);
+    const pagina = async (query) => (await requisitar('/professor/acompanhamento' + query, { user: 104 })).text();
+
+    const p1 = await pagina('');
+    assert.equal(nomes(p1).length, 15);
+    assert.match(p1, /Mostrando 1–15 de 30/);
+    assert.match(p1, /aria-sort="ascending"/);
+    const p2 = await pagina('?pagina=2');
+    assert.equal(nomes(p2).length, 15);
+    assert.match(p2, /Mostrando 16–30 de 30/);
+    assert.deepEqual([...nomes(p1), ...nomes(p2)], [...nomes(p1), ...nomes(p2)].slice().sort((a, b) => a.localeCompare(b, 'pt-BR')));
+    // página além do fim cai na última; filtro mantém a ordenação e volta para a página 1
+    assert.match(await pagina('?pagina=99'), /Mostrando 16–30 de 30/);
+    const desc = await pagina('?ordenar=nome&dir=desc');
+    assert.equal(nomes(desc)[0], 'Extra 320');
+    const filtrado = await pagina('?ordenar=nome&dir=desc&etapa=lista_espera');
+    assert.match(filtrado, /Mostrando 1–15 de 20/);
+    assert.match(filtrado, /href="\/professor\/acompanhamento\?etapa=lista_espera&amp;dir=desc&amp;pagina=2#estudantes"/);
+    // por etapa: lista de espera vem antes de em andamento
+    const porEtapa = nomes(await pagina('?ordenar=etapa'));
+    assert.ok(porEtapa[0].startsWith('Extra'));
+
+    // uma rosca por curso, com o total no centro
+    assert.match(p1, /aria-label="Informática: Lista de espera: 20, Em andamento: 0/);
+    assert.match(p1, /class="acomp-rosca-total">20</);
 });

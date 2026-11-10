@@ -14,21 +14,32 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/flash') %>
+        <%- include('partials/breadcrumb', { itens: user.cargo === 'admin'
+            ? [{ texto: 'Administração', href: '/professor/administracao' }, { texto: 'Acompanhamento' }]
+            : [{ texto: 'Acompanhamento' }] }) %>
 
         <%
             const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-            // link que mantém os outros filtros e troca só um
-            const link = (mudancas) => {
+            // link que mantém filtros e ordenação e troca só o que mudou;
+            // qualquer mudança que não seja de página volta para a página 1
+            const link = (mudancas = {}) => {
+                const novo = { ...filtros, pagina: 1, ...mudancas };
                 const params = new URLSearchParams();
-                const novo = { ...filtros, ...mudancas };
                 if (novo.q) params.set('q', novo.q);
                 if (novo.curso) params.set('curso', novo.curso);
                 if (novo.etapa) params.set('etapa', novo.etapa);
                 if (novo.pendencias) params.set('pendencias', '1');
+                if (novo.ordenar && novo.ordenar !== 'nome') params.set('ordenar', novo.ordenar);
+                if (novo.dir === 'desc') params.set('dir', 'desc');
+                if (novo.pagina > 1) params.set('pagina', novo.pagina);
                 const texto = params.toString();
-                return '/professor/acompanhamento' + (texto ? '?' + texto : '');
+                return '/professor/acompanhamento' + (texto ? '?' + texto : '') + '#estudantes';
             };
             const filtrando = Boolean(filtros.q || filtros.curso || filtros.etapa || filtros.pendencias);
+            const ordenarPor = (campo) => link({ ordenar: campo, dir: filtros.ordenar === campo && filtros.dir === 'asc' ? 'desc' : 'asc' });
+            const estadoOrdem = (campo) => (filtros.ordenar !== campo ? 'none' : (filtros.dir === 'asc' ? 'ascending' : 'descending'));
+            const setaOrdem = (campo) => (filtros.ordenar !== campo ? '↕' : (filtros.dir === 'asc' ? '↑' : '↓'));
+            const cursoCurto = (curso) => curso.replace(/^Curso Técnico (de|em) /, '').replace(/ Integrado ao Ensino Médio$/, '');
         %>
 
         <div class="page-head">
@@ -36,124 +47,114 @@
                 <h1>Acompanhamento dos estágios</h1>
                 <p>Situação de cada estudante e de cada curso. Estágios arquivados e contas desativadas ficam de fora.</p>
             </div>
+            <a href="/professor/estagios/novo" class="btn btn-success"><%- icone('mais') %> Incluir estágio</a>
         </div>
 
         <!-- Números gerais: cada cartão filtra a lista de estudantes -->
         <section class="acomp-tiles" aria-label="Resumo geral">
-            <a class="acomp-tile <%= !filtros.etapa && !filtros.pendencias ? 'ativo' : '' %>" href="<%= link({ etapa: '', pendencias: false }) %>#estudantes">
+            <a class="acomp-tile <%= !filtros.etapa && !filtros.pendencias ? 'ativo' : '' %>" href="<%= link({ etapa: '', pendencias: false }) %>">
                 <span class="acomp-tile-rotulo">Estudantes</span>
                 <strong><%= resumo.geral.total %></strong>
             </a>
             <% etapas.forEach((e) => { %>
-                <a class="acomp-tile <%= filtros.etapa === e.chave ? 'ativo' : '' %>" href="<%= link({ etapa: e.chave, pendencias: false }) %>#estudantes">
+                <a class="acomp-tile <%= filtros.etapa === e.chave ? 'ativo' : '' %>" href="<%= link({ etapa: e.chave, pendencias: false }) %>">
                     <span class="acomp-tile-rotulo"><i class="acomp-cor acomp-<%= e.chave %>" aria-hidden="true"></i><%= e.label %></span>
                     <strong><%= resumo.geral.etapas[e.chave] %></strong>
                 </a>
             <% }) %>
-            <a class="acomp-tile acomp-tile-alerta <%= filtros.pendencias ? 'ativo' : '' %>" href="<%= link({ etapa: '', pendencias: true }) %>#estudantes">
+            <a class="acomp-tile acomp-tile-alerta <%= filtros.pendencias ? 'ativo' : '' %>" href="<%= link({ etapa: '', pendencias: true }) %>">
                 <span class="acomp-tile-rotulo"><%- icone('alerta') %> Com pendências</span>
                 <strong><%= resumo.geral.comPendencias %></strong>
             </a>
         </section>
 
-        <section class="card" aria-labelledby="titulo-cursos">
-            <div class="card-header">
-                <h2 id="titulo-cursos">Por curso</h2>
-                <ul class="acomp-legenda" aria-label="Legenda das etapas">
-                    <% etapas.forEach((e) => { %><li><i class="acomp-cor acomp-<%= e.chave %>" aria-hidden="true"></i><%= e.label %></li><% }) %>
-                </ul>
-            </div>
-            <div class="table-wrap">
-                <table class="acomp-cursos">
-                    <thead>
-                        <tr>
-                            <th>Curso</th>
-                            <th class="acomp-col-barra">Distribuição</th>
-                            <th class="acomp-num">Pendências</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% resumo.cursos.forEach((c) => { %>
-                            <tr>
-                                <td>
-                                    <% if (c.curso) { %><a href="<%= link({ curso: c.curso }) %>#estudantes"><strong><%= c.nome %></strong></a>
-                                    <% } else { %><strong><%= c.nome %></strong><% } %>
-                                    <small class="acomp-sub"><%= plural(c.total, 'estudante', 'estudantes') %></small>
-                                </td>
-                                <td class="acomp-col-barra">
-                                    <% if (c.total) { %>
-                                        <div class="acomp-barra" role="img" aria-label="<%= etapas.map((e) => `${e.label}: ${c.etapas[e.chave]}`).join(', ') %>">
-                                            <% etapas.filter((e) => c.etapas[e.chave] > 0).forEach((e) => { %>
-                                                <span class="acomp-segmento acomp-<%= e.chave %>" style="flex-grow: <%= c.etapas[e.chave] %>"
-                                                    title="<%= c.nome %> · <%= e.label %>: <%= plural(c.etapas[e.chave], 'estudante', 'estudantes') %> (<%= Math.round((c.etapas[e.chave] / c.total) * 100) %>%)"><%= c.etapas[e.chave] %></span>
-                                            <% }) %>
-                                        </div>
-                                    <% } else { %>
-                                        <span class="text-muted">Nenhum estudante</span>
-                                    <% } %>
-                                </td>
-                                <td class="acomp-num">
-                                    <% if (c.comPendencias) { %><a href="<%= link({ curso: c.curso, etapa: '', pendencias: true }) %>#estudantes"><strong><%= c.comPendencias %></strong></a>
-                                    <% } else { %><span class="text-muted">0</span><% } %>
-                                </td>
-                            </tr>
+        <!-- Por curso: uma rosca por curso, com o total no centro. As cores são as dos cartões acima. -->
+        <section class="acomp-cursos-grade" aria-label="Distribuição por curso">
+            <% resumo.cursos.forEach((c) => { %>
+                <%
+                    const fatias = etapas.filter((e) => c.etapas[e.chave] > 0);
+                    const folga = fatias.length > 1 ? 1.4 : 0; // espaço entre as fatias, em % da volta
+                    let inicio = 0;
+                    const descricao = c.total
+                        ? etapas.map((e) => `${e.label}: ${c.etapas[e.chave]}`).join(', ')
+                        : 'nenhum estudante';
+                    const ativo = c.curso && filtros.curso === c.curso;
+                %>
+                <<%= c.curso ? 'a' : 'div' %> class="acomp-curso <%= ativo ? 'ativo' : '' %>" <%- c.curso ? `href="${link({ curso: ativo ? '' : c.curso })}"` : '' %>>
+                    <svg class="acomp-rosca" viewBox="0 0 42 42" role="img" aria-label="<%= c.nome %>: <%= descricao %>">
+                        <circle class="acomp-rosca-fundo" cx="21" cy="21" r="15.915" />
+                        <% fatias.forEach((e) => {
+                            const fracao = (c.etapas[e.chave] / c.total) * 100;
+                            const arco = Math.max(fracao - folga, 0.6);
+                        %>
+                            <circle class="acomp-fatia acomp-fatia-<%= e.chave %>" cx="21" cy="21" r="15.915"
+                                stroke-dasharray="<%= arco.toFixed(2) %> <%= (100 - arco).toFixed(2) %>"
+                                stroke-dashoffset="<%= (25 - inicio).toFixed(2) %>"><title><%= e.label %>: <%= plural(c.etapas[e.chave], 'estudante', 'estudantes') %> (<%= Math.round(fracao) %>%)</title></circle>
+                            <% inicio += fracao; %>
                         <% }) %>
-                    </tbody>
-                </table>
-            </div>
+                        <text x="21" y="21" class="acomp-rosca-total"><%= c.total %></text>
+                    </svg>
+                    <span class="acomp-curso-texto">
+                        <strong><%= c.nome %></strong>
+                        <span><%= plural(c.total, 'estudante', 'estudantes') %></span>
+                        <% if (c.comPendencias) { %><span class="acomp-curso-alerta"><%= plural(c.comPendencias, 'com pendência', 'com pendências') %></span><% } %>
+                    </span>
+                </<%= c.curso ? 'a' : 'div' %>>
+            <% }) %>
         </section>
 
         <section class="card" id="estudantes" aria-labelledby="titulo-estudantes">
             <div class="card-header">
                 <div>
                     <h2 id="titulo-estudantes">Estudantes</h2>
-                    <p class="text-muted">
-                        <%= plural(estudantes.length, 'estudante', 'estudantes') %><%= filtrando ? ' com os filtros aplicados' : '' %>.
-                    </p>
+                    <p class="text-muted"><%= plural(paginacao.total, 'estudante', 'estudantes') %><%= filtrando ? ' com os filtros aplicados' : '' %>.</p>
                 </div>
             </div>
 
-            <form action="/professor/acompanhamento#estudantes" method="GET" class="acomp-filtros">
-                <div class="form-field">
-                    <label for="filtro-q">Buscar</label>
-                    <input type="search" id="filtro-q" name="q" value="<%= filtros.q %>" placeholder="Nome ou e-mail">
+            <%# filtros: os campos de escolha aplicam ao mudar; a busca aplica com Enter ou com a lupa %>
+            <form action="/professor/acompanhamento#estudantes" method="GET" class="acomp-filtros" role="search">
+                <% if (filtros.ordenar !== 'nome') { %><input type="hidden" name="ordenar" value="<%= filtros.ordenar %>"><% } %>
+                <% if (filtros.dir === 'desc') { %><input type="hidden" name="dir" value="desc"><% } %>
+                <div class="acomp-busca">
+                    <label for="filtro-q" class="sr-only">Buscar por nome ou e-mail</label>
+                    <input type="search" id="filtro-q" name="q" value="<%= filtros.q %>" placeholder="Buscar por nome ou e-mail">
+                    <button type="submit" class="btn-icon" aria-label="Buscar"><%- icone('lupa') %></button>
                 </div>
-                <div class="form-field">
-                    <label for="filtro-curso">Curso</label>
-                    <select id="filtro-curso" name="curso">
-                        <option value="">Todos os cursos</option>
-                        <% cursos.forEach((curso) => { %>
-                            <option value="<%= curso %>" <%= filtros.curso === curso ? 'selected' : '' %>><%= curso.replace(/^Curso Técnico (de|em) /, '').replace(/ Integrado ao Ensino Médio$/, '') %></option>
-                        <% }) %>
-                    </select>
-                </div>
-                <div class="form-field">
-                    <label for="filtro-etapa">Etapa</label>
-                    <select id="filtro-etapa" name="etapa">
-                        <option value="">Todas as etapas</option>
-                        <% etapas.forEach((e) => { %>
-                            <option value="<%= e.chave %>" <%= filtros.etapa === e.chave ? 'selected' : '' %>><%= e.label %></option>
-                        <% }) %>
-                    </select>
-                </div>
-                <label class="agenda-minhas"><input type="checkbox" name="pendencias" value="1" <%= filtros.pendencias ? 'checked' : '' %>> Só com pendências</label>
-                <button type="submit" class="btn-secondary">Filtrar</button>
-                <% if (filtrando) { %><a href="/professor/acompanhamento#estudantes" class="btn btn-ghost">Limpar</a><% } %>
+                <label for="filtro-curso" class="sr-only">Curso</label>
+                <select id="filtro-curso" name="curso" data-auto-submit>
+                    <option value="">Todos os cursos</option>
+                    <% cursos.forEach((curso) => { %>
+                        <option value="<%= curso %>" <%= filtros.curso === curso ? 'selected' : '' %>><%= cursoCurto(curso) %></option>
+                    <% }) %>
+                </select>
+                <label for="filtro-etapa" class="sr-only">Etapa</label>
+                <select id="filtro-etapa" name="etapa" data-auto-submit>
+                    <option value="">Todas as etapas</option>
+                    <% etapas.forEach((e) => { %>
+                        <option value="<%= e.chave %>" <%= filtros.etapa === e.chave ? 'selected' : '' %>><%= e.label %></option>
+                    <% }) %>
+                </select>
+                <label class="filter-pill">
+                    <input type="checkbox" name="pendencias" value="1" <%= filtros.pendencias ? 'checked' : '' %> data-auto-submit>
+                    <span>Só com pendências</span>
+                </label>
+                <% if (filtrando) { %><a href="<%= link({ q: '', curso: '', etapa: '', pendencias: false }) %>" class="btn btn-ghost btn-sm">Limpar filtros</a><% } %>
             </form>
 
             <div class="table-wrap">
                 <table class="acomp-estudantes">
                     <thead>
                         <tr>
-                            <th>Estudante</th>
-                            <th>Etapa</th>
-                            <th>Horas</th>
-                            <th>Pendências</th>
+                            <% [['nome', 'Estudante'], ['etapa', 'Etapa'], ['horas', 'Horas'], ['pendencias', 'Pendências']].forEach(([campo, rotulo]) => { %>
+                                <th aria-sort="<%= estadoOrdem(campo) %>">
+                                    <a href="<%= ordenarPor(campo) %>" class="th-sort"><%= rotulo %> <span class="sort-icon" aria-hidden="true"><%= setaOrdem(campo) %></span></a>
+                                </th>
+                            <% }) %>
                         </tr>
                     </thead>
                     <tbody>
                         <% if (!estudantes.length) { %>
-                            <tr><td colspan="4">Nenhum estudante<%= filtrando ? ' com esses filtros' : '' %>.</td></tr>
+                            <tr><td colspan="4" class="empty-state">Nenhum estudante<%= filtrando ? ' com esses filtros' : '' %>.</td></tr>
                         <% } %>
                         <% estudantes.forEach((a) => { %>
                             <tr>
@@ -169,14 +170,44 @@
                                     <% } else { %><span class="text-muted">—</span><% } %>
                                 </td>
                                 <td>
+                                    <%# no máximo duas pendências à vista; as demais ficam no "+N" %>
                                     <% if (!a.pendencias.length) { %><span class="text-muted">Nenhuma</span><% } %>
-                                    <% a.pendencias.forEach((p) => { %><span class="acomp-pendencia"><%= p %></span><% }) %>
+                                    <% a.pendencias.slice(0, 2).forEach((p) => { %><span class="acomp-pendencia"><%= p %></span><% }) %>
+                                    <% if (a.pendencias.length > 2) { %><span class="acomp-pendencia acomp-pendencia-mais" title="<%= a.pendencias.slice(2).join(' · ') %>">+<%= a.pendencias.length - 2 %></span><% } %>
                                 </td>
                             </tr>
                         <% }) %>
                     </tbody>
                 </table>
             </div>
+
+            <% if (paginacao.total > 0) { %>
+                <%
+                    const { pagina, totalPaginas, total, inicio, tamanho } = paginacao;
+                    const janelaInicio = Math.max(1, pagina - 2);
+                    const janelaFim = Math.min(totalPaginas, pagina + 2);
+                %>
+                <nav class="pagination" aria-label="Páginas de estudantes">
+                    <span class="pagination-info">Mostrando <%= inicio + 1 %>–<%= Math.min(inicio + tamanho, total) %> de <%= total %></span>
+                    <% if (totalPaginas > 1) { %>
+                        <div class="pagination-pages">
+                            <% if (pagina > 1) { %><a href="<%= link({ pagina: pagina - 1 }) %>" class="pagination-link">Anterior</a><% } %>
+                            <% if (janelaInicio > 1) { %>
+                                <a href="<%= link({ pagina: 1 }) %>" class="pagination-link">1</a>
+                                <% if (janelaInicio > 2) { %><span class="pagination-gap">…</span><% } %>
+                            <% } %>
+                            <% for (let p = janelaInicio; p <= janelaFim; p++) { %>
+                                <a href="<%= link({ pagina: p }) %>" class="pagination-link <%= p === pagina ? 'active' : '' %>" <%- p === pagina ? 'aria-current="page"' : '' %>><%= p %></a>
+                            <% } %>
+                            <% if (janelaFim < totalPaginas) { %>
+                                <% if (janelaFim < totalPaginas - 1) { %><span class="pagination-gap">…</span><% } %>
+                                <a href="<%= link({ pagina: totalPaginas }) %>" class="pagination-link"><%= totalPaginas %></a>
+                            <% } %>
+                            <% if (pagina < totalPaginas) { %><a href="<%= link({ pagina: pagina + 1 }) %>" class="pagination-link">Próxima</a><% } %>
+                        </div>
+                    <% } %>
+                </nav>
+            <% } %>
         </section>
     </main>
 

@@ -24,8 +24,8 @@
 
         <% if (user.cargo === 'admin') { %>
             <form action="/professor/aluno/<%= a.usuario_id %>/excluir" method="POST"
-                onsubmit="return confirm('Excluir este aluno definitivamente? A exclusão só será permitida se não houver registros ou vínculos associados.');">
-                <button type="submit" class="btn-danger btn-icon" title="Excluir aluno sem registros associados" aria-label="Excluir aluno sem registros associados">
+                onsubmit="return confirm('Excluir este estagiário definitivamente? A exclusão só será permitida se não houver registros ou vínculos associados.');">
+                <button type="submit" class="btn-danger btn-icon" title="Excluir estagiário sem registros associados" aria-label="Excluir estagiário sem registros associados">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <polyline points="3 6 5 6 21 6"></polyline>
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>

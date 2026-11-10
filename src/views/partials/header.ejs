@@ -42,19 +42,29 @@
                         <a href="/aluno/dashboard?aba=atividades" class="nav-link <%= ativo(noDash && aba === 'atividades') %>"><%- icone('lista') %> Atividades</a>
                         <a href="/aluno/dashboard?aba=fichas" class="nav-link <%= ativo((noDash && aba === 'fichas') || currentPath.startsWith('/aluno/faa')) %>"><%- icone('arquivo') %> Fichas</a>
                     <% } else { %>
-                        <% const emFichas = currentPath === '/professor/fichas' || currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/(fare|fapo|fac|banca)/.test(currentPath); %>
+                        <% const emFichas = currentPath === '/professor/fichas' || /^\/professor\/aluno\/\d+\/(fare|fapo|fac)/.test(currentPath); %>
+                        <% const emBancas = currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/banca/.test(currentPath); %>
                         <% const papeis = user.papeis || {}; %>
                         <% const externo = user.cargo === 'supervisor'; %>
                         <% const emAdmin = currentPath === '/professor/administracao' || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
                         <% const emAcompanhamento = currentPath === '/professor/acompanhamento'; %>
+                        <% const emInclusao = currentPath.startsWith('/professor/estagios'); %>
                         <%# o servidor mantém acesso direto; para os demais admins, Acompanhamento fica na Administração %>
                         <% if (!externo && papeis.servidor && user.cargo !== 'admin') { %>
                             <a href="/professor/acompanhamento" class="nav-link <%= ativo(emAcompanhamento) %>"><%- icone('olho') %> Acompanhamento</a>
                         <% } %>
+                        <%# o setor de estágios é quem costuma receber o estudante: inclui o estágio %>
+                        <% if (!externo && papeis.servidor) { %>
+                            <a href="/professor/estagios" class="nav-link <%= ativo(emInclusao) %>"><%- icone('mais') %> Inclusão de estágios</a>
+                        <% } %>
                         <% if (externo || papeis.orientador || papeis.supervisor) { %>
-                            <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && !emAcompanhamento && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> <%= externo ? 'Supervisionados' : 'Alunos' %></a>
+                            <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emBancas && !emAdmin && !emAcompanhamento && !emInclusao && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> <%= externo ? 'Supervisionados' : 'Estagiários' %></a>
                             <% if (!externo && currentPath !== '/supervisor/pendente') { %>
                                 <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
+                            <% } %>
+                            <%# quem orienta marca as bancas; por isso a agenda é item do menu %>
+                            <% if (!externo && papeis.orientador) { %>
+                                <a href="/professor/bancas" class="nav-link <%= ativo(emBancas) %>"><%- icone('calendario') %> Agenda de bancas</a>
                             <% } %>
                         <% } %>
                     <% } %>

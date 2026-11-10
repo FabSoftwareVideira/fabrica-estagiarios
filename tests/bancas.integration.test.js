@@ -97,7 +97,8 @@ test('somente orientador/admin alteram; horas pendentes, encerramento, repetiç�
     await db.exec("UPDATE alunos SET status='concluido',encerrado_em=NOW() WHERE usuario_id=201");
     await assert.rejects(bancas.salvar(201, orientador, dados()), /estágio aberto/);
     await db.exec('UPDATE alunos SET encerrado_em=NULL WHERE usuario_id=201');
-    assert.equal((await http('/professor/aluno/201/banca', { user: 106, body: dados() })).status, 302);
+    // só o orientador marca a banca: administrador que não orienta recebe 403
+    assert.equal((await http('/professor/aluno/201/banca', { user: 106, body: dados() })).status, 403);
 });
 test('validação rejeita passado, horários inválidos, link inseguro e mantém os valores em conflito', async () => {
     for (const extra of [{ data: '2026-02-30' }, { data: '2000-01-01' }, { hora_inicio: '25:00' }, { hora_fim: '13:00' }, { avaliador_2_id: '102' }, { link_reuniao: 'javascript:alert(1)' }]) {
@@ -172,7 +173,9 @@ test('painel e agenda destacam as bancas em que o professor participa', async ()
     assert.deepEqual((await bancas.listarProximasDoProfessor(999)), []);
 
     const painelAvaliador = await (await http('/professor/dashboard', { user: 102 })).text();
-    assert.match(painelAvaliador, /Suas próximas bancas/); assert.match(painelAvaliador, /Avaliador 1 · Sala 12/);
+    assert.match(painelAvaliador, /Próxima banca:/); assert.match(painelAvaliador, /avaliador 1 · Sala 12/);
+    // o painel não repete o atalho filtrado da agenda: ela é item do menu
+    assert.doesNotMatch(painelAvaliador, /href="\/professor\/bancas\?/);
     assert.doesNotMatch(painelAvaliador, /Sala 20/);
     assert.doesNotMatch(await (await http('/professor/dashboard', { user: 103 })).text(), /Sala 20/);
 
@@ -192,11 +195,44 @@ test('quem desativou os avisos de banca no perfil não recebe e-mail nem entra n
         assert.deepEqual(enviados[0].to.map((p) => p.address).sort(), ['101@example.test', '103@example.test']);
         assert.doesNotMatch(enviados[0].icalEvent.content, /102@example\.test|ana@example\.test/);
         // a banca continua aparecendo no painel de quem desativou o e-mail
-        assert.match(await (await http('/professor/dashboard', { user: 102 })).text(), /Suas próximas bancas/);
+        assert.match(await (await http('/professor/dashboard', { user: 102 })).text(), /Próxima banca:/);
 
         // ninguém quer receber: nada é enviado e o agendamento segue normalmente
         await db.exec('UPDATE usuarios SET receber_email_bancas = false');
         assert.equal((await http('/professor/aluno/201/banca/situacao', { body: { versao: '1', situacao: 'cancelada' } })).status, 302);
         assert.equal(enviados.length, 1);
+    } finally { usarConfiguracaoEmail(null); }
+});
+test('só o orientador marca a banca; o supervisor pode ser convidado sem ser avaliador', async () => {
+    const { usarConfiguracaoEmail } = require('../src/services/conviteBanca');
+    const enviados = [];
+    usarConfiguracaoEmail(() => ({ remetente: 'estagios@example.test', enderecoRemetente: 'estagios@example.test',
+        urlAplicacao: 'https://estagios.example.test', transporte: { async sendMail(mail) { enviados.push(mail); return { rejected: [] }; } } }));
+    try {
+        // administrador que não é o orientador só consulta
+        assert.equal((await http('/professor/aluno/202/banca', { user: 106, body: dados({ avaliador_1_id: '105', avaliador_2_id: '101' }) })).status, 403);
+        assert.doesNotMatch(await (await http('/professor/aluno/202/banca', { user: 106 })).text(), /Confirmar agendamento/);
+        assert.equal(await bancas.buscarPorAluno(202), null);
+
+        // orientador (104) convida o supervisor do estagiário (102), que não está entre os avaliadores
+        const form = await (await http('/professor/aluno/202/banca', { user: 104 })).text();
+        assert.match(form, /Convidar o supervisor \(Professor 102\)/);
+        assert.equal((await http('/professor/aluno/202/banca', { user: 104, body: dados({ avaliador_1_id: '105', avaliador_2_id: '101', convidar_supervisor: 'on' }) })).status, 302);
+        const banca = await bancas.buscarPorAluno(202);
+        assert.equal(banca.convidar_supervisor, true);
+        const convite = enviados[0];
+        assert.ok(convite.to.some((p) => p.address === '102@example.test'));
+        assert.match(convite.icalEvent.content.replace(/\r\n /g, ''), /ATTENDEE;CN=Professor 102;ROLE=OPT-PARTICIPANT/);
+        assert.match(convite.text, /Supervisor \(convidado\): Professor 102/);
+        assert.match(await (await http('/professor/bancas', { user: 104 })).text(), /Supervisor \(convidado\)/);
+
+        // retirar o convite manda o cancelamento só para o supervisor
+        assert.equal((await http('/professor/aluno/202/banca', { user: 104, body: dados({ avaliador_1_id: '105', avaliador_2_id: '101', versao: '1' }) })).status, 302);
+        assert.equal((await bancas.buscarPorAluno(202)).convidar_supervisor, false);
+        assert.deepEqual(enviados[2].to.map((p) => p.address), ['102@example.test']);
+        assert.equal(enviados[2].icalEvent.method, 'CANCEL');
+
+        // a agenda é item do menu de quem orienta
+        assert.match(await (await http('/professor/dashboard', { user: 104 })).text(), /href="\/professor\/bancas" class="nav-link/);
     } finally { usarConfiguracaoEmail(null); }
 });

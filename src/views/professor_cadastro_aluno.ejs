@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aprovar Cadastro de Aluno</title>
+    <title>Aprovar cadastro de estagiário</title>
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme.css">
@@ -14,6 +14,7 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/flash') %>
+        <%- include('partials/breadcrumb', { itens: [listaAlunosNav(user), { texto: 'Aprovar cadastro de ' + aluno.nome }] }) %>
 
         <div class="page-head">
             <div>
@@ -96,8 +97,8 @@
                 </div>
             </section>
 
-            <section class="form-secao" data-passo data-titulo="Horários" data-passo-horarios>
-                <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {} }) %>
+            <section class="form-secao" data-passo data-titulo="Horários" data-passo-horarios data-horarios-opcionais>
+                <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {}, opcional: true }) %>
             </section>
 
             <section class="form-secao" data-passo data-titulo="Revisão" data-passo-revisao hidden>

@@ -13,8 +13,10 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/flash') %>
-
-        <h2>Relatório semanal por e-mail</h2>
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Administração', href: '/professor/administracao' },
+            { texto: 'Relatório semanal' }
+        ] }) %>
         <p class="page-subtitle text-muted">Configure o envio do resumo de estágio para os supervisores.</p>
 
         <section class="card">

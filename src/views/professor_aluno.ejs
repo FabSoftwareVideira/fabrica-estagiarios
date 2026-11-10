@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalhes do <%= user.cargo === 'supervisor' ? 'Supervisionado' : 'Aluno' %></title>
+    <title>Detalhes do <%= user.cargo === 'supervisor' ? 'supervisionado' : 'estagiário' %></title>
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme.css">
@@ -14,7 +14,7 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/breadcrumb', { itens: [
-            { texto: user.cargo === 'supervisor' ? 'Supervisionados' : (user.papeis && user.papeis.servidor ? 'Acompanhamento' : 'Alunos'), href: user.papeis && user.papeis.servidor ? '/professor/acompanhamento' : '/professor/dashboard' },
+            listaAlunosNav(user),
             { texto: aluno.nome }
         ] }) %>
         <%- include('partials/flash') %>
@@ -32,7 +32,11 @@
 
             // abas: cada assunto da tela fica no seu painel
             const temFichas = aluno.status !== 'lista_espera';
-            const podeEditar = !encerrado && !aluno.arquivado && user.cargo !== 'supervisor';
+            // Editar estágio: só o orientador do estagiário e o administrador, e só depois
+            // da aprovação (quem está na lista de espera passa pelo fluxo de aprovação).
+            const emEspera = aluno.status === 'lista_espera';
+            const podeEditar = !encerrado && !aluno.arquivado && !emEspera
+                && (ehOrientador || user.cargo === 'admin');
             const abas = [['atividades', 'Atividades']];
             if (temFichas) abas.push(['fichas', 'Fichas']);
             if (podeEditar) abas.push(['estagio', 'Editar estágio']);
@@ -140,6 +144,17 @@
             </div>
         <% } %>
 
+        <% if (emEspera && user.cargo !== 'supervisor' && !aluno.arquivado) { %>
+            <div class="aviso aviso-info" role="status">
+                <%- icone('info') %>
+                <div>
+                    <strong>Cadastro aguardando aprovação</strong>
+                    Os dados do estágio são definidos na aprovação: orientador, supervisor, empresa, carga horária e horários.
+                    <div style="margin-top: 10px;"><a href="/professor/cadastro-aluno/<%= aluno.usuario_id %>" class="btn btn-success btn-sm"><%- icone('check') %> Aprovar cadastro</a></div>
+                </div>
+            </div>
+        <% } %>
+
         <section class="student-dashboard-tabs" data-dashboard-tabs>
             <div class="dashboard-tab-list" role="tablist" aria-label="Seções do estudante">
                 <% abas.forEach(([chave, rotulo]) => { %>
@@ -163,7 +178,7 @@
 
                     <p class="text-muted">
                         A validação das horas é responsabilidade do supervisor atribuído ao estágio.
-                        Ao invalidar uma atividade, as horas deixam de contar e <%= user.cargo === 'supervisor' ? 'o supervisionado precisará' : 'o aluno precisará' %> registrar outra.
+                        Ao invalidar uma atividade, as horas deixam de contar e <%= user.cargo === 'supervisor' ? 'o supervisionado precisará' : 'o estagiário precisará' %> registrar outra.
                         <% if (!aluno.arquivado && !podeValidarAtividades) { %>
                             Você pode consultar as atividades, mas somente o supervisor pode validá-las ou invalidá-las.
                         <% } %>
@@ -318,26 +333,6 @@
             <!-- Editar estágio -->
             <section class="dashboard-tab-panel" id="panel-estagio" role="tabpanel" aria-labelledby="tab-estagio" tabindex="0" <%= abaSelecionada === 'estagio' ? '' : 'hidden' %>>
                 <form action="/professor/aluno/<%= aluno.usuario_id %>" method="POST" class="card">
-                    <section class="form-secao">
-                        <h2>Situação</h2>
-                        <% if (aluno.status === 'concluido') { %>
-                            <p><span class="status status-completed">Concluído</span></p>
-                            <p class="text-muted">
-                                A conclusão é automática. Remova a validação de alguma atividade para que o
-                                aluno volte para "Em andamento".
-                            </p>
-                            <input type="hidden" name="status" value="em_andamento">
-                        <% } else { %>
-                            <div class="form-field form-campo-curto">
-                                <label for="status">Status do estágio</label>
-                                <select id="status" name="status">
-                                    <option value="lista_espera" <%= aluno.status === 'lista_espera' ? 'selected' : '' %>>Lista de espera</option>
-                                    <option value="em_andamento" <%= aluno.status === 'em_andamento' ? 'selected' : '' %>>Em andamento</option>
-                                </select>
-                                <small>"Concluído" é definido automaticamente quando as horas validadas atingem a carga horária.</small>
-                            </div>
-                        <% } %>
-                    </section>
 
                     <% if (ehOrientador) { %>
                         <section class="form-secao">
@@ -395,7 +390,7 @@
                     </section>
 
                     <section class="form-secao">
-                        <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {} }) %>
+                        <%- include('partials/horario-trabalho-campos', { diasTrabalho, horarioTrabalho: aluno.horario_trabalho || {}, opcional: true }) %>
                     </section>
 
                     <div class="form-actions">

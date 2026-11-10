@@ -5,7 +5,7 @@
 const alunosModel = require('../models/alunos');
 const usuariosModel = require('../models/usuarios');
 const { estagioStatus } = require('../config/status');
-const { papeisDoPerfil } = require('../config/papeis');
+const { papeisDoPerfil, temAlunosProprios } = require('../config/papeis');
 
 async function attachUser(req, res, next) {
     if (req.session.user) {
@@ -34,6 +34,21 @@ async function attachUser(req, res, next) {
     res.locals.flash = req.session.flash || null;
     res.locals.currentPath = req.path;
     res.locals.currentTab = req.query.aba || null;
+    // Breadcrumbs. A raiz é a tela inicial da pessoa; administrador não vira
+    // raiz das telas de alunos e fichas, que ficam separadas da Administração.
+    res.locals.raizNav = (usuario) => {
+        if (!usuario) return { texto: 'Início', href: '/' };
+        if (usuario.tipo === 'aluno') return { texto: 'Início', href: '/aluno/dashboard' };
+        if (usuario.cargo === 'supervisor') return { texto: 'Supervisionados', href: '/professor/dashboard' };
+        return { texto: 'Início', href: '/professor/inicio' };
+    };
+    // De onde se chega a um estudante: a própria lista (quem orienta ou
+    // supervisiona) ou o acompanhamento (quem só acompanha todos).
+    res.locals.listaAlunosNav = (usuario) => {
+        if (usuario && usuario.cargo === 'supervisor') return { texto: 'Supervisionados', href: '/professor/dashboard' };
+        if (temAlunosProprios(usuario)) return { texto: 'Estagiários', href: '/professor/dashboard' };
+        return { texto: 'Acompanhamento', href: '/professor/acompanhamento' };
+    };
     res.locals.estagioStatus = estagioStatus;
     res.locals.alunoEncerrado = false;
     delete req.session.flash;

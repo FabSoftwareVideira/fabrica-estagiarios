@@ -8,7 +8,7 @@ const { agoraBrasilia, lerAgendamento, SITUACOES_BANCA, celulaCsv } = require('.
 const { notificarBanca, participantesDaBanca } = require('../services/conviteBanca');
 
 // Campos cuja mudança justifica avisar os participantes de novo.
-const CAMPOS_DO_CONVITE = ['data', 'hora_inicio', 'hora_fim', 'sala', 'link_reuniao', 'observacoes', 'orientador_id', 'avaliador_1_id', 'avaliador_2_id'];
+const CAMPOS_DO_CONVITE = ['data', 'hora_inicio', 'hora_fim', 'sala', 'link_reuniao', 'observacoes', 'orientador_id', 'avaliador_1_id', 'avaliador_2_id', 'convidar_supervisor'];
 const AVISO_SEM_EMAIL = ' Não foi possível enviar o aviso por e-mail; avise os participantes por outro meio.';
 
 function filtrosDaAgenda(query) {
@@ -56,17 +56,18 @@ async function carregar(req, res, next) {
 }
 async function renderizar(req, res, valores, erros = []) {
     const [banca, professores] = await Promise.all([bancas.buscarPorAluno(req.params.id), usuarios.listarProfessores()]);
-    const gerencia = req.session.user.cargo === 'admin' || Number(req.aluno.orientador_id) === Number(req.session.user.id);
+    // só o orientador marca a banca; os demais consultam
+    const gerencia = Number(req.aluno.orientador_id) === Number(req.session.user.id);
     const podeEditar = gerencia && req.aluno.status === 'concluido' && !req.aluno.encerrado_em && !req.aluno.arquivado && banca?.situacao !== 'realizada';
     res.render('professor_banca', { aluno: req.aluno, banca, professores, podeEditar, gerencia,
         situacoes: SITUACOES_BANCA, erros, hoje: agoraBrasilia().data,
         valores: valores || banca || { data: '', hora_inicio: '', hora_fim: '', sala: '', link_reuniao: '',
-            observacoes: '', avaliador_1_id: '', avaliador_2_id: '', versao: 0 } });
+            observacoes: '', avaliador_1_id: '', avaliador_2_id: '', convidar_supervisor: false, versao: 0 } });
 }
 router.get('/aluno/:id/banca', carregar, (req, res) => renderizar(req, res));
 router.post('/aluno/:id/banca', carregar, async (req, res) => {
-    if (!(req.session.user.cargo === 'admin' || Number(req.aluno.orientador_id) === Number(req.session.user.id))) {
-        return res.status(403).send('Apenas o orientador do estudante ou um administrador pode gerenciar esta banca.');
+    if (Number(req.aluno.orientador_id) !== Number(req.session.user.id)) {
+        return res.status(403).send('Apenas o orientador do estagiário pode gerenciar esta banca.');
     }
     const { valores, erros } = lerAgendamento(req.body);
     if (erros.length) return renderizar(req, res.status(422), valores, erros);

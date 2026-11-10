@@ -156,7 +156,7 @@ A interface usa sempre o tema claro. O botão "Alto contraste" na barra superior
 
 ## Papéis
 
-Estudantes e supervisores externos têm um papel só. As contas internas (`@ifc.edu.br`) podem acumular papéis, definidos pelo administrador em **Administração → Gerenciar usuários**, no botão de escudo da linha da pessoa:
+Estudantes e supervisores externos têm um papel só. As contas internas (`@ifc.edu.br`) podem acumular papéis, definidos pelo administrador em **Administração → Usuários e papéis**. O botão de lápis na linha da pessoa abre a tela de edição, onde o administrador altera nome, e-mail e os dados do tipo de conta (matrícula e curso do estudante, papéis da conta interna, empresa e função do supervisor externo). Um professor pode ser orientador e supervisor ao mesmo tempo:
 
 | Papel | O que permite |
 |---|---|
@@ -169,9 +169,25 @@ Todo `@ifc.edu.br` entra, no primeiro acesso, como orientador e supervisor (o e-
 
 No banco, administrador é `professores.cargo = 'admin'` e os demais papéis ficam em `papel_servidor`, `papel_orientador` e `papel_supervisor` (migrações `026_papel_servidor.sql` e `027_papeis_multiplos.sql`); as regras estão em `src/config/papeis.js`. Em desenvolvimento, a tela de login tem o atalho "Entrar como Servidor".
 
+## Inclusão de estágios (setor de estágios)
+
+O setor de estágios costuma ser o primeiro contato do estudante. Quem tem o papel de servidor vê **Inclusão de estágios** no menu (o administrador chega pelo botão "Incluir estágio" do Acompanhamento). O fluxo tem cinco etapas:
+
+1. **Estagiário**: escolher um estudante da lista de espera ou cadastrar um novo (nome, e-mail, matrícula opcional e curso). Para o novo, a conta é criada na conclusão; ele entra depois com a conta Google ou GitHub desse e-mail.
+2. **Responsáveis**: orientador (obrigatório) e supervisor (opcional).
+3. **Estágio**: empresa e carga horária.
+4. **Horários**: dias e horários de trabalho.
+5. **Revisão**: resumo e "Concluir inclusão", que deixa o estágio em andamento, como a aprovação de cadastro.
+
+"Salvar rascunho" grava o formulário como está, em qualquer etapa; a lista de rascunhos fica em **Inclusão de estágios**, e qualquer pessoa do setor pode continuar de onde parou. Ao concluir, o rascunho é apagado. Os rascunhos ficam na tabela `estagios_rascunhos` (migração `029_rascunhos_inclusao_estagio.sql`).
+
 ## Acompanhamento (administrador e servidor)
 
 Em **Administração → Acompanhamento dos estágios** (ou no menu **Acompanhamento**, para o servidor; `/professor/acompanhamento`), o administrador ou o servidor vê quantos estudantes estão em cada etapa (lista de espera, em andamento, aguardando banca, encerrado), a distribuição por curso e a lista de estudantes com etapa, horas e pendências (cadastro a aprovar, sem orientador ou supervisor, mais de 5 dias sem registrar, horas aguardando validação, banca não agendada, curso não informado). Estágios arquivados e contas desativadas não entram.
+
+## Agenda de bancas
+
+Quem tem o papel de orientador vê **Agenda de bancas** no menu. Só o orientador do estagiário marca, remarca ou cancela a banca; os demais professores, servidores e administradores apenas consultam. No passo dos avaliadores, o orientador pode marcar **Convidar o supervisor**: o supervisor do estagiário recebe o convite (como participante opcional no `banca.ics`), mas não é avaliador. A escolha fica em `bancas.convidar_supervisor` (migração `028_banca_convite_supervisor.sql`).
 
 ## Avisos e convites da banca
 

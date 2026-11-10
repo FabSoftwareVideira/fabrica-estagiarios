@@ -42,7 +42,7 @@
                 <%- icone('check') %>
                 <div>
                     <strong>Estágio concluído em <%= dataBr(aluno.encerrado_em) %></strong>
-                    A ata está pronta para impressão. O aluno só pode consultar e imprimir as fichas.
+                    A ata está pronta para impressão. O estagiário só pode consultar e imprimir as fichas.
                 </div>
             </div>
 
@@ -87,9 +87,9 @@
 
             <div class="card">
                 <h2>Precisa corrigir algo?</h2>
-                <p class="text-muted">Reabrir o estágio devolve ao aluno a edição da FAA e deixa a ata como rascunho. Depois é só concluir de novo.</p>
+                <p class="text-muted">Reabrir o estágio devolve ao estagiário a edição da FAA e deixa a ata como rascunho. Depois é só concluir de novo.</p>
                 <form action="/professor/aluno/<%= aluno.usuario_id %>/fare/reabrir" method="POST" class="card-actions"
-                    onsubmit="return confirm('Reabrir o estágio? O aluno poderá editar a FAA de novo e a ata voltará a ser rascunho.');">
+                    onsubmit="return confirm('Reabrir o estágio? O estagiário poderá editar a FAA de novo e a ata voltará a ser rascunho.');">
                     <button type="submit" class="btn-danger"><%- icone('refazer') %> Reabrir estágio</button>
                 </form>
             </div>
@@ -147,7 +147,7 @@
 
                             <% if (faa) { %>
                                 <div class="fonte-nota" data-ata-fixa="faa" data-valor="<%= notaFaa %>" data-peso="1">
-                                    <span>FAA · Autoavaliação (peso 1)<br><small class="text-muted">Média das 10 notas que o aluno deu.</small></span>
+                                    <span>FAA · Autoavaliação (peso 1)<br><small class="text-muted">Média das 10 notas que o estagiário deu.</small></span>
                                     <strong><%= fmt(notaFaa) %></strong>
                                 </div>
                             <% } else { %>
@@ -156,7 +156,7 @@
                                         <label for="nota_faa_manual">FAA · Autoavaliação (peso 1)</label>
                                         <input type="number" id="nota_faa_manual" name="nota_faa_manual" min="0" max="10" step="0.1" inputmode="decimal"
                                             value="<%= v(valores.nota_faa_manual) %>" data-ata-nota="faa" data-peso="1" placeholder="Ex.: 8,5">
-                                        <small>O aluno ainda não preencheu a FAA no sistema. Digite a nota da ficha em papel.</small>
+                                        <small>O estagiário ainda não preencheu a FAA no sistema. Digite a nota da ficha em papel.</small>
                                     </div>
                                 </div>
                             <% } %>
@@ -212,7 +212,7 @@
                                 </label>
                                 <label class="opcao-resultado">
                                     <input type="radio" name="resultado" value="aprovado_ressalva" <%= valores.resultado === 'aprovado_ressalva' ? 'checked' : '' %>>
-                                    <span>Aprovado com ressalva<small>O aluno precisa corrigir algo até uma data.</small></span>
+                                    <span>Aprovado com ressalva<small>O estagiário precisa corrigir algo até uma data.</small></span>
                                 </label>
                                 <div class="ressalva-extra" data-ressalva <%= valores.resultado === 'aprovado_ressalva' ? '' : 'hidden' %>>
                                     <div class="ressalva-linha">
@@ -265,7 +265,7 @@
                                     <a href="/professor/aluno/<%= aluno.usuario_id %>/fare/pdf" class="btn btn-secondary"><%- icone('olho') %> Prévia em PDF</a>
                                 <% } %>
                                 <button type="submit" name="acao" value="finalizar" class="btn-success"
-                                    data-confirmar="Concluir o estágio? Depois disso o aluno só poderá consultar e imprimir as fichas. Você ainda poderá reabrir se precisar corrigir algo.">
+                                    data-confirmar="Concluir o estágio? Depois disso o estagiário só poderá consultar e imprimir as fichas. Você ainda poderá reabrir se precisar corrigir algo.">
                                     <%- icone('cadeado') %> Concluir estágio e emitir ata
                                 </button>
                             </div>

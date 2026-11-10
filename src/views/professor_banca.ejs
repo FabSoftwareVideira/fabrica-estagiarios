@@ -18,7 +18,7 @@
         <% if (banca) { %><span class="status status-progress"><%= situacoes[banca.situacao] %></span><% } %>
     </div>
     <% if (erros.length) { %><div class="flash flash-error" role="alert"><ul><% erros.forEach((e) => { %><li><%= e %></li><% }) %></ul></div><% } %>
-    <% if (!podeEditar) { %><p class="aviso aviso-info">Consulta do agendamento. Para agendar ou remarcar, é necessário ser o orientador ou administrador, com as horas cumpridas e o estágio aberto.</p><% } %>
+    <% if (!podeEditar) { %><p class="aviso aviso-info">Consulta do agendamento. Só o orientador do estagiário agenda ou remarca a banca, com as horas cumpridas e o estágio aberto.</p><% } %>
     <form action="/professor/aluno/<%= aluno.usuario_id %>/banca" method="POST" class="card wizard" <%- emFluxo ? 'data-wizard data-wizard-inicio="' + (erros.length ? 1 : 0) + '"' : '' %>>
         <input type="hidden" name="versao" value="<%= valores.versao %>">
         <ol class="wizard-etapas" data-wizard-etapas hidden></ol>
@@ -35,6 +35,12 @@
                         <option value="">Selecione um professor</option><% avaliadoresPossiveis.forEach((p) => { %><option value="<%= p.id %>" <%= String(valores['avaliador_' + n + '_id']) === String(p.id) ? 'selected' : '' %>><%= p.nome %></option><% }) %>
                     </select></div><% }) %>
                 </div>
+                <% if (aluno.supervisor_id) { %>
+                    <label class="papeis-opcao papeis-cartao banca-convite">
+                        <input type="checkbox" name="convidar_supervisor" <%= valores.convidar_supervisor ? 'checked' : '' %> data-resumo="Supervisor convidado" data-resumo-sim="<%= aluno.supervisor_nome %>" data-resumo-vazio="Não convidado">
+                        <span>Convidar o supervisor (<%= aluno.supervisor_nome %>)<small>Recebe o convite para a banca, mas não é avaliador.</small></span>
+                    </label>
+                <% } %>
             </section>
 
             <section class="form-secao" data-passo data-titulo="Data e horário">

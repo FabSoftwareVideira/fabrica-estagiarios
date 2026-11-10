@@ -38,7 +38,13 @@ function participantesDaBanca(banca) {
         { papel: 'Avaliador 1', nome: banca.avaliador_1_nome, email: banca.avaliador_1_email, recebe: banca.avaliador_1_recebe_email },
         { papel: 'Avaliador 2', nome: banca.avaliador_2_nome, email: banca.avaliador_2_email, recebe: banca.avaliador_2_recebe_email },
         { papel: 'Estudante', nome: banca.aluno_nome, email: banca.aluno_email, recebe: banca.aluno_recebe_email },
-    ].filter((p) => p.email && p.recebe !== false);
+        ...(banca.convidar_supervisor
+            ? [{ papel: 'Supervisor (convidado)', nome: banca.supervisor_nome, email: banca.supervisor_email, recebe: banca.supervisor_recebe_email, opcional: true }]
+            : []),
+    ]
+        .filter((p) => p.email && p.recebe !== false)
+        // o supervisor pode já estar na banca como avaliador: não repete
+        .filter((p, i, todos) => todos.findIndex((o) => o.email.toLowerCase() === p.email.toLowerCase()) === i);
 }
 
 function gerarIcs(banca, { cancelada = false, organizador, dominio, participantes = participantesDaBanca(banca), agora = new Date() } = {}) {
@@ -67,7 +73,7 @@ function gerarIcs(banca, { cancelada = false, organizador, dominio, participante
         ...(banca.link_reuniao ? [`URL:${banca.link_reuniao}`] : []),
         `STATUS:${cancelada ? 'CANCELLED' : 'CONFIRMED'}`,
         `ORGANIZER;CN=${textoIcs('Controle de Estágio')}:mailto:${organizador}`,
-        ...participantes.map((p) => `ATTENDEE;CN=${textoIcs(p.nome)};ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=FALSE:mailto:${p.email}`),
+        ...participantes.map((p) => `ATTENDEE;CN=${textoIcs(p.nome)};ROLE=${p.opcional ? 'OPT-PARTICIPANT' : 'REQ-PARTICIPANT'};PARTSTAT=NEEDS-ACTION;RSVP=FALSE:mailto:${p.email}`),
         'END:VEVENT',
         'END:VCALENDAR',
     ];
@@ -91,6 +97,7 @@ function montarEmail(banca, tipo, urlAplicacao) {
         ...(banca.link_reuniao ? [['Link da reunião', banca.link_reuniao]] : []),
         ['Orientador', banca.orientador_nome],
         ['Avaliadores', `${banca.avaliador_1_nome} e ${banca.avaliador_2_nome}`],
+        ...(banca.convidar_supervisor && banca.supervisor_nome ? [['Supervisor (convidado)', banca.supervisor_nome]] : []),
         ...(banca.observacoes ? [['Observações', banca.observacoes]] : []),
     ];
     const cancelamento = tipo === 'cancelada' || tipo === 'removido';
