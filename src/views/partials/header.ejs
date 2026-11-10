@@ -44,7 +44,7 @@
                     <% } else { %>
                         <% const emFichas = currentPath === '/professor/fichas' || currentPath.startsWith('/professor/bancas') || /^\/professor\/aluno\/\d+\/(fare|fapo|fac|banca)/.test(currentPath); %>
                         <% const emAdmin = (currentPath === '/professor/dashboard' && currentTab === 'administracao') || currentPath.startsWith('/professor/usuarios') || ['/professor/relatorio-semanal', '/professor/professores', '/professor/cadastros'].includes(currentPath); %>
-                        <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> Alunos</a>
+                        <a href="/professor/dashboard" class="nav-link <%= ativo(!emFichas && !emAdmin && currentPath.startsWith('/professor') && currentPath !== '/professor/fichas') %>"><%- icone('usuarios') %> <%= user.cargo === 'supervisor' ? 'Supervisionados' : 'Alunos' %></a>
                         <% if (user.cargo !== 'supervisor' && currentPath !== '/supervisor/pendente') { %>
                             <a href="/professor/fichas" class="nav-link <%= ativo(emFichas) %>"><%- icone('arquivo') %> Fichas</a>
                         <% } %>

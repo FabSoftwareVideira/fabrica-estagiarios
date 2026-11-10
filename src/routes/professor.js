@@ -40,7 +40,9 @@ router.use(async (req, res, next) => {
         || (req.method === 'GET' && /^\/aluno\/\d+$/.test(req.path))
         || (req.method === 'POST' && /^\/aluno\/\d+\/atividade\/\d+\/(validar|invalidar)$/.test(req.path))
         || (/^\/aluno\/\d+\/fac(?:\/pdf)?$/.test(req.path) && ['GET', 'POST'].includes(req.method))
-        || (req.method === 'GET' && /^\/aluno\/\d+\/(ficha-acompanhamento|faa\/pdf)$/.test(req.path));
+        // o supervisor não acessa FAA, FAPO, banca nem ata (FARE); só a ficha
+        // de acompanhamento das atividades dos seus supervisionados
+        || (req.method === 'GET' && /^\/aluno\/\d+\/ficha-acompanhamento$/.test(req.path));
     if (!caminhoPermitido) return res.redirect('/professor/dashboard');
 
     const alunoMatch = req.path.match(/^\/aluno\/(\d+)/);

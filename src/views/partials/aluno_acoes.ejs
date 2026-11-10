@@ -6,6 +6,10 @@
         </svg>
     </a>
 
+    <% if (user.cargo === 'supervisor' && a.status === 'concluido' && !a.encerrado_em && !a.arquivado) { %>
+        <a href="/professor/aluno/<%= a.usuario_id %>/fac" class="btn btn-success btn-sm" title="Preencher FAC" aria-label="Preencher FAC"><%- icone('caneta') %> Preencher FAC</a>
+    <% } %>
+
     <% if (user.cargo !== 'supervisor' && a.arquivado) { %>
         <form action="/professor/aluno/<%= a.usuario_id %>/desarquivar" method="POST">
             <button type="submit" class="btn-secondary btn-icon" title="Desarquivar" aria-label="Desarquivar">

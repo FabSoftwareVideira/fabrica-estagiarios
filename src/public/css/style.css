@@ -327,6 +327,7 @@ input[type="number"], input[type="search"], select, textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+textarea.textarea-compacta { min-height: 0; height: auto; }
 input:hover, select:hover, textarea:hover { border-color: var(--azul-700); }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul-700); box-shadow: 0 0 0 3px var(--azul-200); }
 input[readonly], input:disabled, select:disabled, textarea:disabled { background: var(--azul-50); color: var(--texto-suave); border-color: var(--borda); }
@@ -668,6 +669,22 @@ html.alto-contraste .approval-avatar { color: #ffd700; }
 .secao-titulo { font-size: 18px; margin: 26px 0 12px; color: var(--azul-900); display: flex; align-items: center; gap: 10px; }
 html.alto-contraste .secao-titulo { color: #ffd700; }
 .contagem { background: var(--azul-100); color: var(--azul-800); border-radius: 999px; font-size: 13px; padding: 1px 10px; font-weight: 700; }
+
+/* Cards dos supervisionados (painel do supervisor) */
+.supervisionados-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.supervisionado-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; background: var(--superficie);
+  border: 1px solid var(--borda-suave); border-left: 5px solid var(--azul-700);
+  border-radius: var(--raio-cartao); box-shadow: var(--sombra);
+}
+.supervisionado-card.is-pendente { border-left-color: var(--verde-600); }
+.supervisionado-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.supervisionado-head h3 { margin: 0; font-size: 17px; }
+.supervisionado-head h3 a { color: var(--azul-900); text-decoration: none; }
+.supervisionado-head h3 a:hover { text-decoration: underline; }
+.supervisionado-meta { font-size: 14px; color: var(--texto-suave); margin: 0; }
+.supervisionado-orientador { font-size: 13px; margin-top: 4px; }
+.supervisionado-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 8px; }
 
 /* ===========================
    Detalhes do aluno (professor)

@@ -114,16 +114,26 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
 
     const expressaoOrdenacao = ORDENACOES[ordenarPor];
     const sentido = direcao === 'desc' ? 'DESC' : 'ASC';
-    const orderBy = expressaoOrdenacao
-        ? `${expressaoOrdenacao} ${sentido}, u.nome`
+    const ordemPadrao = supervisorId != null
+        // supervisor: primeiro quem está aguardando a FAC (horas cumpridas)
+        ? `CASE
+                WHEN a.status = 'concluido' AND a.encerrado_em IS NULL THEN 1
+                WHEN a.status = 'em_andamento' THEN 2
+                WHEN a.status = 'concluido' THEN 3
+                ELSE 4
+           END, u.nome`
         : `${ORDENACOES.status},
            u.nome`;
+    const orderBy = expressaoOrdenacao
+        ? `${expressaoOrdenacao} ${sentido}, u.nome`
+        : ordemPadrao;
 
     const valoresPagina = [...valores, limite, offset];
     const { rows } = await pool.query(
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome,
                 ori.nome AS orientador_nome,
+                EXISTS (SELECT 1 FROM facs f WHERE f.aluno_id = a.usuario_id) AS tem_fac,
                 COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas,
                 COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente'), 0) AS horas_pendentes
          FROM alunos a

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalhes do Aluno</title>
+    <title>Detalhes do <%= user.cargo === 'supervisor' ? 'Supervisionado' : 'Aluno' %></title>
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme.css">
@@ -14,7 +14,7 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/breadcrumb', { itens: [
-            { texto: 'Alunos', href: '/professor/dashboard' },
+            { texto: user.cargo === 'supervisor' ? 'Supervisionados' : 'Alunos', href: '/professor/dashboard' },
             { texto: aluno.nome }
         ] }) %>
         <%- include('partials/flash') %>
@@ -127,6 +127,19 @@
             </div>
         <% } %>
 
+        <% if (user.cargo === 'supervisor' && aluno.status === 'concluido' && !encerrado && !aluno.arquivado) { %>
+            <div class="aviso aviso-ok" role="status">
+                <%- icone('caneta') %>
+                <div>
+                    <strong>Horas cumpridas — preencha a FAC</strong>
+                    A avaliação do supervisor é necessária para a ata da banca.
+                    <div class="form-actions" style="margin-top: 10px;">
+                        <a class="btn btn-success btn-sm" href="/professor/aluno/<%= aluno.usuario_id %>/fac"><%- icone('caneta') %> <%= fac ? 'Revisar FAC' : 'Preencher FAC' %></a>
+                    </div>
+                </div>
+            </div>
+        <% } %>
+
         <section class="student-dashboard-tabs" data-dashboard-tabs>
             <div class="dashboard-tab-list" role="tablist" aria-label="Seções do estudante">
                 <% abas.forEach(([chave, rotulo]) => { %>
@@ -150,7 +163,7 @@
 
                     <p class="text-muted">
                         A validação das horas é responsabilidade do supervisor atribuído ao estágio.
-                        Ao invalidar uma atividade, as horas deixam de contar e o aluno precisará registrar outra.
+                        Ao invalidar uma atividade, as horas deixam de contar e <%= user.cargo === 'supervisor' ? 'o supervisionado precisará' : 'o aluno precisará' %> registrar outra.
                         <% if (!aluno.arquivado && !podeValidarAtividades) { %>
                             Você pode consultar as atividades, mas somente o supervisor pode validá-las ou invalidá-las.
                         <% } %>
@@ -255,17 +268,19 @@
                 <div class="card">
                     <h2>Fichas</h2>
                     <ul class="docs-lista">
-                        <% if (aluno.status === 'concluido') { %>
+                        <% if (aluno.status === 'concluido' && user.cargo !== 'supervisor') { %>
                             <li><span class="doc-nome">Agendamento da banca<small>Data, sala e participantes</small></span><a href="/professor/aluno/<%= aluno.usuario_id %>/banca" class="btn btn-secondary btn-sm"><%- icone('calendario') %> Consultar / agendar</a></li>
                         <% } %>
                         <li>
                             <span class="doc-nome">Ficha de acompanhamento<small>Atividades validadas e horas</small></span>
                             <a href="/professor/aluno/<%= aluno.usuario_id %>/ficha-acompanhamento" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a>
                         </li>
-                        <li>
-                            <span class="doc-nome">FAA · Autoavaliação<small><%= faa ? 'Preenchida pelo aluno' : 'Ainda não preenchida' %></small></span>
-                            <% if (faa) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/faa/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
-                        </li>
+                        <% if (user.cargo !== 'supervisor') { %>
+                            <li>
+                                <span class="doc-nome">FAA · Autoavaliação<small><%= faa ? 'Preenchida pelo aluno' : 'Ainda não preenchida' %></small></span>
+                                <% if (faa) { %><a href="/professor/aluno/<%= aluno.usuario_id %>/faa/pdf" class="btn btn-secondary btn-sm"><%- icone('baixar') %> PDF</a><% } %>
+                            </li>
+                        <% } %>
                         <% if (ehSupervisor || ehOrientador || user.cargo === 'admin') { %>
                             <li>
                                 <span class="doc-nome">FAC · Avaliação do supervisor<small><%= fac ? 'Média ' + fac.nota.toFixed(1).replace('.', ',') : (facRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
@@ -275,7 +290,7 @@
                                 </span>
                             </li>
                         <% } %>
-                        <% if (aluno.status === 'concluido') { %>
+                        <% if (aluno.status === 'concluido' && user.cargo !== 'supervisor') { %>
                             <li>
                                 <span class="doc-nome">FAPO · Avaliação do orientador<small><%= fapo ? 'Nota ' + String(fapo.nota).replace('.', ',') : (fapoRascunho ? 'Rascunho salvo' : 'Ainda não preenchida') %></small></span>
                                 <span class="table-actions">
@@ -292,7 +307,7 @@
                             </li>
                         <% } %>
                     </ul>
-                    <% if (aluno.status === 'concluido' && !ehOrientador) { %>
+                    <% if (aluno.status === 'concluido' && !ehOrientador && user.cargo !== 'supervisor') { %>
                         <p class="text-muted" style="margin-top: 10px;">A FAPO e a ata da banca são preenchidas pelo orientador do aluno.</p>
                     <% } %>
                 </div>

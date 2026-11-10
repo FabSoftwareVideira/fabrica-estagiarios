@@ -328,6 +328,60 @@ test('supervisor externo só vê estudantes atribuídos e não acessa funções 
     assert.equal(administracao.status, 302);
     assert.equal(administracao.headers.get('location'), '/professor/dashboard');
 
+    // FAA, FAPO, banca e ata (FARE) ficam fora do alcance do supervisor
+    for (const rota of [
+        '/professor/aluno/1/faa/pdf',
+        '/professor/aluno/1/fapo',
+        '/professor/aluno/1/fapo/pdf',
+        '/professor/aluno/1/banca',
+        '/professor/aluno/1/fare',
+        '/professor/aluno/1/fare/pdf',
+        '/professor/fichas',
+        '/professor/bancas',
+    ]) {
+        const bloqueada = await requisitar(rota, { user: 105, cargo: 'supervisor' });
+        assert.equal(bloqueada.status, 302, rota);
+        assert.equal(bloqueada.headers.get('location'), '/professor/dashboard', rota);
+    }
+
+    // o vocabulário do supervisor usa "Supervisionados" em vez de "Alunos"
+    assert.match(html, /Supervisionados/);
+    const detalhe = await requisitar('/professor/aluno/1', { user: 105, cargo: 'supervisor' });
+    const detalheHtml = await detalhe.text();
+    assert.match(detalheHtml, /Supervisionados/);
+    assert.doesNotMatch(detalheHtml, /\/faa\/pdf/);
+    assert.doesNotMatch(detalheHtml, /\/fapo/);
+    assert.doesNotMatch(detalheHtml, /\/fare/);
+    assert.doesNotMatch(detalheHtml, /\/banca/);
+
+    // mesmo com o estágio concluído, supervisor não vê FAA, FAPO, banca nem ata
+    await db.exec("UPDATE alunos SET status='concluido' WHERE usuario_id=1");
+    const concluido = await requisitar('/professor/aluno/1', { user: 105, cargo: 'supervisor' });
+    const concluidoHtml = await concluido.text();
+    assert.doesNotMatch(concluidoHtml, /FAA/);
+    assert.doesNotMatch(concluidoHtml, /FAPO/);
+    assert.doesNotMatch(concluidoHtml, /Ata da banca/);
+    assert.doesNotMatch(concluidoHtml, /Agendamento da banca/);
+    assert.match(concluidoHtml, /FAC/);
+    assert.match(concluidoHtml, /Horas cumpridas — preencha a FAC/);
+
+    // o painel do supervisor usa cards (sem tabela) e destaca a FAC ao cumprir as horas
+    assert.match(html, /supervisionado-card/);
+    assert.doesNotMatch(html, /<table/);
+
+    const painelConcluido = await requisitar('/professor/dashboard?f=1', { user: 105, cargo: 'supervisor' });
+    const painelConcluidoHtml = await painelConcluido.text();
+    assert.match(painelConcluidoHtml, /supervisionado-card/);
+    assert.doesNotMatch(painelConcluidoHtml, /<table/);
+    assert.match(painelConcluidoHtml, /Preencher FAC/);
+    assert.match(painelConcluidoHtml, /href="\/professor\/aluno\/1\/fac"/);
+    assert.doesNotMatch(painelConcluidoHtml, /Avaliações FAC/);
+
+    // a página separada de avaliações foi removida do menu e das rotas
+    const avaliacoes = await requisitar('/professor/avaliacoes', { user: 105, cargo: 'supervisor' });
+    assert.equal(avaliacoes.status, 302);
+    assert.equal(avaliacoes.headers.get('location'), '/professor/dashboard');
+
     const usuarios = require('../src/models/usuarios');
     assert.equal((await usuarios.listarProfessores()).some((p) => p.id === 105), false);
     assert.equal((await usuarios.listarSupervisores()).some((p) => p.id === 105), true);
@@ -898,7 +952,14 @@ test('FAPO e FAC permitem salvar e retomar rascunhos parciais', async () => {
     assert.equal((await fichasRascunhos.buscar(1, 'FAC')).dados.notas[0], '7.5');
     const facTela = await requisitar('/professor/aluno/1/fac', { user: 101 });
     assert.equal(facTela.status, 200);
-    assert.match(await facTela.text(), /value="7\.5"/);
+    const facTelaHtml = await facTela.text();
+    assert.match(facTelaHtml, /value="7\.5"/);
+    assert.match(facTelaHtml, /id="empresa"[^>]*maxlength="60"/);
+    assert.match(facTelaHtml, /id="periodo"[^>]*maxlength="35"/);
+    assert.match(facTelaHtml, /id="nota_0"[^>]*step="0\.01"/);
+    assert.match(facTelaHtml, /id="atividades"[^>]*rows="2"/);
+    assert.match(facTelaHtml, /id="comentarios"[^>]*rows="2"/);
+    assert.match(facTelaHtml, /placeholder="0,00"/);
     const facFinal = await requisitar('/professor/aluno/1/fac', {
         user: 101, method: 'POST', body: form(),
     });
@@ -923,7 +984,7 @@ test('FAC: permissões, encerramento, arquivamento e dados inválidos bloqueiam 
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);
     for (const user of [102, 103]) assert.equal((await requisitar('/professor/aluno/1/fac', { user, method: 'POST', body: form() })).status, 403);
     assert.equal((await requisitar('/professor/aluno/1/fac/pdf', { user: 103 })).status, 403);
-    for (const alteracao of [{ nota_0: '' }, { nota_1: '11' }, { nota_2: '-1' }, { nota_3: 'NaN' }, { nota_4: '1.55' }, { data_assinatura: '2026-02-30' }, { atividades: '' }]) {
+    for (const alteracao of [{ nota_0: '' }, { nota_1: '11' }, { nota_2: '-1' }, { nota_3: 'NaN' }, { nota_4: '1.555' }, { data_assinatura: '2026-02-30' }, { atividades: '' }, { empresa: 'E'.repeat(61) }, { periodo: 'P'.repeat(36) }]) {
         assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: { ...form(), ...alteracao } })).status, 422);
     }
     assert.equal(await facs.buscarPorAluno(1), null);
@@ -931,6 +992,11 @@ test('FAC: permissões, encerramento, arquivamento e dados inválidos bloqueiam 
     assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 403);
     await db.exec('UPDATE alunos SET encerrado_em=NULL, arquivado=true WHERE usuario_id=1');
     assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: form() })).status, 403);
+
+    // notas aceitam até duas casas decimais
+    await db.exec('UPDATE alunos SET arquivado=false WHERE usuario_id=1');
+    assert.equal((await requisitar('/professor/aluno/1/fac', { method: 'POST', body: { ...form(), nota_0: '7.55' } })).status, 302);
+    assert.equal((await facs.buscarPorAluno(1)).notas[0], 7.55);
 });
 test('ata usa média da FAC salva e ignora nota forjada no formulário', async () => {
     await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;`);

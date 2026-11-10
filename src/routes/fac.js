@@ -28,7 +28,7 @@ async function renderizar(req, res, valores, erros = []) {
     const rascunhoSalvo = await fichasRascunhos.buscar(req.aluno.usuario_id, 'FAC');
     const registros = await atividades.listarPorAluno(req.aluno.usuario_id);
     const base = fac ? { ...fac, curso: req.aluno.curso || fac.curso, data_assinatura: dataParaInput(fac.data_assinatura) } : {
-        empresa: req.aluno.empresa || '', curso: req.aluno.curso || '', periodo: periodoDasAtividades(registros),
+        empresa: (req.aluno.empresa || '').slice(0, 60), curso: req.aluno.curso || '', periodo: periodoDasAtividades(registros),
         notas: Array(10).fill(''), atividades: '', comentarios: '', local_assinatura: '', data_assinatura: dataLocalIso(),
     };
     const dadosRascunho = rascunhoSalvo?.dados;

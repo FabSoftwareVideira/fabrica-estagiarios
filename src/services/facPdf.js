@@ -65,7 +65,7 @@ async function gerarFacPdf({ aluno, fac }) {
     linha(p1, fac.curso, 176, 274, 607);
     linha(p1, fac.periodo, 276, 294, 507);
     const bases = [443, 483, 523, 563, 603, 643, 672, 703, 743, 773];
-    fac.notas.forEach((nota, i) => linha(p1, Number(nota).toFixed(1).replace('.', ','), 705, bases[i], 75, true, 11));
+    fac.notas.forEach((nota, i) => linha(p1, Number(nota).toFixed(2).replace('.', ','), 705, bases[i], 75, true, 11));
     linha(p1, mediaFac(fac.notas).toFixed(1).replace('.', ','), 705, 801, 75, true, 11);
     paragrafo(p1, fac.atividades, 118, 892, 663, 113, 'Principais atividades');
     paragrafo(p2, fac.comentarios, 118, 224, 640, 77, 'Comentários/observações');

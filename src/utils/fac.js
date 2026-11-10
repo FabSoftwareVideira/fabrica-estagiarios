@@ -24,7 +24,7 @@ function lerFac(body, cursoAluno) {
     const valores = { curso: ehCurso(cursoAluno) ? cursoAluno : '' };
     if (!valores.curso) erros.push('O estudante precisa informar o curso no perfil antes de preencher a FAC.');
     for (const [campo, rotulo, limite, obrigatorio] of [
-        ['empresa', 'Empresa', 200, true], ['periodo', 'Período', 80, true], ['atividades', 'Atividades', 1500, true],
+        ['empresa', 'Empresa', 60, true], ['periodo', 'Período', 35, true], ['atividades', 'Atividades', 1500, true],
         ['comentarios', 'Comentários', 1500, false], ['local_assinatura', 'Local', 80, true],
     ]) {
         valores[campo] = typeof body[campo] === 'string' ? body[campo].trim() : '';
@@ -35,8 +35,8 @@ function lerFac(body, cursoAluno) {
     valores.notas = CRITERIOS_FAC.map(([titulo], i) => {
         const bruto = typeof body[`nota_${i}`] === 'string' ? body[`nota_${i}`].trim().replace(',', '.') : '';
         const numero = bruto === '' ? NaN : Number(bruto);
-        if (!Number.isFinite(numero) || numero < 0 || numero > 10 || Math.abs(numero * 10 - Math.round(numero * 10)) > 1e-8) {
-            erros.push(`${titulo}: informe uma nota de 0 a 10, com até uma casa decimal.`);
+        if (!Number.isFinite(numero) || numero < 0 || numero > 10 || Math.abs(numero * 100 - Math.round(numero * 100)) > 1e-8) {
+            erros.push(`${titulo}: informe uma nota de 0 a 10, com até duas casas decimais.`);
             return bruto;
         }
         return numero;

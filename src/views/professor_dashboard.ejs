@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard do Professor</title>
+    <title><%= user.cargo === 'supervisor' ? 'Dashboard do Supervisor' : 'Dashboard do Professor' %></title>
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme.css">
@@ -88,7 +88,7 @@
                             <% } %>
                             <div class="filters-top">
                                 <input type="search" name="q" value="<%= filtros.q %>"
-                                    placeholder="Buscar por nome, matrícula ou e-mail" aria-label="Buscar alunos">
+                                    placeholder="Buscar por nome, matrícula ou e-mail" aria-label="Buscar <%= user.cargo === 'supervisor' ? 'supervisionados' : 'alunos' %>">
                                 <button type="submit"><%- icone('lupa', 18) %> Buscar</button>
                                 <% if (filtroPersonalizado) { %>
                                     <a href="/professor/dashboard?aba=<%= aba %>" class="btn btn-secondary">Limpar</a>
@@ -178,6 +178,49 @@
                     %>
 
                     <div class="card">
+                        <% if (user.cargo === 'supervisor') { %>
+                            <% if (alunos.length === 0) { %>
+                                <p class="empty-state">Nenhum supervisionado encontrado com os filtros atuais.</p>
+                            <% } else { %>
+                                <div class="supervisionados-grid">
+                                    <% alunos.forEach((a) => { %>
+                                        <%
+                                            const st = estagioStatus(a);
+                                            const carga = Number(a.carga_horaria) || 0;
+                                            const realizadas = Number(a.horas_realizadas) || 0;
+                                            const pendentes = Number(a.horas_pendentes) || 0;
+                                            const pct = carga > 0 ? Math.min(100, Math.round((realizadas / carga) * 100)) : 0;
+                                            const facDisponivel = a.status === 'concluido' && !a.encerrado_em && !a.arquivado;
+                                        %>
+                                        <article class="supervisionado-card <%= facDisponivel && !a.tem_fac ? 'is-pendente' : '' %>">
+                                            <div class="supervisionado-head">
+                                                <h3><a href="/professor/aluno/<%= a.usuario_id %>"><%= a.nome %></a></h3>
+                                                <span class="status <%= st.classe %>"><%= st.label %></span>
+                                            </div>
+                                            <p class="supervisionado-meta"><%= a.curso || 'Curso não informado' %></p>
+                                            <p class="supervisionado-meta"><%= a.empresa || 'Empresa não informada' %></p>
+                                            <div class="summary-progress">
+                                                <div class="summary-progress-label">
+                                                    <span><strong><%= realizadas %>h</strong> de <strong><%= carga %>h</strong></span>
+                                                    <span><%= pct %>%</span>
+                                                </div>
+                                                <div class="progress"><div class="progress-bar" data-percent="<%= pct %>"></div></div>
+                                                <% if (pendentes > 0) { %>
+                                                    <p class="progress-caption text-muted"><strong><%= pendentes %>h</strong> aguardando validação</p>
+                                                <% } %>
+                                            </div>
+                                            <p class="supervisionado-orientador text-muted">Orientador: <%= a.orientador_nome || '—' %></p>
+                                            <div class="supervisionado-acoes">
+                                                <% if (facDisponivel) { %>
+                                                    <a class="btn <%= a.tem_fac ? 'btn-secondary' : 'btn-success' %> btn-sm" href="/professor/aluno/<%= a.usuario_id %>/fac"><%- icone(a.tem_fac ? 'olho' : 'caneta') %> <%= a.tem_fac ? 'Revisar FAC' : 'Preencher FAC' %></a>
+                                                <% } %>
+                                                <a class="btn btn-secondary btn-sm" href="/professor/aluno/<%= a.usuario_id %>"><%- icone('olho') %> Detalhes</a>
+                                            </div>
+                                        </article>
+                                    <% }) %>
+                                </div>
+                            <% } %>
+                        <% } else { %>
                         <div class="table-wrap">
                             <table>
                                 <thead>
@@ -255,6 +298,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <% } %>
 
                         <%
                             const inicioExibido = total === 0 ? 0 : (pagina - 1) * tamanhoPagina + 1;
@@ -265,7 +309,7 @@
 
                         <div class="pagination">
                             <span class="pagination-info">
-                                Mostrando <%= inicioExibido %>–<%= fimExibido %> de <%= total %> aluno(s)
+                                Mostrando <%= inicioExibido %>–<%= fimExibido %> de <%= total %> <%= user.cargo === 'supervisor' ? 'supervisionado(s)' : 'aluno(s)' %>
                             </span>
 
                             <% if (totalPaginas > 1) { %>

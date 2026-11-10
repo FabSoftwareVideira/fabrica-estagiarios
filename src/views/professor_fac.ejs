@@ -11,7 +11,9 @@
 <body>
     <%- include('partials/header') %>
     <main id="conteudo" class="container">
-        <%- include('partials/breadcrumb', { itens: [{ texto: 'Fichas', href: '/professor/fichas' }, { texto: aluno.nome, href: '/professor/aluno/' + aluno.usuario_id }, { texto: 'FAC' }] }) %>
+        <%- include('partials/breadcrumb', { itens: user.cargo === 'supervisor'
+            ? [{ texto: 'Supervisionados', href: '/professor/dashboard' }, { texto: aluno.nome, href: '/professor/aluno/' + aluno.usuario_id }, { texto: 'FAC' }]
+            : [{ texto: 'Fichas', href: '/professor/fichas' }, { texto: aluno.nome, href: '/professor/aluno/' + aluno.usuario_id }, { texto: 'FAC' }] }) %>
         <%- include('partials/flash') %>
         <div class="page-head"><div><h1>FAC · Avaliação do supervisor</h1><p><%= aluno.nome %> · <%= aluno.empresa || 'Empresa não informada' %></p></div></div>
         <% if (fac) { %>
@@ -29,23 +31,23 @@
                     <h2>Dados do estágio</h2>
                     <div class="form-grid">
                         <div class="form-field"><label>Curso do estudante</label><p class="form-note"><%= aluno.curso || 'Não informado. O estudante deve selecioná-lo no perfil antes de preencher a FAC.' %></p></div>
-                        <% [['empresa', 'Empresa/entidade concedente', 200], ['periodo', 'Período do estágio', 80]].forEach(([campo, rotulo, limite]) => { %>
-                            <div class="form-field"><label for="<%= campo %>"><%= rotulo %></label><input type="text" id="<%= campo %>" name="<%= campo %>" maxlength="<%= limite %>" required value="<%= valores[campo] %>"></div>
+                        <% [['empresa', 'Empresa/entidade concedente', 60, 'Ex.: Empresa XYZ Ltda.'], ['periodo', 'Período do estágio', 35, 'Ex.: 01/03/2026 a 30/09/2026']].forEach(([campo, rotulo, limite, dica]) => { %>
+                            <div class="form-field"><label for="<%= campo %>"><%= rotulo %></label><input type="text" id="<%= campo %>" name="<%= campo %>" maxlength="<%= limite %>" placeholder="<%= dica %>" required value="<%= valores[campo] %>"></div>
                         <% }) %>
                     </div>
                 </section>
                 <section class="card"><h2>Aspectos avaliados</h2><p class="text-muted">Notas de 0 a 10. A média aritmética é calculada automaticamente, com uma casa decimal.</p>
                     <% criterios.forEach(([titulo, descricao], i) => { %>
                         <div class="faa-nota"><label for="nota_<%= i %>"><%= i + 1 %>. <%= titulo %><small class="text-muted"><%= descricao %></small></label>
-                            <input type="number" id="nota_<%= i %>" name="nota_<%= i %>" min="0" max="10" step="0.1" required value="<%= valores.notas[i] %>"></div>
+                            <input type="number" id="nota_<%= i %>" name="nota_<%= i %>" min="0" max="10" step="0.01" inputmode="decimal" placeholder="0,00" required value="<%= valores.notas[i] %>"></div>
                     <% }) %>
                 </section>
                 <section class="card">
-                    <label for="atividades">Principais atividades executadas na empresa</label><textarea id="atividades" name="atividades" maxlength="1500" required><%= valores.atividades %></textarea>
-                    <label for="comentarios">Comentários/observações</label><textarea id="comentarios" name="comentarios" maxlength="1500"><%= valores.comentarios %></textarea>
+                    <label for="atividades">Principais atividades executadas na empresa</label><textarea id="atividades" name="atividades" maxlength="1500" rows="2" class="textarea-compacta" placeholder="Descreva as principais atividades executadas pelo estagiário." required><%= valores.atividades %></textarea>
+                    <label for="comentarios">Comentários/observações</label><textarea id="comentarios" name="comentarios" maxlength="1500" rows="2" class="textarea-compacta" placeholder="Registre observações sobre o desempenho do estagiário."><%= valores.comentarios %></textarea>
                     <div class="form-grid">
-                        <div class="form-field"><label for="local_assinatura">Local da assinatura</label><input type="text" id="local_assinatura" name="local_assinatura" maxlength="80" required value="<%= valores.local_assinatura %>"></div>
-                        <div class="form-field"><label for="data_assinatura">Data da assinatura</label><input type="date" id="data_assinatura" name="data_assinatura" required value="<%= valores.data_assinatura %>"></div>
+                        <div class="form-field"><label for="local_assinatura">Local da assinatura</label><input type="text" id="local_assinatura" name="local_assinatura" maxlength="80" placeholder="Ex.: Videira" required value="<%= valores.local_assinatura %>"></div>
+                        <div class="form-field"><label for="data_assinatura">Data da assinatura</label><input type="date" id="data_assinatura" name="data_assinatura" placeholder="DD/MM/AAAA" required value="<%= valores.data_assinatura %>"></div>
                     </div>
                     <p class="form-note">Após salvar, baixe a ficha para assinatura do supervisor e ciência do estudante e do orientador.</p>
                 </section>
