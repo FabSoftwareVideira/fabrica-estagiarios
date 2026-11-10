@@ -65,7 +65,7 @@ html.alto-contraste {
   --borda-suave: #5c4d00;
 }
 html.alto-contraste .btn,
-html.alto-contraste button:not(.btn-secondary):not(.btn-danger):not(.btn-ghost):not(.contrast-toggle):not(.nav-toggle):not(.cal-nav *) { color: #000; }
+html.alto-contraste button:not(.btn-secondary):not(.btn-danger):not(.btn-ghost):not(.contrast-toggle):not(.nav-toggle):not(.wizard-etapa):not(.cal-nav *) { color: #000; }
 html.alto-contraste .contrast-toggle { color: #ffd700; opacity: 1; }
 html.alto-contraste .nav-toggle, html.alto-contraste .nav-toggle:hover { color: #ffd700; }
 html.alto-contraste .cal-nav button, html.alto-contraste .cal-nav button:hover { color: #ffd700; }
@@ -352,6 +352,50 @@ fieldset:disabled { opacity: 1; }
 .form-secao .horario-trabalho-campos { margin: 0; }
 .form-secao .horario-trabalho-campos legend { font-size: 20px; color: var(--azul-900); }
 .form-secao + .form-actions { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--borda-suave); }
+
+/* Aprovação em etapas: com JavaScript só o passo atual aparece */
+.wizard-ativo [data-passo] { display: none; }
+.wizard-ativo [data-passo].wizard-atual { display: block; margin-top: 0; padding-top: 0; border-top: 0; min-height: 220px; }
+.wizard-etapas {
+  list-style: none; display: flex; gap: 4px; margin: 0 0 24px; padding: 0 0 20px;
+  border-bottom: 1px solid var(--borda-suave); overflow-x: auto;
+}
+.wizard-etapas li { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.wizard-etapas li:not(:last-child)::after { content: ""; flex: 1; min-width: 8px; height: 2px; background: var(--borda-suave); }
+.wizard-etapas li:has(.feito)::after { background: var(--verde-600); }
+.wizard-etapas .wizard-etapa {
+  flex: none; min-height: 40px; padding: 0 6px 0 0; gap: 8px; background: none; border: 0; border-radius: 999px;
+  color: var(--texto-suave); font-size: 14px; font-weight: 600; cursor: default;
+}
+.wizard-etapas .wizard-etapa:hover { background: none; color: var(--texto-suave); }
+.wizard-etapas .wizard-etapa:disabled { opacity: 1; }
+.wizard-etapa-numero {
+  flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+  border: 2px solid var(--borda); background: var(--superficie); color: var(--texto-suave); font-size: 14px; font-weight: 700;
+}
+.wizard-etapas .wizard-etapa.atual { color: var(--azul-900); }
+.wizard-etapa.atual .wizard-etapa-numero { background: var(--azul-700); border-color: var(--azul-700); color: var(--texto-botao); }
+.wizard-etapas .wizard-etapa.feito { cursor: pointer; color: var(--verde-700); }
+.wizard-etapas .wizard-etapa.feito:hover { color: var(--verde-700); text-decoration: underline; }
+.wizard-etapa.feito .wizard-etapa-numero { background: var(--verde-600); border-color: var(--verde-600); color: #fff; }
+html.alto-contraste .wizard-etapas .wizard-etapa,
+html.alto-contraste .wizard-etapas .wizard-etapa:hover { color: #fff; }
+html.alto-contraste .wizard-etapas .wizard-etapa.atual { color: #ffd700; }
+html.alto-contraste .wizard-etapa.atual .wizard-etapa-numero,
+html.alto-contraste .wizard-etapa.feito .wizard-etapa-numero { color: #000; }
+.wizard-erro { margin-bottom: 16px; }
+.wizard-estudante { margin: 16px 0 0; }
+.wizard-estudante h3 { font-size: 22px; margin-bottom: 4px; }
+.wizard-campo { max-width: 480px; }
+.wizard-acoes { align-items: center; }
+.wizard-acoes .wizard-cancelar { margin-left: auto; }
+.wizard-resumo-horarios { grid-column: 1 / -1; }
+.wizard-resumo-horarios dd span { display: block; }
+.wizard [hidden] { display: none; }
+@media (max-width: 720px) {
+  .wizard-etapas .wizard-etapa:not(.atual) .wizard-etapa-nome { display: none; }
+  .wizard-etapas .wizard-etapa:not(.atual) { padding: 0; }
+}
 
 .horario-trabalho-campos { margin: 20px 0; }
 .horario-trabalho-campos legend { font-weight: 700; font-size: 18px; margin-bottom: 4px; }

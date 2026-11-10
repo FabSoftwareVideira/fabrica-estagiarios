@@ -202,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('[data-calendario]').forEach(iniciarCalendario);
     document.querySelectorAll('[data-ata]').forEach(iniciarAta);
+    document.querySelectorAll('[data-wizard]').forEach(iniciarWizard);
 });
 
 function formatarNumero(valor, casas = 2) {
@@ -474,4 +475,175 @@ function iniciarAta(form) {
     });
 
     calcular();
+}
+
+// ─── Aprovação em etapas (primeira aprovação do estudante) ──────────────────
+// Um único formulário dividido em passos; sem JavaScript todos os passos
+// aparecem juntos e o envio funciona igual.
+function iniciarWizard(form) {
+    const passos = Array.from(form.querySelectorAll('[data-passo]'));
+    const etapas = form.querySelector('[data-wizard-etapas]');
+    const erro = form.querySelector('[data-wizard-erro]');
+    const voltar = form.querySelector('[data-wizard-voltar]');
+    const avancar = form.querySelector('[data-wizard-avancar]');
+    const enviar = form.querySelector('[data-wizard-enviar]');
+    const resumo = form.querySelector('[data-wizard-resumo]');
+    if (passos.length < 2 || !etapas || !voltar || !avancar || !enviar) return;
+
+    let atual = 0;
+    form.noValidate = true; // a validação é feita passo a passo
+    form.classList.add('wizard-ativo');
+    passos.forEach((passo) => { passo.hidden = false; });
+    etapas.hidden = false;
+
+    const marcadores = passos.map((passo, indice) => {
+        const item = document.createElement('li');
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'wizard-etapa';
+        const numero = document.createElement('span');
+        numero.className = 'wizard-etapa-numero';
+        numero.textContent = String(indice + 1);
+        const nome = document.createElement('span');
+        nome.className = 'wizard-etapa-nome';
+        nome.textContent = passo.dataset.titulo || `Passo ${indice + 1}`;
+        botao.append(numero, nome);
+        // só dá para voltar a passos já visitados; avançar exige validar
+        botao.addEventListener('click', () => { if (indice < atual) mostrar(indice); });
+        item.append(botao);
+        etapas.append(item);
+        return botao;
+    });
+
+    const mostrarErro = (mensagem) => {
+        if (!erro) return;
+        erro.textContent = mensagem || '';
+        erro.hidden = !mensagem;
+    };
+
+    const minutos = (valor) => Number(valor.slice(0, 2)) * 60 + Number(valor.slice(3));
+
+    // mesmas regras do servidor, para o erro aparecer no passo certo
+    function validarHorarios(passo) {
+        const dias = Array.from(passo.querySelectorAll('input[name="dias_trabalho"]:checked'));
+        if (dias.length === 0) return 'Selecione ao menos um dia de trabalho.';
+        for (const dia of dias) {
+            const inicio = form.querySelector(`[name="horario_inicio_${dia.value}"]`).value;
+            const fim = form.querySelector(`[name="horario_fim_${dia.value}"]`).value;
+            if (!inicio || !fim) return 'Informe entrada e saída para cada dia selecionado.';
+            const duracao = minutos(fim) - minutos(inicio);
+            if (duracao <= 0) return 'O horário de saída deve ser posterior ao de entrada.';
+            if (duracao > 6 * 60) return 'A jornada planejada não pode ultrapassar 6 horas por dia.';
+        }
+        return '';
+    }
+
+    // devolve a mensagem de erro do passo ('' quando está tudo certo)
+    function validar(indice) {
+        const passo = passos[indice];
+        const invalido = Array.from(passo.querySelectorAll('input, select, textarea')).find((campo) => !campo.checkValidity());
+        if (invalido) {
+            mostrarErro('');
+            invalido.reportValidity();
+            return false;
+        }
+        let mensagem = '';
+        const orientador = form.querySelector('[name="orientador_id"]');
+        const supervisor = form.querySelector('[name="supervisor_id"]');
+        if (supervisor && passo.contains(supervisor) && supervisor.value && orientador && supervisor.value === orientador.value) {
+            mensagem = 'Supervisor e orientador não podem ser a mesma pessoa.';
+        }
+        if (!mensagem && passo.hasAttribute('data-passo-horarios')) mensagem = validarHorarios(passo);
+        mostrarErro(mensagem);
+        return !mensagem;
+    }
+
+    function linhaResumo(rotulo, valor) {
+        const bloco = document.createElement('div');
+        const dt = document.createElement('dt');
+        dt.textContent = rotulo;
+        const dd = document.createElement('dd');
+        dd.textContent = valor;
+        bloco.append(dt, dd);
+        return bloco;
+    }
+
+    function montarResumo() {
+        if (!resumo) return;
+        resumo.replaceChildren();
+        form.querySelectorAll('[data-resumo]').forEach((campo) => {
+            let valor = campo.tagName === 'SELECT'
+                ? (campo.value ? campo.options[campo.selectedIndex].textContent.trim() : '')
+                : campo.value.trim();
+            if (valor && campo.dataset.resumoSufixo) valor += campo.dataset.resumoSufixo;
+            resumo.append(linhaResumo(campo.dataset.resumo, valor || campo.dataset.resumoVazio || '—'));
+        });
+        const horarios = linhaResumo('Dias e horários', '');
+        horarios.classList.add('wizard-resumo-horarios');
+        const dd = horarios.querySelector('dd');
+        form.querySelectorAll('input[name="dias_trabalho"]:checked').forEach((dia) => {
+            const inicio = form.querySelector(`[name="horario_inicio_${dia.value}"]`).value;
+            const fim = form.querySelector(`[name="horario_fim_${dia.value}"]`).value;
+            const linha = document.createElement('span');
+            linha.textContent = `${dia.closest('label').textContent.trim()}, ${inicio}–${fim}`;
+            dd.append(linha);
+        });
+        resumo.append(horarios);
+    }
+
+    function mostrar(indice, focar = true) {
+        atual = indice;
+        mostrarErro('');
+        const ultimo = atual === passos.length - 1;
+        if (ultimo) montarResumo();
+        passos.forEach((passo, i) => passo.classList.toggle('wizard-atual', i === atual));
+        marcadores.forEach((botao, i) => {
+            botao.classList.toggle('atual', i === atual);
+            botao.classList.toggle('feito', i < atual);
+            botao.disabled = i > atual;
+            if (i === atual) botao.setAttribute('aria-current', 'step');
+            else botao.removeAttribute('aria-current');
+        });
+        voltar.hidden = atual === 0;
+        avancar.hidden = ultimo;
+        enviar.hidden = !ultimo;
+        if (focar) {
+            const titulo = passos[atual].querySelector('h2, legend');
+            if (titulo) {
+                titulo.tabIndex = -1;
+                titulo.focus({ preventScroll: true });
+            }
+            form.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }
+    }
+
+    avancar.addEventListener('click', () => { if (validar(atual)) mostrar(atual + 1); });
+    voltar.addEventListener('click', () => mostrar(atual - 1));
+
+    // Enter num campo avança o passo em vez de enviar o formulário incompleto
+    form.addEventListener('submit', (evento) => {
+        if (atual < passos.length - 1) {
+            evento.preventDefault();
+            if (validar(atual)) mostrar(atual + 1);
+            return;
+        }
+        for (let i = 0; i < passos.length - 1; i += 1) {
+            if (!validar(i)) {
+                evento.preventDefault();
+                mostrar(i);
+                validar(i);
+                return;
+            }
+        }
+    });
+
+    // preencher um horário marca o dia correspondente
+    form.querySelectorAll('.horario-trabalho-dia').forEach((dia) => {
+        const caixa = dia.querySelector('input[name="dias_trabalho"]');
+        dia.querySelectorAll('input[type="time"]').forEach((campo) => {
+            campo.addEventListener('input', () => { if (campo.value && caixa) caixa.checked = true; });
+        });
+    });
+
+    mostrar(0, false);
 }
