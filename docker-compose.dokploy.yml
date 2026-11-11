@@ -143,6 +143,73 @@ services:
           memory: 192M
           pids: 64
 
+  preparar-pasta-backup:
+    # Roda a cada deploy, antes do backup, e termina. O Docker cria a pasta do host
+    # (BACKUP_HOST_DIR) se ela não existir, mas como root; aqui ela passa para o
+    # usuário do container de backup (UID/GID 70, o usuário postgres da imagem).
+    image: busybox:1.36
+    restart: "no"
+    command: ["chown", "-R", "70:70", "/backups"]
+    volumes:
+      - "${BACKUP_HOST_DIR:-/srv/fabrica-estagiarios/backups}:/backups"
+    network_mode: none
+    # Só as capacidades de trocar o dono e de percorrer pastas de outro dono
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+
+  backup:
+    # Backup diário do banco (pg_dump) a partir de BACKUP_HORA (Brasília, padrão 03:00),
+    # guardado em BACKUP_HOST_DIR na VPS (padrão /srv/fabrica-estagiarios/backups) por
+    # BACKUP_RETENCAO_DIAS dias (padrão 14). Restauração: ver "Backup e restauração" no README.
+    # Os scripts vão dentro da imagem (deploy/backup/Dockerfile), reconstruída a cada deploy.
+    build:
+      context: ./deploy/backup
+    image: fabrica-estagiarios-backup:${APP_VERSION:-latest}
+    env_file: .env
+    environment:
+      - POSTGRES_HOST=fabrica-estagiarios-db
+      - BACKUP_DIR=/backups
+      - BACKUP_HORA=${BACKUP_HORA:-03:00}
+      - BACKUP_RETENCAO_DIAS=${BACKUP_RETENCAO_DIAS:-14}
+    volumes:
+      # Pasta fixa da VPS, fora do código (o Dokploy clona o repositório de novo a cada deploy)
+      - "${BACKUP_HOST_DIR:-/srv/fabrica-estagiarios/backups}:/backups"
+    depends_on:
+      preparar-pasta-backup:
+        condition: service_completed_successfully
+      fabrica-estagiarios-db:
+        condition: service_healthy
+    networks:
+      - default
+    restart: unless-stopped
+    # "unhealthy" no Dokploy se o último backup bem-sucedido tiver mais de 26 horas
+    healthcheck:
+      test: ["CMD-SHELL", "test -n \"$$(find /backups -maxdepth 1 -name .ultimo-backup-ok -mmin -1560)\""]
+      interval: 10m
+      timeout: 10s
+      retries: 1
+      start_period: 15m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+          pids: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   fabrica-estagiarios_prod_db:
 

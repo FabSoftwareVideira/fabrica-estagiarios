@@ -136,15 +136,99 @@ Configuração no Dokploy (uma vez):
 3. Na aba **Domains**, adicione o domínio para o serviço `fabrica-estagiarios-web`, porta `3000`, com HTTPS.
 4. No GitHub, crie os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` (token em Settings → Profile do Dokploy) e `DOKPLOY_COMPOSE_ID` (o id do recurso, na URL dele no painel). Sem eles, o workflow `deploy-dokploy.yml` só valida o compose.
 
-O banco da nova VPS começa vazio. Para levar os dados da VPS antiga, gere um dump lá e restaure no container do banco do Dokploy antes de liberar o acesso:
+O banco da nova VPS começa vazio. Para trazer os dados da VPS antiga, siga "Trazer os dados da VPS antiga" em "Backup e restauração", abaixo.
 
-```bash
-docker exec fabrica-estagiarios-db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > estagiarios.dump
+## Backup e restauração
+
+No Dokploy, o serviço `backup` do `docker-compose.dokploy.yml` faz um backup do banco por dia numa pasta da VPS: `/srv/fabrica-estagiarios/backups` (configurável por `BACKUP_HOST_DIR`). Os scripts ficam em `deploy/backup/` e vão dentro da imagem do serviço.
+
+- **Pasta**: criada automaticamente a cada deploy, se não existir. O serviço `preparar-pasta-backup` passa a pasta para o usuário do container de backup (UID/GID 70, o usuário `postgres` da imagem), que não roda como root.
+- **Quando**: todo dia a partir de `BACKUP_HORA` (Brasília, padrão `03:00`). Se o container estava parado no horário, o backup do dia sai assim que ele volta; uma falha é tentada de novo em 30 minutos.
+- **Como**: `pg_dump` em formato custom, conferido com `pg_restore --list`, com um `.sha256` ao lado. Nomes no formato `estagiarios_diario_2026-11-10_030000.dump`.
+- **Retenção**: os diários ficam `BACKUP_RETENCAO_DIAS` dias (padrão 14). Backups manuais, os feitos antes de uma restauração e os arquivos trazidos de fora não são apagados automaticamente.
+- **Alerta**: o container fica *unhealthy* no Dokploy se o último backup bem-sucedido tiver mais de 26 horas.
+
+Variáveis opcionais na aba **Environment** do Dokploy:
+
+```env
+BACKUP_HOST_DIR=/srv/fabrica-estagiarios/backups
+BACKUP_HORA=03:00
+BACKUP_RETENCAO_DIAS=14
 ```
 
+Os backups ficam na mesma VPS do banco: protegem contra erro humano e dados corrompidos, mas não contra a perda da VPS. Copie a pasta para outro lugar de tempos em tempos (por exemplo, com `rsync` ou `scp`).
+
+### Comandos
+
+Os comandos rodam no terminal da VPS nova. O container de backup se chama `<recurso>-backup-1` (por exemplo, `fabrica-estagiarios-5rloou-backup-1`):
+
 ```bash
-docker exec -i <container-do-banco-no-dokploy> pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < estagiarios.dump
+docker ps --filter "name=backup" --format "{{.Names}}"
 ```
+
+Backup manual (por exemplo, antes de uma mudança arriscada):
+
+```bash
+docker exec <container-backup> sh /opt/backup/backup.sh manual
+```
+
+Listar os backups:
+
+```bash
+docker exec <container-backup> sh /opt/backup/restaurar.sh
+```
+
+Restaurar (pede para digitar `RESTAURAR`):
+
+```bash
+docker exec -it <container-backup> sh /opt/backup/restaurar.sh estagiarios_diario_2026-11-10_030000.dump
+```
+
+Antes de tocar no banco, a restauração confere o arquivo e recusa, sem alterar nada, arquivos vazios, corrompidos (SHA-256), ilegíveis para o `pg_restore` ou sem as tabelas deste sistema. Depois, guarda um backup `antes-da-restauracao` do estado atual (para desfazer), encerra as conexões e recria o banco numa única transação: se algo falhar, nada muda. Ao terminar, mostra quantos usuários e estagiários ficaram no banco.
+
+**Depois de restaurar, faça um novo Deploy no Dokploy**: o serviço `migrar` atualiza o banco caso o backup seja de uma versão anterior do sistema.
+
+### Trazer os dados da VPS antiga
+
+1. Na VPS antiga, gere o dump. O `sh -c '...'` faz as variáveis serem lidas dentro do container:
+
+   ```bash
+   docker exec fabrica-estagiarios-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > estagiarios-vps-antiga.dump
+   ```
+
+2. Confira que o arquivo não está vazio e é um dump do PostgreSQL. O tamanho deve ser de dezenas de KB ou mais, e o segundo comando deve mostrar `PGDMP`:
+
+   ```bash
+   ls -lh estagiarios-vps-antiga.dump
+   ```
+
+   ```bash
+   head -c 5 estagiarios-vps-antiga.dump; echo
+   ```
+
+3. Envie para a VPS nova:
+
+   ```bash
+   scp estagiarios-vps-antiga.dump usuario@IP-DA-VPS-NOVA:/tmp/
+   ```
+
+4. Na VPS nova, coloque o arquivo na pasta de backups (ela pertence ao usuário do container, por isso o `sudo`):
+
+   ```bash
+   sudo cp /tmp/estagiarios-vps-antiga.dump /srv/fabrica-estagiarios/backups/
+   ```
+
+   ```bash
+   sudo chmod 644 /srv/fabrica-estagiarios/backups/estagiarios-vps-antiga.dump
+   ```
+
+5. Restaure e, em seguida, faça um novo Deploy no Dokploy:
+
+   ```bash
+   docker exec -it <container-backup> sh /opt/backup/restaurar.sh estagiarios-vps-antiga.dump
+   ```
+
+Se a VPS antiga continuar recebendo uso depois do dump, o que for gravado lá depois não vem junto. Para a migração definitiva, pare o site antigo antes do passo 1 (`docker stop fabrica-estagiarios-web`).
 
 ## Rollback
 
