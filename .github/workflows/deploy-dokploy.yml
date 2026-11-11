@@ -30,7 +30,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  testes:
+    uses: ./.github/workflows/testes.yml
+
   deploy:
+    # Só pede o deploy com os testes aprovados
+    needs: testes
     name: 🚀 Deploy no Dokploy
     runs-on: ubuntu-latest
     steps:

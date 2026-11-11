@@ -1,0 +1,35 @@
+name: Testes
+
+# Roda os testes automatizados (npm test). É chamado pelos workflows de deploy
+# antes de publicar (deploy.yml e deploy-dokploy.yml) e roda sozinho em pull
+# requests, para mostrar o resultado antes de juntar na main.
+# Os testes não precisam de banco instalado: usam um PostgreSQL em memória (PGlite).
+
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: 🧪 Testes automatizados
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 📂 Checkout do código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Node.js (mesma versão da imagem de produção)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+          cache: npm
+
+      - name: 📦 Instalar dependências
+        run: npm ci
+
+      - name: 🧪 Rodar os testes
+        run: npm test

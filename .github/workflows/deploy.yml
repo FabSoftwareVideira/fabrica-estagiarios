@@ -23,7 +23,15 @@ env:
   COMPOSE_FILE: docker-compose.prod.yml
 
 jobs:
+  testes:
+    # Rollback (image_tag preenchido) volta para uma imagem já testada e não espera os testes
+    if: ${{ github.event.inputs.image_tag == '' || github.event.inputs.image_tag == null }}
+    uses: ./.github/workflows/testes.yml
+
   deploy:
+    # Só publica com os testes aprovados (ou pulados, no rollback)
+    needs: testes
+    if: ${{ !cancelled() && (needs.testes.result == 'success' || needs.testes.result == 'skipped') }}
     name: 🚀 Deploy ${{ github.event.repository.name }}
     runs-on: self-hosted
     # Não troque o container durante o processamento de lembretes.

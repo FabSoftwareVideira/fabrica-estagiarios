@@ -236,3 +236,5 @@ Aplicar a migração `017_ficha_supervisor.sql`. O modelo PDF deve acompanhar a 
 ## Testes
 
 Execute `npm ci` e `npm test`. Os testes usam PostgreSQL embarcado (PGlite) isolado em memória para validar migrações, prazo e intervalo dos lembretes, atualização de atividades, permissões HTTP, persistência da FAC, cálculo da ata e geração de PDF. O transporte de e-mail é substituído nos testes; nenhum e-mail real é enviado. Há também testes de preferência de tema e do resumo semanal existente.
+
+No GitHub Actions, o workflow `testes.yml` roda `npm ci` e `npm test` (Node 25, a mesma versão da imagem de produção). Ele é chamado antes dos dois deploys: `deploy.yml` (VPS antiga) e `deploy-dokploy.yml` (Dokploy) só publicam se todos os testes passarem. O rollback do `deploy.yml` (com `image_tag`) volta para uma imagem já publicada e não espera os testes. Em pull requests, os testes rodam sozinhos, para conferir antes de juntar na `main`.
