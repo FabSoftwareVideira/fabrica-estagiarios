@@ -148,8 +148,11 @@ services:
     # guardando os últimos BACKUP_RETENCAO_DIAS dias (padrão 14) no volume de backups.
     # Restauração e backup manual: ver "Backup e restauração" no README.
     # Mesma versão do PostgreSQL do banco, para o pg_dump/pg_restore serem compatíveis.
-    image: postgres:16-alpine
-    command: ["sh", "/opt/backup/agendador.sh"]
+    # Os scripts vão dentro da imagem (deploy/backup/Dockerfile): reconstruída a cada
+    # deploy, ela sempre traz a versão atual dos scripts.
+    build:
+      context: ./deploy/backup
+    image: fabrica-estagiarios-backup:${APP_VERSION:-latest}
     env_file: .env
     environment:
       - POSTGRES_HOST=fabrica-estagiarios-db
@@ -158,7 +161,6 @@ services:
       - BACKUP_RETENCAO_DIAS=${BACKUP_RETENCAO_DIAS:-14}
     volumes:
       - fabrica-estagiarios_backups:/backups
-      - ./deploy/backup:/opt/backup:ro
     depends_on:
       fabrica-estagiarios-db:
         condition: service_healthy

@@ -139,7 +139,7 @@ Configuração no Dokploy (uma vez):
 O banco da nova VPS começa vazio. Para levar os dados da VPS antiga, gere um dump lá e restaure na VPS nova com o script de restauração (veja "Backup e restauração" abaixo), antes de liberar o acesso:
 
 ```bash
-docker exec fabrica-estagiarios-db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > estagiarios.dump
+docker exec fabrica-estagiarios-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > estagiarios.dump
 ```
 
 ## Backup e restauração
