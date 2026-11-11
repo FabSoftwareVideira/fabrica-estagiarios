@@ -32,14 +32,19 @@
 
             // abas: cada assunto da tela fica no seu painel
             const temFichas = aluno.status !== 'lista_espera';
-            // Editar estágio: só o orientador do estagiário e o administrador, e só depois
-            // da aprovação (quem está na lista de espera passa pelo fluxo de aprovação).
+            // Editar estágio: o orientador do estagiário, o administrador e o setor de estágios,
+            // e só depois da aprovação (quem está na lista de espera passa pelo fluxo de aprovação).
+            const ehGestor = typeof gestor !== 'undefined' && gestor;
             const emEspera = aluno.status === 'lista_espera';
             const podeEditar = !encerrado && !aluno.arquivado && !emEspera
-                && (ehOrientador || user.cargo === 'admin');
+                && (ehOrientador || ehGestor);
             const abas = [['atividades', 'Atividades']];
             if (temFichas) abas.push(['fichas', 'Fichas']);
             if (podeEditar) abas.push(['estagio', 'Editar estágio']);
+            // Dados do estudante (nome, e-mail, matrícula e curso): administrador e setor de
+            // estágios. O orientador que não é gestor troca só o curso, em "Editar estágio".
+            const podeDados = ehGestor && !encerrado && !aluno.arquivado;
+            if (podeDados) abas.push(['dados', 'Dados do estudante']);
             const abaPedida = typeof aba !== 'undefined' ? aba : '';
             const abaSelecionada = abas.some(([chave]) => chave === abaPedida) ? abaPedida : 'atividades';
         %>
@@ -329,12 +334,44 @@
             </section>
             <% } %>
 
+            <% if (podeDados) { %>
+            <!-- Dados do estudante: administrador e setor de estágios -->
+            <section class="dashboard-tab-panel" id="panel-dados" role="tabpanel" aria-labelledby="tab-dados" tabindex="0" <%= abaSelecionada === 'dados' ? '' : 'hidden' %>>
+                <form action="/professor/aluno/<%= aluno.usuario_id %>/dados" method="POST" class="card">
+                    <section class="form-secao">
+                        <h2>Identificação</h2>
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="dados-nome">Nome completo</label>
+                                <input id="dados-nome" name="nome" type="text" maxlength="150" autocomplete="off" required value="<%= aluno.nome %>">
+                            </div>
+                            <div class="form-field">
+                                <label for="dados-email">E-mail</label>
+                                <input id="dados-email" name="email" type="email" maxlength="150" autocomplete="off" required value="<%= aluno.email %>">
+                                <small>É o e-mail da conta Google usada para entrar. Deve ser único.</small>
+                            </div>
+                            <div class="form-field">
+                                <label for="dados-matricula">Matrícula <span class="text-muted">(opcional)</span></label>
+                                <input id="dados-matricula" name="matricula" type="text" maxlength="30" value="<%= aluno.matricula || '' %>">
+                            </div>
+                        </div>
+                    </section>
+                    <section class="form-secao">
+                        <%- include('partials/curso-picker', { cursos, selecionado: aluno.curso || '', legenda: 'Curso do estudante', emLinha: true }) %>
+                    </section>
+                    <div class="form-actions">
+                        <button type="submit">Salvar dados</button>
+                    </div>
+                </form>
+            </section>
+            <% } %>
+
             <% if (podeEditar) { %>
             <!-- Editar estágio -->
             <section class="dashboard-tab-panel" id="panel-estagio" role="tabpanel" aria-labelledby="tab-estagio" tabindex="0" <%= abaSelecionada === 'estagio' ? '' : 'hidden' %>>
                 <form action="/professor/aluno/<%= aluno.usuario_id %>" method="POST" class="card">
 
-                    <% if (ehOrientador) { %>
+                    <% if (ehOrientador && !podeDados) { %>
                         <section class="form-secao">
                             <%- include('partials/curso-picker', { cursos, selecionado: aluno.curso || '', legenda: 'Curso do estudante', emLinha: true }) %>
                         </section>

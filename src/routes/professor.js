@@ -22,6 +22,11 @@ const { validarResponsaveis } = require('../utils/responsaveis');
 const { PAPEIS, CHAVES_PAPEIS, papeisDoPerfil, veTodosOsEstagios, temAlunosProprios, telaInicial } = require('../config/papeis');
 
 // Acompanhamento geral: administradores e servidores do setor de estágios.
+// Curso do estudante: o orientador dele, o administrador e o setor de estágios.
+function podeAlterarCurso(user, aluno) {
+    return Number(aluno.orientador_id) === Number(user.id) || veTodosOsEstagios(user);
+}
+
 function requireVisaoGeral(req, res, next) {
     if (veTodosOsEstagios(req.session.user)) return next();
     setFlash(req, 'error', 'Apenas administradores e servidores do setor de estágios têm acesso a essa área.');
@@ -308,6 +313,7 @@ router.get('/aluno/:id', async (req, res) => {
         ehSupervisor: Number(aluno.supervisor_id) === Number(req.session.user.id),
         podeValidarAtividades,
         ehOrientador,
+        gestor: veTodosOsEstagios(req.session.user),
         encerrado,
         fapo,
         fapoRascunho,
@@ -319,21 +325,61 @@ router.get('/aluno/:id', async (req, res) => {
     });
 });
 
+// Dados cadastrais do estudante (nome, e-mail, matrícula e curso): administrador
+// e setor de estágios. Preferências pessoais, como o avatar, ficam com o estudante.
+router.post('/aluno/:id/dados', requireVisaoGeral, async (req, res) => {
+    const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
+    if (!aluno) {
+        setFlash(req, 'error', 'Estagiário não encontrado.');
+        return res.redirect('/professor/dashboard');
+    }
+    const voltar = `/professor/aluno/${aluno.usuario_id}?aba=dados`;
+    const erro = (mensagem) => { setFlash(req, 'error', mensagem); return res.redirect(voltar); };
+    if (aluno.arquivado || aluno.encerrado_em) return erro('Não é possível alterar os dados de um estágio arquivado ou encerrado.');
+
+    const nome = (req.body.nome || '').trim();
+    const email = (req.body.email || '').trim().toLowerCase();
+    const matricula = (req.body.matricula || '').trim() || null;
+    const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
+    if (!nome || nome.length > 150 || !emailValido(email)) return erro('Informe o nome completo e um e-mail válido.');
+    if ((matricula && matricula.length > 30) || !ehCurso(curso)) return erro('Confira a matrícula (até 30 caracteres) e selecione um curso.');
+    const mesmoEmail = await usuariosModel.buscarPorEmail(email);
+    if (mesmoEmail && Number(mesmoEmail.id) !== Number(aluno.usuario_id)) return erro('Já existe um cadastro com este e-mail.');
+    const mesmaMatricula = matricula ? await alunosModel.buscarPorMatricula(matricula) : null;
+    if (mesmaMatricula && Number(mesmaMatricula.usuario_id) !== Number(aluno.usuario_id)) return erro('Já existe um cadastro com esta matrícula.');
+
+    try {
+        await usuariosModel.atualizarDadosAdmin(aluno.usuario_id, nome, email);
+        await alunosModel.atualizarMatricula(aluno.usuario_id, matricula);
+        await alunosModel.atualizarCurso(aluno.usuario_id, curso);
+    } catch (err) {
+        console.error('[professor/aluno/dados] erro ao atualizar dados:', err.message);
+        return erro(err.code === '23505' ? 'O e-mail ou a matrícula já está em uso.' : 'Não foi possível salvar os dados do estudante. Tente novamente.');
+    }
+    setFlash(req, 'success', 'Dados do estudante atualizados.');
+    return res.redirect(voltar);
+});
+
 router.post('/aluno/:id/curso', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno) {
         setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
     }
-    if (Number(aluno.orientador_id) !== Number(req.session.user.id)) {
-        setFlash(req, 'error', 'Apenas o professor orientador pode alterar o curso do estudante.');
-        return res.redirect(`/professor/aluno/${aluno.usuario_id}`);
+    const voltar = `/professor/aluno/${aluno.usuario_id}?aba=dados`;
+    if (!podeAlterarCurso(req.session.user, aluno)) {
+        setFlash(req, 'error', 'Apenas o orientador do estudante, um administrador ou o setor de estágios pode alterar o curso.');
+        return res.redirect(voltar);
+    }
+    if (aluno.arquivado || aluno.encerrado_em) {
+        setFlash(req, 'error', 'Não é possível alterar o curso de um estágio arquivado ou encerrado.');
+        return res.redirect(voltar);
     }
 
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     if (!ehCurso(curso)) {
         setFlash(req, 'error', 'Selecione um dos cursos técnicos disponíveis.');
-        return res.redirect(`/professor/aluno/${aluno.usuario_id}`);
+        return res.redirect(voltar);
     }
 
     try {
@@ -343,7 +389,7 @@ router.post('/aluno/:id/curso', async (req, res) => {
         console.error('[professor/aluno/curso] erro ao atualizar curso:', err.message);
         setFlash(req, 'error', 'Não foi possível atualizar o curso do estudante. Tente novamente.');
     }
-    return res.redirect(`/professor/aluno/${aluno.usuario_id}`);
+    return res.redirect(voltar);
 });
 
 router.get('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
@@ -486,10 +532,10 @@ router.post('/aluno/:id', async (req, res) => {
         setFlash(req, 'error', 'O estágio foi encerrado. Reabra a ata da banca para alterar os dados.');
         return res.redirect(voltar);
     }
-    // só o orientador do estagiário e o administrador editam o estágio
+    // o orientador do estagiário, o administrador e o setor de estágios editam o estágio
     const ehOrientadorDoAluno = Number(aluno.orientador_id) === Number(req.session.user.id);
-    if (!ehOrientadorDoAluno && req.session.user.cargo !== 'admin') {
-        setFlash(req, 'error', 'Apenas o orientador do estagiário ou um administrador pode editar o estágio.');
+    if (!ehOrientadorDoAluno && !veTodosOsEstagios(req.session.user)) {
+        setFlash(req, 'error', 'Apenas o orientador do estagiário, um administrador ou o setor de estágios pode editar o estágio.');
         return res.redirect(voltar);
     }
     // a primeira definição do estágio é feita no fluxo de aprovação
@@ -500,11 +546,11 @@ router.post('/aluno/:id', async (req, res) => {
 
     const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
 
-    // o curso vem junto no formulário, mas só o orientador atual pode trocá-lo
+    // o curso vem junto no formulário: orientador, administrador e setor de estágios podem trocá-lo
     const cursoInformado = typeof req.body.curso === 'string' ? req.body.curso : '';
     const mudouCurso = Boolean(cursoInformado) && cursoInformado !== aluno.curso;
-    if (mudouCurso && Number(aluno.orientador_id) !== Number(req.session.user.id)) {
-        setFlash(req, 'error', 'Apenas o professor orientador pode alterar o curso do estudante.');
+    if (mudouCurso && !podeAlterarCurso(req.session.user, aluno)) {
+        setFlash(req, 'error', 'Apenas o orientador do estudante, um administrador ou o setor de estágios pode alterar o curso.');
         return res.redirect(voltar);
     }
     if (mudouCurso && !ehCurso(cursoInformado)) {
