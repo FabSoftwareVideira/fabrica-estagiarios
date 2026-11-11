@@ -35,7 +35,7 @@
         <div class="page-head">
             <div>
                 <h1><%= titulo %></h1>
-                <p><%= editando ? 'Altere os dados e os papéis desta conta.' : 'Escolha o tipo de conta e preencha os dados. A pessoa entra depois com a conta Google ou GitHub desse e-mail.' %></p>
+                <p><%= editando ? 'Altere os dados e os papéis desta conta.' : 'Escolha o tipo de conta e preencha os dados. A pessoa entra depois com a conta Google desse e-mail.' %></p>
             </div>
         </div>
 
@@ -87,7 +87,7 @@
                             <div class="form-field">
                                 <label for="usuario-email">E-mail</label>
                                 <input id="usuario-email" name="email" type="email" maxlength="150" autocomplete="off" required value="<%= editando ? usuario.email : '' %>" data-resumo-email-input>
-                                <small>É o e-mail da conta Google ou GitHub usada para entrar. Deve ser único.</small>
+                                <small>É o e-mail da conta Google usada para entrar. Deve ser único.</small>
                             </div>
                         </div>
                     </section>

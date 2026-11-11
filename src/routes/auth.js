@@ -7,6 +7,14 @@ const { requireAuth, setFlash } = require('../middleware/auth');
 const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
 const { CURSOS, ehCurso } = require('../config/cursos');
+const { loginGithubHabilitado } = require('../config/login');
+
+// Em produção o login é só com Google: as rotas do GitHub voltam para a página inicial.
+function exigirGithubHabilitado(req, res, next) {
+    if (loginGithubHabilitado()) return next();
+    setFlash(req, 'error', 'O acesso é feito com a conta Google.');
+    return res.redirect('/');
+}
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
@@ -119,7 +127,7 @@ router.post('/perfil', requireAuth, async (req, res) => {
 });
 
 // Passo 1: manda pro GitHub autorizar
-router.get('/auth/github', (req, res) => {
+router.get('/auth/github', exigirGithubHabilitado, (req, res) => {
     const agora = Date.now();
     const temStateFresco = req.session.oauthState
         && req.session.oauthStateTs
@@ -154,7 +162,7 @@ router.get('/auth/github', (req, res) => {
 });
 
 // Passo 2: callback do GitHub — troca o code, busca o perfil/e-mail e loga
-router.get('/auth/github/callback', async (req, res) => {
+router.get('/auth/github/callback', exigirGithubHabilitado, async (req, res) => {
     const { code, state } = req.query;
 
     if (!code || !state || state !== req.session.oauthState) {

@@ -177,7 +177,7 @@ router.post('/estagios', async (req, res) => {
 
     if (rascunhoId) await rascunhosModel.excluir(rascunhoId);
     setFlash(req, 'success', dados.modo === 'novo'
-        ? 'Estágio incluído e conta do estudante criada. O estudante entra com a conta Google ou GitHub deste e-mail e já pode registrar atividades.'
+        ? 'Estágio incluído e conta do estudante criada. O estudante entra com a conta Google deste e-mail e já pode registrar atividades.'
         : 'Estágio incluído. O estudante já pode registrar atividades.');
     res.redirect(`/professor/aluno/${alunoId}`);
 });
