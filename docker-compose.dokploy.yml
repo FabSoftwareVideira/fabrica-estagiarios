@@ -13,9 +13,6 @@
 # - O relatório semanal roda no serviço "relatorio-semanal", dentro do próprio projeto
 #   (na VPS antiga era um workflow agendado com docker exec no runner da máquina).
 #
-# Variáveis: aba "Environment" do Dokploy, com as mesmas chaves do secret ENV_FILE
-# (modelo em .env.sample). O Dokploy grava essas variáveis no .env ao lado deste
-# arquivo a cada deploy, por isso o env_file abaixo.
 name: fabrica-estagiarios
 
 # Imagem do app, usada pelo web, pelas migrações e pelo relatório semanal
