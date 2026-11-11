@@ -27,6 +27,8 @@
   --texto: #1f2937;
   --texto-suave: #4b5563;
   --texto-botao: #fff;
+  --fundo-escuro: #071d41;
+  --fundo-conta-hover: #0c326f;
   --borda: #cfd4dc;
   --borda-suave: #e6e8ec;
 
@@ -48,8 +50,8 @@
 
 /* Alto contraste (botão no topo da página, igual ao portal do IFC) */
 html.alto-contraste {
-  --azul-900: #000;
-  --azul-800: #000;
+  --azul-900: #ffd700;
+  --azul-800: #ffe766;
   --azul-700: #ffd700;
   --azul-200: #ffd700;
   --azul-100: #1a1a1a;
@@ -65,11 +67,12 @@ html.alto-contraste {
   --superficie: #0d0d0d;
   --texto: #fff;
   --texto-suave: #e5e5e5;
+  --texto-botao: #000;
+  --fundo-escuro: #000;
+  --fundo-conta-hover: #222;
   --borda: #ffd700;
-  --borda-suave: #5c4d00;
+  --borda-suave: #888;
 }
-html.alto-contraste .btn,
-html.alto-contraste button:not(.btn-secondary):not(.btn-danger):not(.btn-ghost):not(.contrast-toggle):not(.nav-toggle):not(.wizard-etapa):not(.cal-nav *) { color: #000; }
 html.alto-contraste .contrast-toggle { color: #ffd700; opacity: 1; }
 html.alto-contraste .nav-toggle, html.alto-contraste .nav-toggle:hover { color: #ffd700; }
 html.alto-contraste .cal-nav button, html.alto-contraste .cal-nav button:hover { color: #ffd700; }
@@ -105,7 +108,7 @@ a:hover { color: var(--azul-800); }
 
 .skip-link {
   position: absolute; left: 8px; top: -60px; z-index: 300;
-  background: var(--azul-900); color: #fff; padding: 10px 16px; border-radius: 0 0 8px 8px;
+  background: var(--fundo-escuro); color: #fff; padding: 10px 16px; border-radius: 0 0 8px 8px;
   text-decoration: none; font-weight: 600;
 }
 .skip-link:focus { top: 0; }
@@ -141,7 +144,7 @@ h1 { font-size: 28px; line-height: 1.2; }
    Cabeçalho (padrão gov.br + identidade IFC)
 =========================== */
 
-.utility-bar { background: var(--azul-900); color: #fff; font-size: 13px; }
+.utility-bar { background: var(--fundo-escuro); color: #fff; font-size: 13px; }
 .utility-inner {
   width: var(--largura-conteudo); max-width: var(--max-conteudo); margin: 0 auto; min-height: 36px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -210,7 +213,7 @@ html.alto-contraste .brand-text { color: #ffd700; }
   background: transparent; border: 0; cursor: pointer; font: inherit;
   border-radius: var(--raio-botao); text-decoration: none; color: var(--azul-900); font-weight: 600; font-size: 15px;
 }
-.nav-user-profile:hover { background: var(--azul-800); color: #fff; }
+.nav-user-profile:hover { background: var(--fundo-conta-hover); color: #fff; }
 .nav-user-profile:hover .nav-user-caret { color: #fff; }
 .nav-avatar {
   width: 36px; height: 36px; border-radius: 50%; background: var(--azul-100); color: var(--azul-800);
@@ -566,7 +569,7 @@ html.alto-contraste tbody tr:hover td { background: #1a1a1a; }
 .horas-grandes { font-size: 40px; font-weight: 800; line-height: 1; color: var(--azul-900); }
 .horas-grandes span { font-size: 18px; font-weight: 600; color: var(--texto-suave); }
 html.alto-contraste .horas-grandes { color: #ffd700; }
-.proximo-passo { background: var(--azul-900); color: #fff; border-color: var(--azul-900); display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
+.proximo-passo { background: var(--fundo-escuro); color: #fff; border-color: var(--azul-900); display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
 .proximo-passo h2 { color: #fff; font-size: 18px; margin-bottom: 4px; }
 .proximo-passo p { color: #dbe5f5; font-size: 15px; }
 .proximo-passo .btn { align-self: flex-start; background: var(--verde-logo); border-color: var(--verde-logo); color: #0b2300; }
@@ -1033,7 +1036,7 @@ html.alto-contraste .curso-ambar { --curso-cor: #ffd700; }
    Rodapé
 =========================== */
 
-.site-footer { background: var(--azul-900); color: #dbe5f5; margin-top: auto; }
+.site-footer { background: var(--fundo-escuro); color: #dbe5f5; margin-top: auto; }
 .site-footer::before { content: ""; display: block; height: 4px; background: linear-gradient(90deg, var(--verde-logo) 0 22%, var(--azul-700) 22% 100%); }
 .footer-inner { width: var(--largura-conteudo); max-width: var(--max-conteudo); margin: 0 auto; padding: 24px 0; font-size: 14px; display: grid; gap: 4px; }
 .footer-title { color: #fff; }

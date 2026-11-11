@@ -5,7 +5,14 @@ const ELEGIVEL = `a.status = 'em_andamento' AND a.arquivado = false
     AND a.encerrado_em IS NULL
     AND a.relatorio_atualizado_em < NOW() - INTERVAL '5 days'
     AND (l.proximo_envio_em IS NULL OR l.proximo_envio_em <= NOW())
-    AND (SELECT pref.receber_lembretes_atividades FROM usuarios pref WHERE pref.id = a.usuario_id)`;
+    AND EXISTS (SELECT 1 FROM usuarios pref WHERE pref.id = a.usuario_id
+        AND pref.ativo = true AND pref.tipo = 'aluno' AND pref.receber_lembretes_atividades = true)`;
+
+async function contarElegiveis(banco = pool) {
+    const { rows } = await banco.query(`SELECT COUNT(*)::int AS total FROM alunos a
+        LEFT JOIN lembretes_atividades l ON l.aluno_id = a.usuario_id WHERE ${ELEGIVEL}`);
+    return rows[0].total;
+}
 
 function montarEmail(aluno, urlAplicacao) {
     const link = `${urlAplicacao}/aluno/nova-atividade`;
@@ -95,4 +102,4 @@ if (require.main === module) {
         .catch((erro) => { console.error('[lembretes-atividades]', erro.message); process.exitCode = 1; })
         .finally(() => pool.end());
 }
-module.exports = { executar, montarEmail };
+module.exports = { executar, montarEmail, contarElegiveis };

@@ -26,6 +26,11 @@ jobs:
   deploy:
     name: 🚀 Deploy ${{ github.event.repository.name }}
     runs-on: self-hosted
+    # Não troque o container durante o processamento de lembretes.
+    concurrency:
+      group: fabrica-estagiarios-producao
+      cancel-in-progress: false
+      queue: max
 
     steps:
       - name: 📂 Checkout do Código

@@ -166,17 +166,17 @@ docker compose -f docker-compose.prod.yml up -d
 - Ao **concluir o estágio** (`alunos.encerrado_em`), o aluno não registra mais atividades nem altera a FAA, e o supervisor não valida mais horas: só é possível consultar e imprimir. O orientador (ou admin) pode **reabrir** o estágio.
 - Migração: `db/migrations/014_ata_banca.sql` (coluna `encerrado_em` e tabela `fares`). O modelo do PDF fica em `docs/FARE - Avaliação-Estágio-Ata-Banca-.pdf`.
 
-## Lembretes de atividades para estudantes (suspensos)
+## Lembretes de atividades para estudantes
 
-O workflow automático dos lembretes foi removido temporariamente. Não há execução agendada desse recurso nesta versão. O script, a migração e os testes foram preservados para retomada posterior; o resumo semanal dos supervisores continua com seu fluxo existente. O motivo da suspensão e os pré-requisitos para retomada estão em [docs/lembretes-suspensos.md](docs/lembretes-suspensos.md).
+O workflow `.github/workflows/lembretes-atividades.yml` verifica os atrasos a cada hora, após ativar a variável de repositório `LEMBRETES_ATIVIDADES_ATIVOS=true` no GitHub Actions. Sem essa variável, os disparos agendados ficam pulados. Ele compartilha a fila de execução do deploy e confere a existência do executor no container antes de chamá-lo. Siga o [guia de configuração e ativação](docs/CONFIGURAR-LEMBRETES.md) para fazer o deploy, conferir SMTP sem enviar mensagens e habilitar o agendamento.
 
-A implementação preservada identifica estudantes com estágio em andamento, não arquivado e não encerrado que passam **mais de 5 dias completos** sem registrar ou atualizar atividades. Ela reutiliza o serviço SMTP e as variáveis `APP_URL`/`SMTP_*` existentes.
+A implementação identifica estudantes com conta ativa e estágio em andamento, não arquivado e não encerrado, que passam **mais de 5 dias completos** sem registrar ou atualizar atividades. Respeita a preferência de e-mail do estudante e reutiliza o serviço SMTP e as variáveis `APP_URL`/`SMTP_*` do resumo semanal.
 
 O prazo considera a data do registro/alteração, mesmo para atividades retroativas. Validações do supervisor não reiniciam a contagem. Para alunos sem atividades, considera-se o cadastro; ao sair da lista de espera ou desarquivar um estágio em andamento, o prazo recomeça. Na migração de dados existentes, usa-se o registro mais recente disponível (ou a criação do aluno); não há histórico de edições anterior à migração.
 
 Cada estudante recebe no máximo um lembrete a cada **7 dias**, enquanto continuar elegível. A mensagem inclui nome, matrícula, empresa, supervisor, orientador e carga horária conforme disponíveis, além do link para registrar atividades e horas. Um lock no PostgreSQL impede execuções simultâneas. O intervalo é reservado antes do SMTP para evitar duplicação se o processo parar após a aceitação; em falhas explícitas de SMTP, a tentativa é adiada por uma hora. Uma interrupção durante o envio pode adiar esse lembrete até a próxima janela de sete dias.
 
-A migração `016_lembretes_atividades.sql` permanece no histórico de deploy e não envia e-mails. O comando manual `npm run email:reminders` também permanece no código, mas **envia e-mails reais** usando o SMTP configurado; não deve ser executado em produção durante a suspensão. A retomada do envio automático exige recriar o workflow somente após implantar o script e aplicar a migração no servidor.
+O executor verifica o schema necessário, incluindo as migrações 016, 021 e 025, antes de processar lembretes. `npm run email:reminders:check` verifica banco e conexão/autenticação SMTP, sem enviar. `npm run email:reminders:dry-run` apenas conta elegíveis, sem SMTP nem alterações no banco. `npm run email:reminders` **envia e-mails reais** para todos os elegíveis. Esses três modos também estão disponíveis em **Run workflow**, com diagnóstico como padrão. O envio manual não depende da variável do agendamento.
 
 ## Alto contraste
 

@@ -8,7 +8,9 @@
     "dev": "node src/scripts/runMigrations.js && nodemon src/server.js",
     "seed:dev": "node src/scripts/seedDev.js",
     "email:weekly": "node src/scripts/enviarRelatorioSemanalSupervisores.js",
-    "email:reminders": "node src/scripts/enviarLembretesAtividades.js",
+    "email:reminders": "node src/scripts/lembretesAtividadesJob.js --enviar",
+    "email:reminders:check": "node src/scripts/lembretesAtividadesJob.js --diagnostico",
+    "email:reminders:dry-run": "node src/scripts/lembretesAtividadesJob.js --simular",
     "demo": "node src/scripts/demo.js",
     "test": "node --test"
   },

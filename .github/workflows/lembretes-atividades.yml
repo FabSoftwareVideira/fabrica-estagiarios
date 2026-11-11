@@ -1,0 +1,50 @@
+name: Lembretes de atividades dos estudantes
+
+on:
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: Diagnóstico verifica SMTP sem enviar; simular só consulta; enviar dispara lembretes elegíveis
+        required: true
+        default: diagnostico
+        type: choice
+        options:
+          - diagnostico
+          - simular
+          - enviar
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-lembretes:
+    # A variável só deve ser ativada depois do deploy e do diagnóstico.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.LEMBRETES_ATIVIDADES_ATIVOS == 'true' }}
+    runs-on: self-hosted
+    concurrency:
+      group: fabrica-estagiarios-producao
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - name: Conferir versão implantada e executar
+        shell: bash
+        env:
+          MODO: ${{ github.event_name == 'workflow_dispatch' && inputs.modo || 'enviar' }}
+        run: |
+          set -euo pipefail
+          case "$MODO" in diagnostico|simular|enviar) ;; *) echo "Modo inválido"; exit 1 ;; esac
+          if [ "$(docker inspect --format='{{.State.Running}}' fabrica-estagiarios-web 2>/dev/null || true)" != 'true' ]; then
+            echo '::error::Container web indisponível. Confira o deploy antes de executar os lembretes.'
+            exit 1
+          fi
+          # Use o novo executor: uma versão antiga do script de envio não
+          # reconhece os modos de diagnóstico e poderia enviar por engano.
+          if ! docker exec fabrica-estagiarios-web test -f /app/src/scripts/lembretesAtividadesJob.js; then
+            echo '::warning::Aguardando deploy: o container ainda não contém o executor de lembretes.'
+            echo 'Lembretes não executados: implante a versão atual antes de ativar o envio.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          docker exec fabrica-estagiarios-web node /app/src/scripts/lembretesAtividadesJob.js "--$MODO"
+          echo "Verificação concluída no modo: $MODO. Consulte as contagens no log da etapa." >> "$GITHUB_STEP_SUMMARY"
