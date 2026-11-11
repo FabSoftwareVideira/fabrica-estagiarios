@@ -1,3 +1,41 @@
 /* Esquema de cores do navegador (barras de rolagem, campos nativos). */
 :root { color-scheme: light; }
 html.alto-contraste { color-scheme: dark; }
+
+/* Somente tema claro e alto contraste. Cores de texto e de fundo têm
+   papéis separados: amarelo identifica ações, preto mantém a superfície. */
+html.alto-contraste .utility-bar { border-bottom: 1px solid var(--borda-suave); }
+html.alto-contraste .utility-links a,
+html.alto-contraste .contrast-toggle,
+html.alto-contraste .contrast-toggle:hover { color: #ffd700; background: transparent; opacity: 1; }
+html.alto-contraste .contrast-toggle[aria-pressed="true"] { text-decoration: underline; text-underline-offset: 4px; }
+
+/* Controles preenchidos precisam de texto escuro; controles transparentes
+   continuam usando as próprias cores, inclusive abas e ações de tabelas. */
+html.alto-contraste .btn-danger:hover,
+html.alto-contraste .nav-link-cta,
+html.alto-contraste .nav-link-cta:hover,
+html.alto-contraste .pagination-link.active,
+html.alto-contraste .filter-pill input:checked + span,
+html.alto-contraste .trilha li.feita::before { color: #000; }
+html.alto-contraste .cal-dia.selecionado,
+html.alto-contraste .cal-dia.selecionado:hover,
+html.alto-contraste .cal-dia.lotado .cal-horas { color: #000; }
+html.alto-contraste .cal-dia.selecionado .cal-horas { background: #000; color: #ffd700; }
+html.alto-contraste .cal-dia.fim-semana,
+html.alto-contraste .cal-dia.fim-semana:hover {
+  background: repeating-linear-gradient(135deg, #111 0 5px, #242424 5px 10px);
+  color: #e5e5e5;
+}
+html.alto-contraste .lg-fim { background: repeating-linear-gradient(135deg, #111 0 3px, #444 3px 6px); }
+html.alto-contraste .cal-semana.fim { opacity: 1; }
+
+html.alto-contraste .status-waiting,
+html.alto-contraste .status-archived { background: #111; color: #fff; border-color: #aaa; }
+html.alto-contraste input::placeholder,
+html.alto-contraste textarea::placeholder { color: #ccc; opacity: 1; }
+html.alto-contraste input[type="checkbox"],
+html.alto-contraste input[type="radio"] { accent-color: #ffd700; }
+html.alto-contraste button:disabled,
+html.alto-contraste .btn[aria-disabled="true"] { opacity: 1; border-style: dashed; }
+html.alto-contraste :focus-visible { outline: 2px solid #fff; outline-offset: 3px; }

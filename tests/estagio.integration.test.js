@@ -7,6 +7,7 @@ const { PGlite } = require('@electric-sql/pglite');
 const express = require('express');
 const { pool } = require('../src/config/database');
 const { executar, montarEmail } = require('../src/scripts/enviarLembretesAtividades');
+const { executarJob } = require('../src/scripts/lembretesAtividadesJob');
 const facs = require('../src/models/facs');
 const fichasRascunhos = require('../src/models/fichasRascunhos');
 const { mediaFac } = require('../src/utils/fac');
@@ -16,6 +17,7 @@ const { estagioStatus, etapaAtual } = require('../src/config/status');
 
 let db, server, url;
 const banco = {
+    query: consultar,
     connect: async () => ({
         async query(sql, params) {
             if (/^\s*(BEGIN|COMMIT|ROLLBACK)\s*;?\s*$/i.test(sql)) return { rows: [], rowCount: 0 };
@@ -140,6 +142,48 @@ test('registros retroativos e edições reiniciam o prazo; validação do superv
     assert.equal((await consultar('SELECT relatorio_atualizado_em = NOW() AS recente FROM alunos WHERE usuario_id=1')).rows[0].recente, true);
     await db.exec(`UPDATE alunos SET status='lista_espera' WHERE usuario_id=2; UPDATE alunos SET status='em_andamento' WHERE usuario_id=2;`);
     assert.equal((await consultar('SELECT relatorio_atualizado_em = NOW() AS recente FROM alunos WHERE usuario_id=2')).rows[0].recente, true);
+});
+
+test('lembretes: simulação conta apenas contas ativas com preferência ligada sem reservar envios', async () => {
+    await db.exec(`UPDATE usuarios SET ativo=false WHERE id=1;
+        UPDATE usuarios SET receber_lembretes_atividades=false WHERE id=2;`);
+    const enviadas = [];
+    const config = emailTeste(enviadas);
+    config.configurarEmail = () => { throw new Error('Simulação não deve acessar SMTP'); };
+    assert.deepEqual(await executarJob({ ...config, modo: 'simular' }), { modo: 'simular', elegiveis: 8 });
+    assert.equal((await consultar('SELECT COUNT(*)::int AS total FROM lembretes_atividades')).rows[0].total, 0);
+    assert.deepEqual(await executar(emailTeste(enviadas)), { enviados: 8, falhas: 0 });
+    assert.ok(enviadas.every((m) => !['aluno1@example.test', 'aluno2@example.test'].includes(m.to.address)));
+});
+
+test('lembretes: diagnóstico autentica SMTP sem enviar nem consumir o intervalo', async () => {
+    let verificacoes = 0, fechou = false;
+    const resultado = await executarJob({ banco, logger, configurarEmail: () => ({ transporte: {
+        async verify() { verificacoes++; },
+        async sendMail() { assert.fail('Diagnóstico não pode enviar mensagens'); },
+        close() { fechou = true; },
+    } }) });
+    assert.deepEqual(resultado, { modo: 'diagnostico', elegiveis: 10, smtp: true });
+    assert.equal(verificacoes, 1); assert.equal(fechou, true);
+    assert.equal((await consultar('SELECT COUNT(*)::int AS total FROM lembretes_atividades')).rows[0].total, 0);
+});
+
+test('lembretes: banco antigo ou trigger desativado bloqueia execução antes do SMTP', async () => {
+    const config = { banco, logger, modo: 'enviar', configurarEmail: () => { assert.fail('SMTP não deve ser iniciado'); } };
+    await db.exec('ALTER TABLE atividades DISABLE TRIGGER atividades_atualizam_relatorio');
+    await assert.rejects(executarJob(config), /Banco não preparado.*trigger atividades_atualizam_relatorio/);
+    await db.exec('ALTER TABLE atividades ENABLE TRIGGER atividades_atualizam_relatorio');
+    await db.exec('ALTER TABLE usuarios DROP COLUMN receber_lembretes_atividades');
+    await assert.rejects(executarJob(config), /usuarios.receber_lembretes_atividades.*runMigrations/);
+});
+
+test('lembretes: falha no diagnóstico libera SMTP sem registrar lembrete', async () => {
+    let fechou = false;
+    await assert.rejects(executarJob({ banco, logger, configurarEmail: () => ({ transporte: {
+        async verify() { throw new Error('Autenticação SMTP recusada'); }, close() { fechou = true; },
+    } }) }), /Autenticação SMTP recusada/);
+    assert.equal(fechou, true);
+    assert.equal((await consultar('SELECT COUNT(*)::int AS total FROM lembretes_atividades')).rows[0].total, 0);
 });
 test('falha SMTP não impede os demais envios nem causa tentativas a cada execução', async () => {
     const enviadas = [];

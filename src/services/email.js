@@ -53,6 +53,9 @@ function obterConfiguracaoEmail() {
             host: smtpHost,
             port: Number(SMTP_PORT) || 587,
             secure: Number(SMTP_PORT) === 465,
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 60000,
             ...(autenticacaoConfigurada ? { auth: { user: smtpUser, pass: smtpPass } } : {}),
         }),
     };
