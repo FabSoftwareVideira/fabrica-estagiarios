@@ -1205,8 +1205,6 @@ html.alto-contraste .curso-ambar { --curso-cor: #ffd700; }
 .public-auth-btn svg { flex: none; }
 .public-auth-google { color: #1f1f1f; background: #fff; border-color: #dadce0; }
 .public-auth-google:hover { color: #1f1f1f; background: #f8faff; }
-.public-auth-github { color: #fff; background: #24292f; border-color: #24292f; }
-.public-auth-github:hover { color: #fff; background: #32383f; }
 .public-dev-access { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--borda-suave); }
 .public-dev-access summary { color: var(--texto-suave); cursor: pointer; font-size: 13px; font-weight: 600; }
 .public-dev-buttons { display: grid; gap: 8px; padding-top: 12px; }

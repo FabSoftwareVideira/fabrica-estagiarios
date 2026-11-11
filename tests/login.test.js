@@ -24,23 +24,17 @@ before(async () => {
 afterEach(() => { process.env.APP_ENV = envOriginal; });
 after(async () => { await new Promise((resolve) => server.close(resolve)); });
 
-test('em produção o login é só com Google: sem botão e sem rotas do GitHub', async () => {
-    process.env.APP_ENV = 'production';
-    const pagina = await (await fetch(`${url}/`)).text();
-    assert.match(pagina, /href="\/auth\/google"/);
-    assert.doesNotMatch(pagina, /href="\/auth\/github"/);
-    assert.doesNotMatch(pagina, /GitHub/);
+for (const ambiente of ['production', 'development']) {
+    test(`login só com Google em ${ambiente}: sem botão e sem rotas do GitHub`, async () => {
+        process.env.APP_ENV = ambiente;
+        const pagina = await (await fetch(`${url}/`)).text();
+        assert.match(pagina, /href="\/auth\/google"/);
+        assert.doesNotMatch(pagina, /href="\/auth\/github"/);
+        assert.doesNotMatch(pagina, /GitHub/);
 
-    for (const rota of ['/auth/github', '/auth/github/callback?code=x&state=y']) {
-        const resposta = await fetch(url + rota, { redirect: 'manual' });
-        assert.equal(resposta.status, 302, rota);
-        assert.equal(resposta.headers.get('location'), '/', rota);
-    }
-});
-
-test('fora de produção o botão do GitHub continua disponível para testes', async () => {
-    process.env.APP_ENV = 'development';
-    const pagina = await (await fetch(`${url}/`)).text();
-    assert.match(pagina, /href="\/auth\/google"/);
-    assert.match(pagina, /href="\/auth\/github"/);
-});
+        for (const rota of ['/auth/github', '/auth/github/callback?code=x&state=y']) {
+            const resposta = await fetch(url + rota, { redirect: 'manual' });
+            assert.equal(resposta.status, 404, rota);
+        }
+    });
+}

@@ -31,9 +31,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Sessão persistida no Postgres (mesmo banco da aplicação) em vez do
 // MemoryStore padrão do express-session. O MemoryStore some a cada restart
-// do container/processo — e como o login com GitHub depende da sessão
-// sobreviver entre "/auth/github" (onde o "state" é salvo) e
-// "/auth/github/callback" (onde ele é conferido), qualquer restart/deploy
+// do container/processo — e como o login com Google depende da sessão
+// sobreviver entre "/auth/google" (onde o "state" é salvo) e
+// "/auth/google/callback" (onde ele é conferido), qualquer restart/deploy
 // bem no meio desse intervalo derruba o "state" e a autenticação falha com
 // "tente novamente" — o que casa com o comportamento relatado (falha na
 // primeira tentativa, funciona ao tentar de novo).
