@@ -1,0 +1,76 @@
+name: Deploy no Dokploy
+
+# Publica na VPS com Dokploy. Roda junto com o deploy.yml (VPS antiga, runner
+# self-hosted) enquanto as duas VPS existirem; quando a antiga sair, basta apagar
+# o deploy.yml e o relatorio-semanal.yml.
+#
+# O build, as migrações e a subida dos serviços acontecem no Dokploy, a partir do
+# docker-compose.dokploy.yml. Este workflow só confere o compose e pede o deploy
+# pela API do Dokploy.
+#
+# Secrets do repositório (Settings → Secrets and variables → Actions):
+#   DOKPLOY_URL         endereço do painel do Dokploy, ex.: https://dokploy.exemplo.br
+#   DOKPLOY_API_KEY     token gerado no Dokploy (Settings → Profile → API/CLI)
+#   DOKPLOY_COMPOSE_ID  id do recurso Docker Compose (aparece na URL do recurso no painel)
+# Sem os três, o workflow avisa e termina sem erro.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dokploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 🚀 Deploy no Dokploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📂 Checkout do código
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Validar o docker-compose.dokploy.yml
+        run: |
+          # o .env de verdade fica no Dokploy; aqui basta um provisório para o compose resolver as variáveis
+          printf 'POSTGRES_USER=ci\nPOSTGRES_PASSWORD=ci\nPOSTGRES_DB=ci\nSESSION_SECRET=ci\n' > .env
+          docker compose -f docker-compose.dokploy.yml config -q
+          echo "✅ Compose válido"
+
+      - name: 🔑 Conferir secrets do Dokploy
+        id: secrets
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
+        run: |
+          if [[ -z "${DOKPLOY_URL}" || -z "${DOKPLOY_API_KEY}" || -z "${DOKPLOY_COMPOSE_ID}" ]]; then
+            echo "::notice::Secrets DOKPLOY_URL, DOKPLOY_API_KEY e DOKPLOY_COMPOSE_ID ainda não configurados; deploy no Dokploy ignorado."
+            echo "configurado=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configurado=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🚀 Pedir o deploy ao Dokploy
+        if: steps.secrets.outputs.configurado == 'true'
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
+        run: |
+          resposta="$(curl -sS -w '\n%{http_code}' -X POST "${DOKPLOY_URL%/}/api/compose.deploy" \
+            -H "x-api-key: ${DOKPLOY_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"composeId\": \"${DOKPLOY_COMPOSE_ID}\"}")"
+          codigo="$(echo "${resposta}" | tail -n1)"
+          if [[ "${codigo}" -lt 200 || "${codigo}" -ge 300 ]]; then
+            echo "❌ O Dokploy recusou o pedido de deploy (HTTP ${codigo}):"
+            echo "${resposta}" | sed '$d'
+            exit 1
+          fi
+          echo "✅ Deploy solicitado. Acompanhe o build e os logs na aba Deployments do recurso no Dokploy."

@@ -1,0 +1,155 @@
+# Produção no Dokploy (recurso do tipo "Docker Compose"). Cópia adaptada do
+# docker-compose.prod.yml, que continua servindo a VPS antiga enquanto ela existir.
+#
+# O que muda em relação ao docker-compose.prod.yml:
+# - Sem a rede fabrica-network e sem porta publicada no host. O domínio e o HTTPS
+#   ficam com o Traefik do Dokploy, configurados na aba "Domains" do Dokploy para o
+#   serviço fabrica-estagiarios-web, porta 3000. Só o web entra na dokploy-network;
+#   o banco fica apenas na rede interna do projeto.
+# - Sem container_name: o Dokploy dá nomes próprios aos containers (com nomes fixos,
+#   dois deploys ou dois projetos na mesma VPS entram em conflito).
+# - As migrações rodam a cada deploy no serviço "migrar", antes do web (na VPS antiga
+#   isso era um passo do GitHub Actions).
+# - O relatório semanal roda no serviço "relatorio-semanal", dentro do próprio projeto
+#   (na VPS antiga era um workflow agendado com docker exec no runner da máquina).
+#
+# Variáveis: aba "Environment" do Dokploy, com as mesmas chaves do secret ENV_FILE
+# (modelo em .env.sample). O Dokploy grava essas variáveis no .env ao lado deste
+# arquivo a cada deploy, por isso o env_file abaixo.
+name: fabrica-estagiarios
+
+# Imagem do app, usada pelo web, pelas migrações e pelo relatório semanal
+x-app: &app
+  build:
+    context: .
+    target: prod
+    args:
+      APP_VERSION: ${APP_VERSION:-latest}
+      APP_ENV: production
+  image: fabrica-estagiarios:${APP_VERSION:-latest}
+  env_file: .env
+  environment:
+    - APP_ENV=production
+    - APP_VERSION=${APP_VERSION:-latest}
+    - POSTGRES_HOST=fabrica-estagiarios-db
+  # Sem ganhar privilégios depois de iniciar (setuid) e sem as capacidades de root que não usa
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  fabrica-estagiarios-db:
+    image: postgres:16-alpine
+    env_file: .env
+    environment:
+      - PGDATA=/var/lib/postgresql/data
+    volumes:
+      - fabrica-estagiarios_prod_db:/var/lib/postgresql/data
+      # Só roda na primeira subida, com o volume vazio; depois quem atualiza o banco é o serviço "migrar"
+      - ./db:/docker-entrypoint-initdb.d:ro
+    # Só na rede interna do projeto: nada de fora alcança o banco
+    networks:
+      - default
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  migrar:
+    # Roda a cada deploy, depois que o banco está saudável, aplica as migrações
+    # pendentes e termina. O web só sobe se isto terminar sem erro.
+    <<: *app
+    command: ["node", "src/scripts/runMigrations.js"]
+    restart: "no"
+    depends_on:
+      fabrica-estagiarios-db:
+        condition: service_healthy
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  fabrica-estagiarios-web:
+    <<: *app
+    # Sem "ports": o Traefik do Dokploy alcança a porta 3000 pela dokploy-network
+    expose:
+      - "3000"
+    depends_on:
+      fabrica-estagiarios-db:
+        condition: service_healthy
+      migrar:
+        condition: service_completed_successfully
+    labels:
+      - org.opencontainers.image.version=${APP_VERSION:-latest}
+    networks:
+      - default
+      - dokploy-network
+    restart: unless-stopped
+    # /health confere o app e a conexão com o banco (a imagem alpine tem o wget do busybox)
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+          pids: 256
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+
+  relatorio-semanal:
+    # A cada 15 minutos verifica a programação do relatório semanal definida pelo
+    # administrador e envia se estiver no horário (o próprio script confere o dia e a
+    # hora de Brasília e usa um lock no banco para não enviar em dobro).
+    <<: *app
+    command: ["sh", "-c", "while true; do node src/scripts/enviarRelatorioSemanalSupervisores.js; sleep 900; done"]
+    depends_on:
+      fabrica-estagiarios-web:
+        condition: service_healthy
+    networks:
+      - default
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 192M
+          pids: 64
+
+volumes:
+  fabrica-estagiarios_prod_db:
+
+networks:
+  # Rede do Traefik do Dokploy (criada na instalação do Dokploy)
+  dokploy-network:
+    external: true

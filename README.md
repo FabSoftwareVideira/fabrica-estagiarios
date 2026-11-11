@@ -10,7 +10,7 @@ Template padrão para aplicações Node.js + Express + PostgreSQL com CI/CD via 
 - **Framework**: Express
 - **Banco**: PostgreSQL 18.3
 - **Container**: Docker (multi-stage: dev + prod)
-- **CI/CD**: GitHub Actions → self-hosted runner
+- **CI/CD**: GitHub Actions → Dokploy (VPS nova) e self-hosted runner (VPS antiga, enquanto existir)
 
 ## Início rápido
 
@@ -117,6 +117,34 @@ Para produção, atualize também o secret `ENV_FILE` no GitHub e faça o deploy
    - `ENV_FILE` — conteúdo do `.env` de produção
 
 ---
+
+## Deploy no Dokploy
+
+A produção está mudando para uma VPS com [Dokploy](https://dokploy.com). Enquanto a VPS antiga existir, os dois caminhos convivem: `docker-compose.prod.yml` + `deploy.yml` (runner self-hosted) na antiga, `docker-compose.dokploy.yml` + `deploy-dokploy.yml` no Dokploy.
+
+Diferenças do `docker-compose.dokploy.yml`:
+
+- **Sem porta publicada e sem a rede `fabrica-network`.** Só o serviço web entra na rede `dokploy-network`, por onde o Traefik do Dokploy o alcança; o banco fica só na rede interna do projeto.
+- **Migrações dentro do compose**: o serviço `migrar` roda `runMigrations.js` a cada deploy, depois que o banco está saudável; o web só sobe se as migrações terminarem sem erro.
+- **Relatório semanal dentro do compose**: o serviço `relatorio-semanal` verifica a programação a cada 15 minutos (substitui o workflow `relatorio-semanal.yml`, que depende de `docker exec` no runner da VPS antiga).
+- **Sem `container_name`**: o Dokploy nomeia os containers.
+
+Configuração no Dokploy (uma vez):
+
+1. Crie um recurso **Docker Compose** apontando para este repositório, com **Compose Path** `./docker-compose.dokploy.yml`. Deixe o *Autodeploy* desligado: quem dispara o deploy é o GitHub Actions, nas tags `v*`.
+2. Na aba **Environment**, cole as mesmas variáveis do secret `ENV_FILE`. `POSTGRES_HOST` pode ficar como está: o compose usa sempre o serviço `fabrica-estagiarios-db`. Se o domínio mudar, atualize `APP_URL`, `GOOGLE_CALLBACK_URL` e `GITHUB_CALLBACK_URL` e cadastre os novos endereços de retorno no Google Cloud e no GitHub.
+3. Na aba **Domains**, adicione o domínio para o serviço `fabrica-estagiarios-web`, porta `3000`, com HTTPS.
+4. No GitHub, crie os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` (token em Settings → Profile do Dokploy) e `DOKPLOY_COMPOSE_ID` (o id do recurso, na URL dele no painel). Sem eles, o workflow `deploy-dokploy.yml` só valida o compose.
+
+O banco da nova VPS começa vazio. Para levar os dados da VPS antiga, gere um dump lá e restaure no container do banco do Dokploy antes de liberar o acesso:
+
+```bash
+docker exec fabrica-estagiarios-db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > estagiarios.dump
+```
+
+```bash
+docker exec -i <container-do-banco-no-dokploy> pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < estagiarios.dump
+```
 
 ## Rollback
 
