@@ -143,8 +143,54 @@ services:
           memory: 192M
           pids: 64
 
+  backup:
+    # Backup diário do banco (pg_dump) a partir de BACKUP_HORA (Brasília, padrão 03:00),
+    # guardando os últimos BACKUP_RETENCAO_DIAS dias (padrão 14) no volume de backups.
+    # Restauração e backup manual: ver "Backup e restauração" no README.
+    # Mesma versão do PostgreSQL do banco, para o pg_dump/pg_restore serem compatíveis.
+    image: postgres:16-alpine
+    command: ["sh", "/opt/backup/agendador.sh"]
+    env_file: .env
+    environment:
+      - POSTGRES_HOST=fabrica-estagiarios-db
+      - BACKUP_DIR=/backups
+      - BACKUP_HORA=${BACKUP_HORA:-03:00}
+      - BACKUP_RETENCAO_DIAS=${BACKUP_RETENCAO_DIAS:-14}
+    volumes:
+      - fabrica-estagiarios_backups:/backups
+      - ./deploy/backup:/opt/backup:ro
+    depends_on:
+      fabrica-estagiarios-db:
+        condition: service_healthy
+    networks:
+      - default
+    restart: unless-stopped
+    # "unhealthy" no Dokploy se o último backup bem-sucedido tiver mais de 26 horas
+    healthcheck:
+      test: ["CMD-SHELL", "test -n \"$$(find /backups -maxdepth 1 -name .ultimo-backup-ok -mmin -1560)\""]
+      interval: 10m
+      timeout: 10s
+      retries: 1
+      start_period: 15m
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+          pids: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   fabrica-estagiarios_prod_db:
+  # Backups do banco. Fica fora do código (o Dokploy clona o repositório a cada deploy)
+  # e pode ser enviado para fora da VPS pelos "Volume Backups" do Dokploy.
+  fabrica-estagiarios_backups:
 
 networks:
   # Rede do Traefik do Dokploy (criada na instalação do Dokploy)

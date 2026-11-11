@@ -136,14 +136,77 @@ Configuração no Dokploy (uma vez):
 3. Na aba **Domains**, adicione o domínio para o serviço `fabrica-estagiarios-web`, porta `3000`, com HTTPS.
 4. No GitHub, crie os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` (token em Settings → Profile do Dokploy) e `DOKPLOY_COMPOSE_ID` (o id do recurso, na URL dele no painel). Sem eles, o workflow `deploy-dokploy.yml` só valida o compose.
 
-O banco da nova VPS começa vazio. Para levar os dados da VPS antiga, gere um dump lá e restaure no container do banco do Dokploy antes de liberar o acesso:
+O banco da nova VPS começa vazio. Para levar os dados da VPS antiga, gere um dump lá e restaure na VPS nova com o script de restauração (veja "Backup e restauração" abaixo), antes de liberar o acesso:
 
 ```bash
 docker exec fabrica-estagiarios-db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > estagiarios.dump
 ```
 
+## Backup e restauração
+
+No Dokploy, o serviço `backup` do `docker-compose.dokploy.yml` faz um backup do banco por dia e guarda os arquivos no volume `fabrica-estagiarios_backups`. Os scripts ficam em `deploy/backup/`.
+
+- **Quando**: todo dia a partir de `BACKUP_HORA` (horário de Brasília, padrão `03:00`). Se o container estava parado no horário, o backup do dia sai assim que ele volta; uma falha é tentada de novo em 30 minutos.
+- **Como**: `pg_dump` em formato custom, conferido com `pg_restore --list` antes de ser guardado, com um arquivo `.sha256` ao lado. Nomes no formato `estagiarios_diario_2026-11-10_030000.dump`.
+- **Quanto tempo**: os diários ficam `BACKUP_RETENCAO_DIAS` dias (padrão 14). Backups manuais e os feitos antes de uma restauração não são apagados automaticamente.
+- **Alerta**: o container fica *unhealthy* no Dokploy se o último backup bem-sucedido tiver mais de 26 horas.
+
+As duas variáveis são opcionais na aba **Environment** do Dokploy:
+
+```env
+BACKUP_HORA=03:00
+BACKUP_RETENCAO_DIAS=14
+```
+
+**Cópia fora da VPS.** Os backups ficam no mesmo servidor do banco: protegem contra erro humano e dados corrompidos, mas não contra a perda da VPS. Configure também uma cópia externa, por exemplo nos *Volume Backups* do Dokploy (volume `fabrica-estagiarios_backups`, com um destino S3), ou baixando os arquivos periodicamente.
+
+Os comandos abaixo rodam no terminal da VPS (ou no terminal do container `backup` pelo Dokploy). Primeiro, descubra o nome do container de backup:
+
 ```bash
-docker exec -i <container-do-banco-no-dokploy> pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < estagiarios.dump
+docker ps --filter "name=backup" --format "{{.Names}}"
+```
+
+Backup manual, a qualquer momento (por exemplo, antes de uma mudança arriscada):
+
+```bash
+docker exec <container-backup> sh /opt/backup/backup.sh manual
+```
+
+Listar os backups disponíveis:
+
+```bash
+docker exec <container-backup> sh /opt/backup/restaurar.sh
+```
+
+Restaurar um backup (pede para digitar `RESTAURAR`):
+
+```bash
+docker exec -it <container-backup> sh /opt/backup/restaurar.sh estagiarios_diario_2026-11-10_030000.dump
+```
+
+A restauração:
+
+1. confere o arquivo (SHA-256 e leitura pelo `pg_restore`) e recusa arquivos corrompidos;
+2. faz antes um backup `antes-da-restauracao` do estado atual, para poder desfazer;
+3. encerra as conexões abertas (o site se reconecta sozinho);
+4. apaga e recria o banco a partir do backup numa única transação: se algo falhar, nada muda.
+
+Depois de restaurar, aplique as migrações, porque o backup pode ser de uma versão anterior do sistema: faça um novo **Deploy** no Dokploy (o serviço `migrar` roda antes do app).
+
+Para restaurar um arquivo que veio de fora (por exemplo, o dump da VPS antiga), copie-o para o volume e restaure pelo nome:
+
+```bash
+docker cp estagiarios.dump <container-backup>:/backups/
+```
+
+```bash
+docker exec -it <container-backup> sh /opt/backup/restaurar.sh estagiarios.dump
+```
+
+Para baixar um backup do servidor:
+
+```bash
+docker cp <container-backup>:/backups/estagiarios_diario_2026-11-10_030000.dump .
 ```
 
 ## Rollback
