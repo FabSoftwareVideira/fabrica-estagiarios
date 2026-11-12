@@ -14,6 +14,10 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/flash') %>
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Administração', href: '/professor/administracao' },
+            { texto: 'Lista de professores' }
+        ] }) %>
 
         <h2>Lista de Professores</h2>
 

@@ -16,6 +16,10 @@
 
         <main id="conteudo" class="container">
             <%- include('partials/flash') %>
+            <%- include('partials/breadcrumb', { itens: [
+                { texto: 'Administração', href: '/professor/administracao' },
+                { texto: 'Cadastros manuais' }
+            ] }) %>
 
                 <h2>Cadastros Manuais</h2>
                 <p class="text-muted">O usuário poderá entrar depois usando OAuth com o mesmo e-mail informado.</p>

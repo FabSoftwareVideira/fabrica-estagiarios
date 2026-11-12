@@ -132,7 +132,7 @@ html.alto-contraste .page-head h1, html.alto-contraste main > h2 { color: #ffd70
 h1 { font-size: 28px; line-height: 1.2; }
 
 .breadcrumb { margin-bottom: 14px; font-size: 14px; }
-.breadcrumb ol { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.breadcrumb ol { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin: 0; padding: 0; }
 .breadcrumb li + li::before { content: "›"; margin-right: 8px; color: var(--texto-suave); }
 .breadcrumb a { text-decoration: none; }
 .breadcrumb a:hover { text-decoration: underline; }

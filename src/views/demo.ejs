@@ -3,6 +3,10 @@
 <script src="/js/theme.js"></script><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/theme.css">
 </head><body><%- include('partials/header') %>
 <main class="container" id="conteudo">
+    <%- include('partials/breadcrumb', { itens: [
+        { texto: 'Início', href: '/' },
+        { texto: 'Demonstração' }
+    ] }) %>
     <div class="page-head"><div><h1>Demonstração dos recursos</h1><p>Dados fictícios em memória. Você pode acompanhar e testar os fluxos abaixo.</p></div></div>
     <section class="card"><h2>Escolha o perfil</h2><p>Os formulários, validações, banco e PDFs usam o código da aplicação. A demonstração mantém usuários e mensagens separados dos dados reais.</p>
         <div class="card-actions"><% [['orientador','Carlos · Orientador'],['supervisor','Marina · Supervisora'],['admin','Administração'],['ana','Ana · Estudante'],['bruno','Bruno · Estudante'],['carla','Carla · Estudante']].forEach(([id,nome]) => { %><form method="POST" action="/demo/entrar/<%= id %>"><button class="btn-secondary" type="submit"><%= nome %></button></form><% }) %></div>

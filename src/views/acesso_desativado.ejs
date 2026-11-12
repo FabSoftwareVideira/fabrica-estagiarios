@@ -10,6 +10,10 @@
 </head>
 <body>
     <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Início', href: '/' },
+            { texto: 'Acesso desativado' }
+        ] }) %>
         <section class="card">
             <h1>Acesso desativado</h1>
             <p>Esta conta foi desativada por um administrador. Entre em contato com a instituição se acredita que isso ocorreu por engano.</p>

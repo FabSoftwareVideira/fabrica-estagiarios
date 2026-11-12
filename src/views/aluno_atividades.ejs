@@ -14,6 +14,11 @@
 
     <main id="conteudo" class="container">
         <%- include('partials/flash') %>
+        <%- include('partials/breadcrumb', { itens: [
+            { texto: 'Início', href: '/aluno/dashboard' },
+            { texto: 'Atividades', href: '/aluno/dashboard?aba=atividades' },
+            { texto: 'Histórico de atividades' }
+        ] }) %>
 
         <h2>Minhas Atividades</h2>
 
