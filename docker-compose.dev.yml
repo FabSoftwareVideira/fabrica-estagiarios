@@ -1,0 +1,69 @@
+name: fabrica-estagiarios-dev
+
+services:
+  estagiarios-db:
+    container_name: fabrica-estagiarios-dev-db # MUDE O NOME DO CONTAINER PARA SEU PROJETO
+    image: postgres:18.3-alpine
+    env_file: .env
+    environment:
+      - PGDATA=/var/lib/postgresql/data
+    volumes:
+      - fabrica-estagiarios-dev-data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "15432:5432"
+    networks:
+      - fabrica-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    container_name: fabrica-estagiarios-dev-mailpit
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks:
+      - fabrica-network
+    restart: unless-stopped
+
+  estagiarios-web:
+    container_name: fabrica-estagiarios-dev-web # MUDE O NOME DO CONTAINER PARA SEU PROJETO
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      estagiarios-db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    env_file: .env
+    environment:
+      APP_ENV: development
+      APP_VERSION: dev
+      POSTGRES_HOST: estagiarios-db
+      APP_URL: "${DEV_APP_URL:-http://localhost:3000}"
+      SMTP_PORT: "${DEV_SMTP_PORT:-1025}"
+      SMTP_HOST: "${DEV_SMTP_HOST:-mailpit}"
+      SMTP_USER: "${DEV_SMTP_USER:-nao-responda@localhost}"
+      SMTP_PASS: "${DEV_SMTP_PASS:-}"
+      SMTP_FROM: "${DEV_SMTP_FROM:-Fábrica de Estagiários <nao-responda@localhost>}"
+    volumes:
+      # hot reload — monta o código local no container
+      - .:/app
+      - /app/node_modules
+    networks:
+      - fabrica-network
+    restart: unless-stopped
+
+volumes:
+  fabrica-estagiarios-dev-data:
+
+networks:
+  fabrica-network:
+    driver: bridge
