@@ -38,14 +38,14 @@ router.get('/perfil', requireAuth, async (req, res) => {
 });
 
 router.post('/perfil', requireAuth, async (req, res) => {
-    const nome = (req.body.nome || '').trim();
+    const nome = String(req.body.nome ?? '').trim();
     const matriculaInformada = (req.body.matricula || '').trim();
     const matricula = matriculaInformada || null;
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     const avatarEmoji = (typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '') || null;
 
-    if (!nome) {
-        setFlash(req, 'error', 'Informe seu nome completo.');
+    if (!nome || nome.length > 150) {
+        setFlash(req, 'error', 'Informe seu nome completo, com até 150 caracteres.');
         return res.redirect('/perfil');
     }
 

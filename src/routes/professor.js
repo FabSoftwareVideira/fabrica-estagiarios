@@ -36,6 +36,17 @@ function requireVisaoGeral(req, res, next) {
 
 router.use(requireRole('professor'));
 
+// Identificadores na URL (/aluno/:id, /usuarios/:id, ...): só inteiros positivos
+// que cabem na coluna. O resto é página inexistente, não erro do banco.
+const ROTAS_COM_ID = /^\/(?:aluno|cadastro-aluno|usuarios|supervisores|professores)\/([^/]+)(?:\/atividade\/([^/]+))?/;
+const idNaUrlValido = (valor) => /^[1-9]\d{0,9}$/.test(valor) && Number(valor) <= 2147483647;
+router.use((req, res, next) => {
+    const partes = req.path.match(ROTAS_COM_ID);
+    if (!partes || partes[1] === 'novo') return next();
+    if (idNaUrlValido(partes[1]) && (partes[2] === undefined || idNaUrlValido(partes[2]))) return next();
+    return res.status(404).render('404');
+});
+
 router.use(async (req, res, next) => {
     const user = req.session.user;
     const perfil = await professoresModel.buscarPorUsuarioId(user.id);
@@ -84,9 +95,9 @@ router.get('/completar-cadastro', async (req, res) => {
 });
 
 router.post('/completar-cadastro', async (req, res) => {
-    const nome = (req.body.nome || '').trim();
+    const nome = String(req.body.nome ?? '').trim();
     const avatarEmoji = (typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '') || null;
-    if (!nome || (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji))) {
+    if (!nome || nome.length > 150 || (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji))) {
         setFlash(req, 'error', 'Informe seu nome completo. O avatar é opcional.');
         return res.redirect('/professor/completar-cadastro');
     }
@@ -136,7 +147,7 @@ router.get('/dashboard', async (req, res) => {
         : 0;
     const aba = 'alunos';
 
-    const busca = (req.query.q || '').trim();
+    const busca = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
     const arquivados = !isSupervisor && req.query.arquivados === '1';
     const campoOrdenacao = CAMPOS_ORDENACAO.includes(req.query.ordenar) ? req.query.ordenar : null;
     const direcao = req.query.dir === 'desc' ? 'desc' : 'asc';
@@ -343,7 +354,7 @@ router.post('/aluno/:id/dados', requireVisaoGeral, async (req, res) => {
     const erro = (mensagem) => { setFlash(req, 'error', mensagem); return res.redirect(voltar); };
     if (aluno.arquivado || aluno.encerrado_em) return erro('Não é possível alterar os dados de um estágio arquivado ou encerrado.');
 
-    const nome = (req.body.nome || '').trim();
+    const nome = String(req.body.nome ?? '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
     const matricula = (req.body.matricula || '').trim() || null;
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
@@ -550,7 +561,8 @@ router.post('/aluno/:id', async (req, res) => {
         return res.redirect(`/professor/cadastro-aluno/${aluno.usuario_id}`);
     }
 
-    const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
+    const { supervisor_id, orientador_id, carga_horaria } = req.body;
+    const empresa = String(req.body.empresa ?? '').trim();
 
     // o curso vem junto no formulário: orientador, administrador e setor de estágios podem trocá-lo
     const cursoInformado = typeof req.body.curso === 'string' ? req.body.curso : '';
@@ -564,8 +576,8 @@ router.post('/aluno/:id', async (req, res) => {
         return res.redirect(voltar);
     }
 
-    if (!empresa || !empresa.trim()) {
-        setFlash(req, 'error', 'Informe a empresa onde o estagiário está realizando o estágio.');
+    if (!empresa || empresa.length > 200) {
+        setFlash(req, 'error', 'Informe a empresa onde o estagiário está realizando o estágio, com até 200 caracteres.');
         return res.redirect(voltar);
     }
 
@@ -685,15 +697,16 @@ router.get('/cadastro-aluno/:id', async (req, res) => {
 });
 
 router.post('/cadastro-aluno/:id', async (req, res) => {
-    const { empresa, supervisor_id, orientador_id, carga_horaria } = req.body;
+    const { supervisor_id, orientador_id, carga_horaria } = req.body;
+    const empresa = String(req.body.empresa ?? '').trim();
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno || aluno.status !== 'lista_espera') {
         setFlash(req, 'error', 'Solicitação não encontrada ou já avaliada.');
         return res.redirect('/professor/dashboard');
     }
 
-    if (!empresa || !empresa.trim()) {
-        setFlash(req, 'error', 'Informe a empresa onde o estagiário está realizando o estágio.');
+    if (!empresa || empresa.length > 200) {
+        setFlash(req, 'error', 'Informe a empresa onde o estagiário está realizando o estágio, com até 200 caracteres.');
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
@@ -1026,7 +1039,7 @@ router.post('/usuarios', requireAdmin, async (req, res) => {
     // aceita também os nomes antigos de tipo: 'professor' e 'servidor' são contas internas
     const tipoInformado = req.body.tipo;
     const conta = ['professor', 'servidor', 'interno'].includes(tipoInformado) ? 'interno' : tipoInformado;
-    const nome = (req.body.nome || '').trim();
+    const nome = String(req.body.nome ?? '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
     const matricula = (req.body.matricula || '').trim() || null;
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
@@ -1087,7 +1100,7 @@ router.post('/usuarios/:id', requireAdmin, carregarUsuarioEditado, async (req, r
     const voltar = `/professor/usuarios/${usuario.id}/editar`;
     const erro = (mensagem) => { setFlash(req, 'error', mensagem); return res.redirect(voltar); };
 
-    const nome = (req.body.nome || '').trim();
+    const nome = String(req.body.nome ?? '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
     if (!nome || nome.length > 150 || !emailValido(email)) return erro('Informe o nome completo e um e-mail válido.');
     const mesmoEmail = await usuariosModel.buscarPorEmail(email);

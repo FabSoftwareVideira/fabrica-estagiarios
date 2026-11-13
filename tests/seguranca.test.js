@@ -7,6 +7,9 @@ const path = require('node:path');
 const express = require('express');
 const { verificarOrigem } = require('../src/middleware/origem');
 const { iniciarSessao } = require('../src/middleware/auth');
+const { cabecalhosSeguranca, normalizarCorpo } = require('../src/middleware/seguranca');
+const { gerarIcs } = require('../src/services/conviteBanca');
+const { lerAgendamento } = require('../src/utils/bancas');
 
 let server, url, host;
 const envOriginal = { APP_ENV: process.env.APP_ENV, APP_URL: process.env.APP_URL };
@@ -105,4 +108,67 @@ test('a aplicação não sobe fora de desenvolvimento sem um SESSION_SECRET pró
     assert.match(carregar({ APP_ENV: 'production', SESSION_SECRET: 'dev-secret-troque-em-producao' }), /Defina SESSION_SECRET/);
     assert.equal(carregar({ APP_ENV: 'production', SESSION_SECRET: 'um-segredo-de-verdade' }), 'subiu');
     assert.equal(carregar({ APP_ENV: 'development' }), 'subiu');
+});
+
+test('respostas levam os cabeçalhos de segurança; HSTS só em HTTPS', async () => {
+    const resposta = (opcoes) => {
+        const cabecalhos = {};
+        cabecalhosSeguranca(opcoes)({}, { setHeader: (nome, valor) => { cabecalhos[nome.toLowerCase()] = valor; } }, () => {});
+        return cabecalhos;
+    };
+    const http = resposta();
+    assert.match(http['content-security-policy'], /default-src 'self'/);
+    assert.match(http['content-security-policy'], /frame-ancestors 'none'/);
+    assert.match(http['content-security-policy'], /form-action 'self'/);
+    assert.equal(http['x-content-type-options'], 'nosniff');
+    assert.equal(http['x-frame-options'], 'DENY');
+    assert.equal(http['referrer-policy'], 'same-origin');
+    assert.equal(http['strict-transport-security'], undefined);
+    assert.match(resposta({ https: true })['strict-transport-security'], /max-age=31536000/);
+});
+
+test('corpo forjado com listas ou objetos volta a ser texto simples', () => {
+    const req = { body: {
+        nome: ['a', 'Maria'], email: { $ne: '' }, empresa: [], curso: 'Curso', vazio: [{ x: 1 }],
+        dias_trabalho: ['1', { x: 1 }, '3'], papeis: ['admin'],
+    } };
+    normalizarCorpo(req, {}, () => {});
+    assert.deepEqual(req.body, { nome: 'Maria', curso: 'Curso', dias_trabalho: ['1', '3'], papeis: ['admin'] });
+
+    for (const corpo of [undefined, null, 'texto', ['a']]) {
+        const semCorpo = { body: corpo };
+        normalizarCorpo(semCorpo, {}, () => {});
+        assert.deepEqual(semCorpo.body, {});
+    }
+});
+
+test('convite .ics não aceita linhas injetadas pelo link nem pelo nome', () => {
+    const base = { data: '2030-01-10', hora_inicio: '09:00', hora_fim: '10:00', sala: 'Sala 1', observacoes: '',
+        avaliador_1_id: '2', avaliador_2_id: '3', versao: '0' };
+    const agora = { data: '2026-01-01', hora: '00:00' };
+    assert.deepEqual(lerAgendamento({ ...base, link_reuniao: 'https://meet.example.test/abc' }, agora).erros, []);
+    for (const link of ['https://meet.example.test/a\r\nATTENDEE:mailto:x@evil.test', 'https://meet.example.test/a b', 'https://meet.example.test/\tx']) {
+        assert.match(lerAgendamento({ ...base, link_reuniao: link }, agora).erros.join(' '), /link de reunião/);
+    }
+
+    const ics = gerarIcs({
+        aluno_id: 1, versao: 1, data: '2030-01-10', hora_inicio: '09:00', hora_fim: '10:00', sala: 'Sala 1',
+        aluno_nome: 'Ana', orientador_nome: 'Orientador', avaliador_1_nome: 'A1', avaliador_2_nome: 'A2',
+        link_reuniao: 'https://meet.example.test/a\r\nATTENDEE:mailto:x@evil.test',
+    }, {
+        organizador: 'estagios@example.test', dominio: 'example.test',
+        participantes: [
+            { nome: 'Fulano:mailto:outro@evil.test', email: 'fulano@example.test' },
+            { nome: 'Linha\r\nBEGIN:VEVENT "x"', email: 'linha@example.test\r\nX-EVIL:1' },
+            { nome: 'Professor Comum', email: 'comum@example.test' },
+        ],
+    }).replace(/\r\n /g, '');
+    const linhas = ics.split('\r\n');
+    assert.equal(linhas.filter((l) => l.startsWith('ATTENDEE')).length, 3);
+    assert.equal(linhas.filter((l) => l.startsWith('BEGIN:VEVENT')).length, 1);
+    assert.equal(linhas.some((l) => l.startsWith('X-EVIL')), false);
+    assert.ok(linhas.includes('URL:https://meet.example.test/aATTENDEE:mailto:x@evil.test'));
+    assert.ok(linhas.some((l) => l.startsWith('ATTENDEE;CN="Fulano:mailto:outro@evil.test";ROLE=')));
+    assert.ok(linhas.some((l) => l.startsWith('ATTENDEE;CN="Linha BEGIN:VEVENT x";ROLE=')));
+    assert.ok(linhas.some((l) => l.startsWith('ATTENDEE;CN=Professor Comum;ROLE=')));
 });

@@ -39,11 +39,11 @@ router.get('/completar-cadastro', async (req, res) => {
 router.post('/completar-cadastro', async (req, res) => {
     // matrícula é opcional: vazia vira NULL para não colidir no UNIQUE
     const matricula = (typeof req.body.matricula === 'string' ? req.body.matricula.trim() : '') || null;
-    const nome = (req.body.nome || '').trim();
+    const nome = String(req.body.nome ?? '').trim();
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     // avatar é opcional: sem escolha fica NULL e o cabeçalho mostra a inicial do nome
     const avatarEmoji = (typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '') || null;
-    if ((matricula && matricula.length > 30) || !nome || !ehCurso(curso) || (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji))) {
+    if ((matricula && matricula.length > 30) || !nome || nome.length > 150 || !ehCurso(curso) || (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji))) {
         setFlash(req, 'error', 'Informe seu nome completo e escolha um curso. Matrícula (até 30 caracteres) e avatar são opcionais.');
         return res.redirect('/aluno/completar-cadastro');
     }

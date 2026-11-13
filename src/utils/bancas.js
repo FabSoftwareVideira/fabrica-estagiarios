@@ -31,7 +31,10 @@ function lerAgendamento(body, agora = agoraBrasilia()) {
     if (valores.link_reuniao) {
         try {
             const url = new URL(valores.link_reuniao);
-            if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || valores.link_reuniao.length > 1000) throw new Error();
+            // espaços e caracteres de controle no meio do endereço são aceitos pelo analisador
+            // de URL, mas quebrariam as linhas do convite de calendário (.ics)
+            if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || valores.link_reuniao.length > 1000
+                || /[\s\u0000-\u001f\u007f]/.test(valores.link_reuniao)) throw new Error();
         } catch { erros.push('Informe um link de reunião HTTP ou HTTPS válido.'); }
     }
     for (const campo of ['avaliador_1_id', 'avaliador_2_id']) {

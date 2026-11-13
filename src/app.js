@@ -5,6 +5,7 @@ const pgSession = require('connect-pg-simple')(session);
 const { pool } = require('./config/database');
 const { attachUser } = require('./middleware/auth');
 const { verificarOrigem } = require('./middleware/origem');
+const { cabecalhosSeguranca, normalizarCorpo } = require('./middleware/seguranca');
 const { icone } = require('./utils/icones');
 const { dataParaInput, formatarDataBr } = require('./utils/datas');
 
@@ -33,8 +34,13 @@ app.locals.icone = icone;
 app.locals.dataIso = dataParaInput;
 app.locals.dataBr = formatarDataBr;
 
+app.disable('x-powered-by');
+app.use(cabecalhosSeguranca({ https: isProd }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// cada campo de formulário volta a ser texto simples (ou lista, nas caixas de seleção)
+app.use(normalizarCorpo);
 
 // Arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
@@ -77,12 +83,8 @@ app.use('/professor', require('./routes/professor'));
 app.get('/health', async (req, res) => {
     try {
         await pool.query('SELECT 1');
-        res.json({
-            status: 'ok',
-            version: process.env.APP_VERSION || 'dev',
-            env: process.env.APP_ENV || 'development',
-            db: 'connected',
-        });
+        // sem versão nem ambiente: o endpoint é público
+        res.json({ status: 'ok', db: 'connected' });
     } catch {
         res.status(503).json({ status: 'error', db: 'disconnected' });
     }

@@ -840,6 +840,19 @@ test('dados e fichas do estudante só abrem para responsáveis, banca e gestão;
         assert.equal(linha.carga_horaria, 60, `carga ${carga}`);
         assert.equal(linha.status, 'em_andamento');
     }
+    // identificadores inválidos na URL viram 404, sem chegar ao banco
+    for (const rota of ['/professor/aluno/abc', '/professor/aluno/0', '/professor/aluno/99999999999', '/professor/aluno/1%27',
+        '/professor/usuarios/x/editar', '/professor/aluno/1/atividade/x/validar']) {
+        assert.equal((await requisitar(rota, { user: 104, cargo: 'admin', method: rota.endsWith('validar') ? 'POST' : 'GET' })).status, 404, rota);
+    }
+    assert.equal((await requisitar('/professor/usuarios/novo', { user: 104, cargo: 'admin' })).status, 200);
+    // nome e empresa têm limite de tamanho
+    await requisitar('/professor/aluno/2', { user: 102, method: 'POST',
+        body: { empresa: 'E'.repeat(201), carga_horaria: '60', orientador_id: '102' } });
+    assert.equal((await consultar('SELECT empresa FROM alunos WHERE usuario_id=2')).rows[0].empresa, 'Empresa Exemplo');
+    await requisitar('/perfil', { user: 102, method: 'POST', body: { nome: 'N'.repeat(151) } });
+    assert.equal((await consultar('SELECT nome FROM usuarios WHERE id=102')).rows[0].nome, 'Orientador Teste');
+
     await db.exec("UPDATE alunos SET status='lista_espera', orientador_id=NULL WHERE usuario_id=3");
     await requisitar('/professor/cadastro-aluno/3', { user: 103, method: 'POST',
         body: { empresa: 'Empresa Exemplo', carga_horaria: '0', orientador_id: '102' } });

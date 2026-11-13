@@ -12,6 +12,15 @@ function usarConfiguracaoEmail(fn) { configurarEmail = fn || obterConfiguracaoEm
 const textoIcs = (valor) => String(valor ?? '')
     .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 
+// Valor de parâmetro (CN=...): sem aspas nem caracteres de controle, e entre
+// aspas quando tem ":", ";" ou ",", que encerrariam o parâmetro.
+function parametroIcs(valor) {
+    const limpo = String(valor ?? '').replace(/["\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+    return /[:;,]/.test(limpo) ? `"${limpo}"` : limpo;
+}
+// Endereços (URL e mailto) vão sem escape: nunca podem trazer quebra de linha.
+const enderecoIcs = (valor) => String(valor ?? '').replace(/[\s\u0000-\u001f\u007f]/g, '');
+
 // Linhas de até 75 octetos, como pede a RFC 5545.
 function dobrar(linha) {
     const partes = [];
@@ -70,10 +79,10 @@ function gerarIcs(banca, { cancelada = false, organizador, dominio, participante
         `SUMMARY:${textoIcs(`Banca de estágio · ${banca.aluno_nome}`)}`,
         `LOCATION:${textoIcs(banca.sala)}`,
         `DESCRIPTION:${textoIcs(descricao)}`,
-        ...(banca.link_reuniao ? [`URL:${banca.link_reuniao}`] : []),
+        ...(banca.link_reuniao ? [`URL:${enderecoIcs(banca.link_reuniao)}`] : []),
         `STATUS:${cancelada ? 'CANCELLED' : 'CONFIRMED'}`,
-        `ORGANIZER;CN=${textoIcs('Controle de Estágio')}:mailto:${organizador}`,
-        ...participantes.map((p) => `ATTENDEE;CN=${textoIcs(p.nome)};ROLE=${p.opcional ? 'OPT-PARTICIPANT' : 'REQ-PARTICIPANT'};PARTSTAT=NEEDS-ACTION;RSVP=FALSE:mailto:${p.email}`),
+        `ORGANIZER;CN=${parametroIcs('Controle de Estágio')}:mailto:${enderecoIcs(organizador)}`,
+        ...participantes.map((p) => `ATTENDEE;CN=${parametroIcs(p.nome)};ROLE=${p.opcional ? 'OPT-PARTICIPANT' : 'REQ-PARTICIPANT'};PARTSTAT=NEEDS-ACTION;RSVP=FALSE:mailto:${enderecoIcs(p.email)}`),
         'END:VEVENT',
         'END:VCALENDAR',
     ];
