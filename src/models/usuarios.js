@@ -155,9 +155,19 @@ async function criarContaAdministrada({ nome, email, conta, matricula, curso, em
     return rows[0].id;
 }
 
-// Edição pelo administrador: nome e e-mail de qualquer conta.
+// Edição pela gestão: nome e e-mail de qualquer conta. Trocar o e-mail desfaz
+// o vínculo com a conta Google antiga; a conta Google do novo e-mail é
+// vinculada no próximo login.
 async function atualizarDadosAdmin(id, nome, email) {
-    await pool.query('UPDATE usuarios SET nome = $2, email = $3, nome_confirmado = true WHERE id = $1', [id, nome, email]);
+    await pool.query(
+        `UPDATE usuarios
+         SET nome = $2,
+             google_id = CASE WHEN LOWER(email) = LOWER($3) THEN google_id ELSE NULL END,
+             email = $3,
+             nome_confirmado = true
+         WHERE id = $1`,
+        [id, nome, email]
+    );
 }
 
 async function definirAtivo(id, ativo) {
@@ -240,10 +250,12 @@ async function excluirSeSemVinculos(id) {
 
 async function vincularGoogleId(usuarioId, googleId, avatarUrl) {
     const { rows } = await pool.query(
-        `UPDATE usuarios SET google_id = $2, avatar_url = $3 WHERE id = $1 RETURNING *`,
+        `UPDATE usuarios SET google_id = $2, avatar_url = $3
+         WHERE id = $1 AND google_id IS NULL
+         RETURNING *`,
         [usuarioId, googleId, avatarUrl]
     );
-    return rows[0];
+    return rows[0] || null;
 }
 
 async function listarProfessores() {

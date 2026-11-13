@@ -139,6 +139,18 @@ async function requireNomeConfirmado(req, res, next) {
     next();
 }
 
+// Login: troca o identificador da sessão antes de gravar o usuário, para que
+// um identificador conhecido antes da autenticação não passe a valer depois.
+function iniciarSessao(req, user) {
+    return new Promise((resolve, reject) => {
+        req.session.regenerate((erro) => {
+            if (erro) return reject(erro);
+            req.session.user = user;
+            resolve();
+        });
+    });
+}
+
 function setFlash(req, type, message) {
     req.session.flash = { type, message };
 }
@@ -152,4 +164,5 @@ module.exports = {
     requireAlunoCompleto,
     requireNomeConfirmado,
     setFlash,
+    iniciarSessao,
 };

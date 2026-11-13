@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const usuarios = require('../models/usuarios');
 const alunos = require('../models/alunos');
 const professores = require('../models/professores');
-const { requireAuth, setFlash } = require('../middleware/auth');
+const { requireAuth, setFlash, iniciarSessao } = require('../middleware/auth');
 const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
 const { CURSOS, ehCurso } = require('../config/cursos');
@@ -189,7 +189,14 @@ router.get('/auth/google/callback', async (req, res) => {
                     setFlash(req, 'error', 'Esta conta foi desativada. Entre em contato com a instituição.');
                     return res.redirect('/login');
                 }
+                // só vincula conta que ainda não tem Google: um e-mail igual não
+                // basta para assumir uma conta já ligada a outra pessoa
                 usuario = await usuarios.vincularGoogleId(porEmail.id, googleId, avatarUrl);
+                if (!usuario) {
+                    console.warn('[auth/google/callback] e-mail já vinculado a outra conta Google: usuário', porEmail.id);
+                    setFlash(req, 'error', 'Este e-mail já está vinculado a outra conta Google. Procure o setor de estágios para atualizar o cadastro.');
+                    return res.redirect('/login');
+                }
             }
         }
 
@@ -216,7 +223,7 @@ router.get('/auth/google/callback', async (req, res) => {
             supervisorAprovado = professor ? professor.aprovado : true;
         }
 
-        req.session.user = {
+        await iniciarSessao(req, {
             id: usuario.id,
             nome: usuario.nome,
             email: usuario.email,
@@ -224,7 +231,7 @@ router.get('/auth/google/callback', async (req, res) => {
             cargo,
             supervisorAprovado,
             avatarEmoji: usuario.avatar_emoji || null,
-        };
+        });
 
         if (usuario.tipo === 'professor') {
             if (cargo === 'supervisor' && !supervisorAprovado) {

@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { requireAuth, setFlash } = require('../middleware/auth');
+const { requireAuth, setFlash, iniciarSessao } = require('../middleware/auth');
 const alunosModel = require('../models/alunos');
 const professoresModel = require('../models/professores');
 const usuariosModel = require('../models/usuarios');
@@ -43,7 +43,8 @@ router.post('/perfil', requireAuth, carregarSolicitante, async (req, res) => {
         return res.redirect('/acesso/perfil');
     }
 
-    req.session.user = {
+    // a conta mudou de perfil: sessão nova
+    await iniciarSessao(req, {
         id: req.usuario.id,
         nome: req.usuario.nome,
         email: req.usuario.email,
@@ -51,7 +52,7 @@ router.post('/perfil', requireAuth, carregarSolicitante, async (req, res) => {
         cargo: 'supervisor',
         supervisorAprovado: false,
         avatarEmoji: req.usuario.avatar_emoji || null,
-    };
+    });
     res.redirect('/supervisor/pendente');
 });
 

@@ -71,6 +71,7 @@ before(async () => {
         req.session = {
             user: { id, nome: id === 101 ? 'Supervisor Teste' : 'Usuário Teste', tipo: req.headers['x-test-type'] || ([1, 11].includes(id) ? 'aluno' : 'professor'), cargo: req.headers['x-test-cargo'] || 'comum', supervisorAprovado: true },
             destroy(callback) { delete this.user; callback(); },
+            regenerate(callback) { delete this.user; callback(); },
         };
         next();
     });
@@ -1145,6 +1146,22 @@ test('PDF preserva textos longos em anexo e média aceita zero', async () => {
         ...form(), notas: Array(10).fill(10), atividades: 'Atividade detalhada. '.repeat(70), comentarios: 'Comentário extenso. '.repeat(70), supervisor_nome: 'Supervisor Teste',
     } });
     assert.equal((await PDFDocument.load(bytes)).getPageCount(), 4);
+});
+test('vínculo Google: e-mail igual não assume conta já vinculada; trocar o e-mail libera novo vínculo', async () => {
+    const usuarios = require('../src/models/usuarios');
+    const googleDe = async (id) => (await consultar('SELECT google_id FROM usuarios WHERE id=$1', [id])).rows[0].google_id;
+
+    assert.equal((await usuarios.vincularGoogleId(1, 'google-original', null)).google_id, 'google-original');
+    assert.equal(await usuarios.vincularGoogleId(1, 'google-de-outra-pessoa', null), null);
+    assert.equal(await googleDe(1), 'google-original');
+
+    // corrigir só o nome (ou a caixa do e-mail) mantém o vínculo
+    await usuarios.atualizarDadosAdmin(1, 'Estudante Corrigido', 'ALUNO1@example.test');
+    assert.equal(await googleDe(1), 'google-original');
+    // trocar o e-mail desfaz o vínculo antigo e permite vincular a conta nova
+    await usuarios.atualizarDadosAdmin(1, 'Estudante Corrigido', 'novo.email@example.test');
+    assert.equal(await googleDe(1), null);
+    assert.equal((await usuarios.vincularGoogleId(1, 'google-novo', null)).google_id, 'google-novo');
 });
 test('perfil guarda as preferências de e-mail e o lembrete respeita a escolha do estudante', async () => {
     const cursos = require('../src/config/cursos').CURSOS;

@@ -4,12 +4,22 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const { pool } = require('./config/database');
 const { attachUser } = require('./middleware/auth');
+const { verificarOrigem } = require('./middleware/origem');
 const { icone } = require('./utils/icones');
 const { dataParaInput, formatarDataBr } = require('./utils/datas');
 
 const app = express();
 
 const isProd = process.env.APP_ENV === 'production';
+
+// Fora de desenvolvimento o segredo da sessão é obrigatório: subir com o
+// valor de exemplo do repositório deixaria os cookies assinados com um
+// segredo público.
+const SEGREDO_DEV = 'dev-secret-troque-em-producao';
+if (process.env.APP_ENV !== 'development'
+    && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === SEGREDO_DEV)) {
+    throw new Error('Defina SESSION_SECRET com um valor próprio (ou APP_ENV=development para rodar localmente).');
+}
 
 // necessário pra cookie "secure" funcionar corretamente atrás de um reverse
 // proxy (nginx/traefik) que faz o TLS termination em produção
@@ -39,7 +49,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // primeira tentativa, funciona ao tentar de novo).
 app.use(session({
     store: new pgSession({ pool, tableName: 'session', createTableIfMissing: true }),
-    secret: process.env.SESSION_SECRET || 'dev-secret-troque-em-producao',
+    secret: process.env.SESSION_SECRET || SEGREDO_DEV,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -48,6 +58,9 @@ app.use(session({
         secure: isProd,
     },
 }));
+
+// toda requisição que altera estado precisa partir da própria aplicação
+app.use(verificarOrigem);
 
 app.use(attachUser);
 

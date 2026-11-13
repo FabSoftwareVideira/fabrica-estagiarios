@@ -44,7 +44,7 @@
                         </a>
                     </div>
 
-                    <% if ((process.env.APP_ENV || 'development') === 'development') { %>
+                    <% if (process.env.APP_ENV === 'development') { %>
                     <details class="public-dev-access">
                         <summary>Acessos de desenvolvimento</summary>
                         <div class="public-dev-buttons">

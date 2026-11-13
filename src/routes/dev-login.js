@@ -3,14 +3,14 @@ const express = require('express');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
 const { DOMINIO_PROFESSOR } = require('../config/constants');
+const { iniciarSessao } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Só funciona em desenvolvimento. Em qualquer outro ambiente, a rota
-// responde 404 e NÃO autentica ninguém.
+// Só funciona com APP_ENV=development declarado. Em qualquer outro ambiente,
+// inclusive com a variável ausente, a rota responde 404 e NÃO autentica ninguém.
 function apenasDev(req, res, next) {
-    // APP_ENV ausente conta como desenvolvimento (mesmo default de src/app.js)
-    if (process.env.APP_ENV && process.env.APP_ENV !== 'development') {
+    if (process.env.APP_ENV !== 'development') {
         return res.status(404).send('Not Found');
     }
     next();
@@ -124,13 +124,13 @@ async function entrarComo(tipo, req, res) {
 
     // 3) grava na sessão (mesmo formato usado pelo middleware/auth.js)
     const usuarioAtualizado = await usuariosModel.buscarPorId(usuario.id);
-    req.session.user = {
+    await iniciarSessao(req, {
         id: usuarioAtualizado.id,
         nome: usuarioAtualizado.nome,
         email: usuarioAtualizado.email,
         tipo: usuarioAtualizado.tipo,
         avatarEmoji: usuarioAtualizado.avatar_emoji || null,
-    };
+    });
 
     if (usuarioAtualizado.tipo === 'professor') {
         const prof = await professoresModel.buscarPorUsuarioId(usuarioAtualizado.id);
