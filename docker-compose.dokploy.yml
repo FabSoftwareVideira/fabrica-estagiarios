@@ -1,17 +1,12 @@
-# Produção no Dokploy (recurso do tipo "Docker Compose"). Cópia adaptada do
-# docker-compose.prod.yml, que continua servindo a VPS antiga enquanto ela existir.
+# Compose único de produção, executado pelo Dokploy (recurso do tipo "Docker Compose").
 #
-# O que muda em relação ao docker-compose.prod.yml:
-# - Sem a rede fabrica-network e sem porta publicada no host. O domínio e o HTTPS
+# - Sem porta publicada no host. O domínio e o HTTPS
 #   ficam com o Traefik do Dokploy, configurados na aba "Domains" do Dokploy para o
 #   serviço fabrica-estagiarios-web, porta 3000. Só o web entra na dokploy-network;
 #   o banco fica apenas na rede interna do projeto.
-# - Sem container_name: o Dokploy dá nomes próprios aos containers (com nomes fixos,
-#   dois deploys ou dois projetos na mesma VPS entram em conflito).
-# - As migrações rodam a cada deploy no serviço "migrar", antes do web (na VPS antiga
-#   isso era um passo do GitHub Actions).
-# - O relatório semanal roda no serviço "relatorio-semanal", dentro do próprio projeto
-#   (na VPS antiga era um workflow agendado com docker exec no runner da máquina).
+# - Sem container_name: o Dokploy dá nomes próprios aos containers.
+# - As migrações rodam a cada deploy no serviço "migrar", antes do web.
+# - O relatório semanal roda no serviço "relatorio-semanal", dentro do próprio projeto.
 #
 name: fabrica-estagiarios
 

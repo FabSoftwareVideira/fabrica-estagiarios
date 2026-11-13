@@ -10,7 +10,7 @@ Template padrão para aplicações Node.js + Express + PostgreSQL com CI/CD via 
 - **Framework**: Express
 - **Banco**: PostgreSQL 18.3
 - **Container**: Docker (multi-stage: dev + prod)
-- **CI/CD**: GitHub Actions → Dokploy (VPS nova) e self-hosted runner (VPS antiga, enquanto existir)
+- **CI/CD**: GitHub Actions → Dokploy
 
 ## Início rápido
 
@@ -54,9 +54,9 @@ Em produção, use a URL HTTPS pública da aplicação em `GOOGLE_CALLBACK_URL` 
 
 O administrador configura o envio em **Administração → Relatório semanal por e-mail**. É possível habilitar/desabilitar e escolher o dia e horário, ou usar **Enviar resumo agora**. A tela lista os supervisores com estudantes ativos e quantos alunos cada um possui. Cada professor pode desativar o recebimento no próprio perfil. O envio automático começa desabilitado.
 
-O workflow `.github/workflows/relatorio-semanal.yml` verifica a programação a cada 15 minutos, e o script envia no dia/horário configurados pelo administrador (fuso `America/Sao_Paulo`). O envio manual ignora a programação automática, mas respeita as preferências dos professores. Em ambos os casos, sai uma única mensagem para o endereço SMTP configurado, com os supervisores elegíveis em cópia oculta (BCC). O conteúdo é consolidado e agrupa os estudantes por supervisor. O resumo mostra as horas registradas e as atividades preenchidas nos últimos 7 dias; as horas incluem atividades pendentes de validação e excluem atividades invalidadas. Cada aluno tem um link para os detalhes na aplicação.
+O serviço `relatorio-semanal` do Compose de produção verifica a programação a cada 15 minutos, e o script envia no dia/horário configurados pelo administrador (fuso `America/Sao_Paulo`). O envio manual ignora a programação automática, mas respeita as preferências dos professores. Em ambos os casos, sai uma única mensagem para o endereço SMTP configurado, com os supervisores elegíveis em cópia oculta (BCC). O conteúdo é consolidado e agrupa os estudantes por supervisor. O resumo mostra as horas registradas e as atividades preenchidas nos últimos 7 dias; as horas incluem atividades pendentes de validação e excluem atividades invalidadas. Cada aluno tem um link para os detalhes na aplicação.
 
-O workflow de deploy aplica automaticamente as migrações pendentes em ordem, usando `src/scripts/runMigrations.js`, antes de atualizar o container web. O histórico fica registrado na tabela `schema_migrations`. Na primeira execução em bancos legados, o runner verifica se o schema já está no estado esperado até a migração 010 e registra esse baseline; caso não esteja, o deploy para com uma mensagem de erro em vez de presumir e pular migrações antigas. Em instalações novas, `db/init.sql` cria a estrutura atual e o runner aplica e registra as migrações recentes de forma idempotente.
+O serviço `migrar` do Compose de produção aplica automaticamente as migrações pendentes em ordem, usando `src/scripts/runMigrations.js`, antes de iniciar o container web. O histórico fica registrado na tabela `schema_migrations`. Na primeira execução em bancos legados, o runner verifica se o schema já está no estado esperado até a migração 010 e registra esse baseline; caso não esteja, o deploy para com uma mensagem de erro em vez de presumir e pular migrações antigas. Em instalações novas, `db/init.sql` cria a estrutura atual e o runner aplica e registra as migrações recentes de forma idempotente.
 
 Em desenvolvimento, `npm run dev` aplica automaticamente as migrações pendentes antes de iniciar o servidor. Para aplicar sem reiniciar a aplicação, execute `docker exec fabrica-estagiarios-dev-web node src/scripts/runMigrations.js`.
 
@@ -71,7 +71,7 @@ SMTP_PASS=senha-smtp
 SMTP_FROM=Fábrica de Estagiários <nao-responda@seu-dominio>
 ```
 
-`SMTP_FROM` é opcional e, se omitido, usa `SMTP_USER` como remetente. O workflow roda no runner self-hosted já usado pelo deploy e executa o script dentro do container web. Também é possível iniciá-lo manualmente em **GitHub Actions → Relatório semanal dos orientadores → Run workflow**. Os e-mails são enviados após a implantação da nova versão da aplicação.
+`SMTP_FROM` é opcional e, se omitido, usa `SMTP_USER` como remetente. O serviço de relatório roda no Compose do Dokploy e envia os e-mails após a implantação da nova versão da aplicação.
 
 Para Gmail/Google Workspace, use `smtp.gmail.com`, porta `587`, o endereço completo da conta em `SMTP_USER` e uma **senha de app** em `SMTP_PASS` (não a senha normal da conta). Se o Google mostrar os 16 caracteres em grupos separados por espaços, o serviço remove esses espaços automaticamente. Após alterar o secret `ENV_FILE`, faça um novo deploy para recriar o container com as credenciais atualizadas.
 
@@ -92,10 +92,10 @@ Para produção, atualize também o secret `ENV_FILE` no GitHub e faça o deploy
 |       └── index.html      # Template HTML
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml          # Deploy no servidor
+│       └── deploy-dokploy.yml # Deploy de produção no Dokploy
 ├── Dockerfile                  # Multi-stage: dev | deps | prod
-├── docker-compose.dev.yml
-├── docker-compose.prod.yml
+├── docker-compose.yml         # Desenvolvimento
+├── docker-compose.dokploy.yml # Produção
 └── .env.example
 ```
 
@@ -111,22 +111,20 @@ Para produção, atualize também o secret `ENV_FILE` no GitHub e faça o deploy
 
 1. Renomeie o nome do projeto:
    - `name` em `package.json`
-   - `name` em `docker-compose.prod.yml`
-2. Atualize `PROJECT_NAME` em `deploy.yml`
-3. Configure os secrets no GitHub:
-   - `ENV_FILE` — conteúdo do `.env` de produção
+   - `name` em `docker-compose.dokploy.yml`
+2. Atualize o workflow `deploy-dokploy.yml` e configure os secrets do Dokploy no GitHub.
 
 ---
 
 ## Deploy no Dokploy
 
-A produção está mudando para uma VPS com [Dokploy](https://dokploy.com). Enquanto a VPS antiga existir, os dois caminhos convivem: `docker-compose.prod.yml` + `deploy.yml` (runner self-hosted) na antiga, `docker-compose.dokploy.yml` + `deploy-dokploy.yml` no Dokploy.
+A produção é implantada exclusivamente em uma VPS com [Dokploy](https://dokploy.com), usando `docker-compose.dokploy.yml` e o workflow `deploy-dokploy.yml`.
 
 Diferenças do `docker-compose.dokploy.yml`:
 
 - **Sem porta publicada e sem a rede `fabrica-network`.** Só o serviço web entra na rede `dokploy-network`, por onde o Traefik do Dokploy o alcança; o banco fica só na rede interna do projeto.
 - **Migrações dentro do compose**: o serviço `migrar` roda `runMigrations.js` a cada deploy, depois que o banco está saudável; o web só sobe se as migrações terminarem sem erro.
-- **Relatório semanal dentro do compose**: o serviço `relatorio-semanal` verifica a programação a cada 15 minutos (substitui o workflow `relatorio-semanal.yml`, que depende de `docker exec` no runner da VPS antiga).
+- **Relatório semanal dentro do compose**: o serviço `relatorio-semanal` verifica a programação a cada 15 minutos.
 - **Sem `container_name`**: o Dokploy nomeia os containers.
 
 Configuração no Dokploy (uma vez):
@@ -136,7 +134,7 @@ Configuração no Dokploy (uma vez):
 3. Na aba **Domains**, adicione o domínio para o serviço `fabrica-estagiarios-web`, porta `3000`, com HTTPS.
 4. No GitHub, crie os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` (token em Settings → Profile do Dokploy) e `DOKPLOY_COMPOSE_ID` (o id do recurso, na URL dele no painel). Sem eles, o workflow `deploy-dokploy.yml` só valida o compose.
 
-O banco da nova VPS começa vazio. Para trazer os dados da VPS antiga, siga "Trazer os dados da VPS antiga" em "Backup e restauração", abaixo.
+Para importar um backup existente, siga "Trazer os dados da VPS antiga" em "Backup e restauração", abaixo.
 
 ## Backup e restauração
 
@@ -230,19 +228,6 @@ Antes de tocar no banco, a restauração confere o arquivo e recusa, sem alterar
 
 Se a VPS antiga continuar recebendo uso depois do dump, o que for gravado lá depois não vem junto. Para a migração definitiva, pare o site antigo antes do passo 1 (`docker stop fabrica-estagiarios-web`).
 
-## Rollback
-
-Via GitHub Actions → **Continuous Deployment** → **Run workflow** → informe a tag (ex: `v0.1.5`).
-
-Ou direto no servidor:
-
-```bash
-sed -i 's/^APP_VERSION=.*/APP_VERSION=v0.1.5/' .env
-docker compose -f docker-compose.prod.yml down
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-```
-
 ## Encerramento do estágio e ata da banca (FARE)
 
 - O orientador abre **Fichas** no menu, preenche a FAPO e a ata da banca (média da FAC salva pelo supervisor, ou nota da ficha em papel, notas N1/N2/N3 de cada critério, avaliadores, resultado e comentários).
@@ -321,4 +306,4 @@ Aplicar a migração `017_ficha_supervisor.sql`. O modelo PDF deve acompanhar a 
 
 Execute `npm ci` e `npm test`. Os testes usam PostgreSQL embarcado (PGlite) isolado em memória para validar migrações, prazo e intervalo dos lembretes, atualização de atividades, permissões HTTP, persistência da FAC, cálculo da ata e geração de PDF. O transporte de e-mail é substituído nos testes; nenhum e-mail real é enviado. Há também testes de preferência de tema e do resumo semanal existente.
 
-No GitHub Actions, o workflow `testes.yml` roda `npm ci` e `npm test` (Node 25, a mesma versão da imagem de produção). Ele é chamado antes dos dois deploys: `deploy.yml` (VPS antiga) e `deploy-dokploy.yml` (Dokploy) só publicam se todos os testes passarem. O rollback do `deploy.yml` (com `image_tag`) volta para uma imagem já publicada e não espera os testes. Em pull requests, os testes rodam sozinhos, para conferir antes de juntar na `main`.
+No GitHub Actions, o workflow `testes.yml` roda `npm ci` e `npm test` (Node 25, a mesma versão da imagem de produção). O workflow `deploy-dokploy.yml` só solicita o deploy ao Dokploy depois que os testes passam. Em pull requests, os testes rodam sozinhos, para conferir antes de juntar na `main`.

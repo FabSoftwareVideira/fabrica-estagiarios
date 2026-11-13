@@ -1,7 +1,7 @@
 name: Testes
 
 # Roda os testes automatizados (npm test). É chamado pelos workflows de deploy
-# antes de publicar (deploy.yml e deploy-dokploy.yml) e roda sozinho em pull
+# antes de publicar no Dokploy e roda sozinho em pull
 # requests, para mostrar o resultado antes de juntar na main.
 # Os testes não precisam de banco instalado: usam um PostgreSQL em memória (PGlite).
 

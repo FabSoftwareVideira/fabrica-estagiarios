@@ -1,8 +1,6 @@
 name: Deploy no Dokploy
 
-# Publica na VPS com Dokploy. Roda junto com o deploy.yml (VPS antiga, runner
-# self-hosted) enquanto as duas VPS existirem; quando a antiga sair, basta apagar
-# o deploy.yml e o relatorio-semanal.yml.
+# Publica a aplicação de produção na VPS com Dokploy.
 #
 # O build, as migrações e a subida dos serviços acontecem no Dokploy, a partir do
 # docker-compose.dokploy.yml. Este workflow só confere o compose e pede o deploy
