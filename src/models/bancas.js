@@ -4,7 +4,7 @@ const { agoraBrasilia } = require('../utils/bancas');
 
 const SELECT = `SELECT b.*, TO_CHAR(b.data, 'YYYY-MM-DD') AS data, u.nome AS aluno_nome, a.matricula, a.empresa,
     o.nome AS orientador_nome, p1.nome AS avaliador_1_nome, p2.nome AS avaliador_2_nome,
-    editor.nome AS atualizado_por_nome, a.encerrado_em,
+    editor.nome AS atualizado_por_nome, a.encerrado_em, a.supervisor_id,
     u.email AS aluno_email, o.email AS orientador_email, p1.email AS avaliador_1_email, p2.email AS avaliador_2_email,
     u.receber_email_bancas AS aluno_recebe_email, o.receber_email_bancas AS orientador_recebe_email,
     p1.receber_email_bancas AS avaliador_1_recebe_email, p2.receber_email_bancas AS avaliador_2_recebe_email,

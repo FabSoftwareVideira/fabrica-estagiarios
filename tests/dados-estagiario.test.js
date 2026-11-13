@@ -14,6 +14,7 @@ const fapos = require('../src/models/fapos');
 const fares = require('../src/models/fares');
 const facs = require('../src/models/facs');
 const fichasRascunhos = require('../src/models/fichasRascunhos');
+const bancas = require('../src/models/bancas');
 
 const INFORMATICA = 'Curso Técnico em Informática Integrado ao Ensino Médio';
 const AGRO = 'Curso Técnico de Agropecuária Integrado ao Ensino Médio';
@@ -50,6 +51,7 @@ before(async () => {
     trocar(atividades, 'listarPorAluno', async () => []);
     for (const modelo of [faas, fapos, fares, facs]) trocar(modelo, 'buscarPorAluno', async () => null);
     trocar(fichasRascunhos, 'buscar', async () => null);
+    trocar(bancas, 'buscarPorAluno', async () => null);
 
     const app = express();
     app.set('view engine', 'ejs');
@@ -129,14 +131,15 @@ test('orientador edita o estágio e o curso, mas não os dados cadastrais', asyn
     assert.match(html, /name="curso"/);
 });
 
-test('professor que não orienta o estudante não altera nada', async () => {
+test('professor que não orienta o estudante não altera nem vê nada', async () => {
     await enviar(OUTRO, '/dados', DADOS);
     await enviar(OUTRO, '', ESTAGIO);
     await enviar(OUTRO, '/curso', { curso: INFORMATICA });
     assert.deepEqual(salvo, {});
-    const html = await pagina(OUTRO);
-    assert.doesNotMatch(html, /id="panel-dados"/);
-    assert.doesNotMatch(html, /id="panel-estagio"/);
+    // nem abre a tela do estudante
+    const resposta = await fetch(`${url}/professor/aluno/1`, { redirect: 'manual', headers: { 'x-usuario': String(OUTRO) } });
+    assert.equal(resposta.status, 302);
+    assert.equal(resposta.headers.get('location'), '/professor/inicio');
 });
 
 test('dados inválidos ou e-mail já usado são recusados', async () => {

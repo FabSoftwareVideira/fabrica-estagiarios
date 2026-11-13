@@ -20,6 +20,7 @@ const bancasModel = require('../models/bancas');
 const acompanhamentoModel = require('../models/acompanhamento');
 const { validarResponsaveis } = require('../utils/responsaveis');
 const { PAPEIS, CHAVES_PAPEIS, papeisDoPerfil, veTodosOsEstagios, temAlunosProprios, telaInicial } = require('../config/papeis');
+const { podeVerAluno, podeArquivar, lerCargaHoraria } = require('../utils/acessoAluno');
 
 // Acompanhamento geral: administradores e servidores do setor de estágios.
 // Curso do estudante: o orientador dele, o administrador e o setor de estágios.
@@ -49,10 +50,8 @@ router.use(async (req, res, next) => {
     const caminhoPermitido = (req.method === 'GET' && [
         '/dashboard',
         '/completar-cadastro',
-        '/usuarios',
     ].includes(req.path))
         || (req.method === 'POST' && req.path === '/completar-cadastro')
-        || (req.method === 'POST' && /^\/(?:usuarios|supervisores)\/\d+\/aprovar$/.test(req.path))
         || (req.method === 'GET' && /^\/aluno\/\d+$/.test(req.path))
         || (req.method === 'POST' && /^\/aluno\/\d+\/atividade\/\d+\/(validar|invalidar)$/.test(req.path))
         || (/^\/aluno\/\d+\/fac(?:\/pdf)?$/.test(req.path) && ['GET', 'POST'].includes(req.method))
@@ -131,7 +130,10 @@ router.get('/dashboard', async (req, res) => {
     }
     const isAdmin = req.session.user.cargo === 'admin';
     const isSupervisor = req.session.user.cargo === 'supervisor';
-    const solicitacoesPendentes = await usuariosModel.contarSupervisoresPendentes();
+    // só quem aprova supervisores externos recebe o aviso de solicitações
+    const solicitacoesPendentes = veTodosOsEstagios(req.session.user)
+        ? await usuariosModel.contarSupervisoresPendentes()
+        : 0;
     const aba = 'alunos';
 
     const busca = (req.query.q || '').trim();
@@ -279,6 +281,10 @@ router.get('/aluno/:id', async (req, res) => {
     if (!aluno) {
         setFlash(req, 'error', 'Estagiário não encontrado.');
         return res.redirect('/professor/dashboard');
+    }
+    if (!await podeVerAluno(req.session.user, aluno)) {
+        setFlash(req, 'error', 'Você não tem acesso aos dados deste estudante.');
+        return res.redirect('/professor/inicio');
     }
 
     const [atividades, professores, supervisores, supervisoresInternos, fapo, faa, fare, fac, fapoRascunho, facRascunho] = await Promise.all([
@@ -589,12 +595,18 @@ router.post('/aluno/:id', async (req, res) => {
         return res.redirect(voltar);
     }
 
+    const cargaHoraria = lerCargaHoraria(carga_horaria);
+    if (cargaHoraria === null) {
+        setFlash(req, 'error', 'Informe a carga horária total em horas inteiras, de 1 a 9999.');
+        return res.redirect(voltar);
+    }
+
     await alunosModel.atualizarEstagio(req.params.id, {
         status,
         empresa,
         supervisorId: supervisor_id || null,
         orientadorId: orientador_id || null,
-        cargaHoraria: Number(carga_horaria),
+        cargaHoraria,
         horarioTrabalho,
     });
     if (mudouCurso) await alunosModel.atualizarCurso(req.params.id, cursoInformado);
@@ -685,8 +697,9 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
-    if (!carga_horaria) {
-        setFlash(req, 'error', 'Preencha a carga horária.');
+    const cargaHoraria = lerCargaHoraria(carga_horaria);
+    if (cargaHoraria === null) {
+        setFlash(req, 'error', 'Informe a carga horária total em horas inteiras, de 1 a 9999.');
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
@@ -718,7 +731,7 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
         empresa,
         supervisorId: supervisor_id || null,
         orientadorId: orientador_id || null,
-        cargaHoraria: Number(carga_horaria),
+        cargaHoraria,
         horarioTrabalho,
     });
 
@@ -727,7 +740,8 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
 });
 
 // ── Arquivados ────────────────────────────────────────────────────────────
-// Arquivar/desarquivar: qualquer professor (comum ou admin).
+// Arquivar/desarquivar: orientador, supervisor, administrador ou setor de estágios
+// (e qualquer professor, enquanto o cadastro aguarda orientador na lista de espera).
 // Excluir definitivamente: só admin.
 
 // a lista de arquivados agora é a mesma tabela do dashboard, só com a flag
@@ -735,18 +749,28 @@ router.get('/arquivados', (req, res) => {
     res.redirect('/professor/dashboard?arquivados=1');
 });
 
-router.post('/aluno/:id/arquivar', async (req, res) => {
+// Só arquiva ou desarquiva quem tem vínculo com o estudante ou papel de gestão.
+async function requirePodeArquivar(req, res, next) {
+    const aluno = /^[1-9]\d{0,9}$/.test(req.params.id) ? await alunosModel.buscarPorUsuarioId(req.params.id) : null;
+    if (!aluno || !podeArquivar(req.session.user, aluno)) {
+        setFlash(req, 'error', 'Você não pode arquivar ou desarquivar este estagiário.');
+        return res.redirect('/professor/dashboard');
+    }
+    next();
+}
+
+router.post('/aluno/:id/arquivar', requirePodeArquivar, async (req, res) => {
     const admin = req.session.user.cargo === 'admin';
     const arquivado = await alunosModel.arquivar(req.params.id, admin);
     if (!arquivado) {
         setFlash(req, 'error', 'Esse estagiário não pode ser arquivado.');
-        return res.redirect(req.headers.referer || '/professor/dashboard');
+        return res.redirect('/professor/dashboard');
     }
     setFlash(req, 'success', 'Estagiário arquivado com sucesso.');
-    res.redirect(req.headers.referer || '/professor/dashboard');
+    res.redirect('/professor/dashboard');
 });
 
-router.post('/aluno/:id/desarquivar', async (req, res) => {
+router.post('/aluno/:id/desarquivar', requirePodeArquivar, async (req, res) => {
     await alunosModel.desarquivar(req.params.id);
     setFlash(req, 'success', 'Estagiário desarquivado com sucesso.');
     res.redirect('/professor/arquivados');
@@ -773,8 +797,10 @@ router.get('/usuarios', requireRole('professor'), async (req, res) => {
     res.locals.PAPEIS = PAPEIS;
     res.locals.papeisDoPerfil = papeisDoPerfil;
     const ehAdmin = req.session.user.cargo === 'admin';
-    if (req.session.user.cargo === 'supervisor' && !req.session.user.supervisorAprovado) {
-        return res.redirect('/supervisor/pendente');
+    // a fila de supervisores externos é do administrador e do setor de estágios
+    if (!veTodosOsEstagios(req.session.user)) {
+        setFlash(req, 'error', 'Apenas administradores e servidores do setor de estágios aprovam supervisores externos.');
+        return res.redirect('/professor/inicio');
     }
 
     const busca = typeof req.query.q === 'string' ? req.query.q.trim() : '';
@@ -912,6 +938,7 @@ router.get('/acompanhamento', requireVisaoGeral, async (req, res) => {
 
     res.render('professor_acompanhamento', {
         resumo: acompanhamentoModel.resumir(todos),
+        solicitacoesPendentes: await usuariosModel.contarSupervisoresPendentes(),
         estudantes: filtrados.slice(inicio, inicio + TAMANHO_PAGINA_ACOMPANHAMENTO),
         paginacao: { pagina, totalPaginas, total: filtrados.length, inicio, tamanho: TAMANHO_PAGINA_ACOMPANHAMENTO },
         filtros,
@@ -1117,18 +1144,9 @@ async function aprovarSupervisorExterno(req, res) {
     res.redirect('/professor/usuarios');
 }
 
-function requireSupervisorAprovador(req, res, next) {
-    if (!req.session.user || req.session.user.tipo !== 'professor') {
-        return res.redirect('/login');
-    }
-    if (req.session.user.cargo === 'supervisor' && !req.session.user.supervisorAprovado) {
-        return res.redirect('/supervisor/pendente');
-    }
-    next();
-}
-
-router.post('/usuarios/:id/aprovar', requireSupervisorAprovador, aprovarSupervisorExterno);
-router.post('/supervisores/:id/aprovar', requireSupervisorAprovador, aprovarSupervisorExterno);
+// Liberar o acesso de um supervisor externo: administrador e setor de estágios.
+router.post('/usuarios/:id/aprovar', requireVisaoGeral, aprovarSupervisorExterno);
+router.post('/supervisores/:id/aprovar', requireVisaoGeral, aprovarSupervisorExterno);
 
 router.post('/usuarios/:id/ativo', requireAdmin, async (req, res) => {
     const id = Number(req.params.id);

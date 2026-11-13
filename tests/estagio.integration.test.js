@@ -452,7 +452,7 @@ test('supervisor externo só vê estudantes atribuídos e não acessa funções 
     assert.equal((await usuarios.listarProfessores()).some((p) => p.id === 105), false);
     assert.equal((await usuarios.listarSupervisores()).some((p) => p.id === 105), true);
 });
-test('supervisor aprovado ou orientador aprova supervisor externo e supervisor pendente fica bloqueado', async () => {
+test('só administrador e setor de estágios aprovam supervisor externo; supervisor pendente fica bloqueado', async () => {
     await db.exec(`INSERT INTO usuarios (id,nome,email,tipo,nome_confirmado)
         VALUES (106,'Pendente','pendente@example.test','professor',true),
                (107,'Outro Pendente','outropendente@example.test','professor',true);
@@ -478,6 +478,12 @@ test('supervisor aprovado ou orientador aprova supervisor externo e supervisor p
 
     const filaBloqueada = await requisitar('/professor/usuarios', { user: 106, cargo: 'supervisor' });
     assert.equal(filaBloqueada.headers.get('location'), '/supervisor/pendente');
+    // supervisor externo aprovado e professor comum não veem a fila nem o aviso
+    for (const [user, cargo] of [[105, 'supervisor'], [102, undefined]]) {
+        const fila = await requisitar('/professor/usuarios', { user, cargo });
+        assert.equal(fila.status, 302, `fila ${user}`);
+        assert.doesNotMatch(await (await requisitar('/professor/dashboard', { user, cargo })).text(), /Revisar solicitações/);
+    }
     let result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=106');
     assert.equal(result.rows[0].aprovado, false);
 
@@ -486,13 +492,25 @@ test('supervisor aprovado ou orientador aprova supervisor externo e supervisor p
     result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=106');
     assert.equal(result.rows[0].aprovado, false);
 
-    const aprovado = await requisitar('/professor/usuarios/106/aprovar', { user: 105, method: 'POST' });
+    // outro supervisor externo e um orientador comum não aprovam ninguém
+    for (const [user, cargo] of [[105, 'supervisor'], [102, undefined]]) {
+        for (const rota of ['/professor/usuarios/106/aprovar', '/professor/supervisores/106/aprovar']) {
+            assert.equal((await requisitar(rota, { user, cargo, method: 'POST' })).status, 302);
+        }
+    }
+    result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=106');
+    assert.equal(result.rows[0].aprovado, false);
+
+    const aprovado = await requisitar('/professor/usuarios/106/aprovar', { user: 104, cargo: 'admin', method: 'POST' });
     assert.equal(aprovado.status, 302);
     assert.equal(aprovado.headers.get('location'), '/professor/usuarios');
     result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=106');
     assert.equal(result.rows[0].aprovado, true);
-    const aprovadoPorOrientador = await requisitar('/professor/usuarios/107/aprovar', { user: 102, method: 'POST' });
-    assert.equal(aprovadoPorOrientador.status, 302);
+    // o setor de estágios vê a fila e também aprova
+    await db.exec('UPDATE professores SET papel_servidor=true WHERE usuario_id=103');
+    assert.match(await (await requisitar('/professor/usuarios', { user: 103 })).text(), /outropendente@example[.]test/);
+    const aprovadoPeloSetor = await requisitar('/professor/usuarios/107/aprovar', { user: 103, method: 'POST' });
+    assert.equal(aprovadoPeloSetor.status, 302);
     result = await consultar('SELECT aprovado FROM professores WHERE usuario_id=107');
     assert.equal(result.rows[0].aprovado, true);
 
@@ -782,11 +800,53 @@ test('arquivamento: professor comum só arquiva lista de espera ou estágio ence
         assert.equal(resposta.status, 302);
         assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=$1', [id])).rows[0].arquivado, true);
     }
+
+    // professor sem vínculo com o estudante não arquiva nem desarquiva
+    await db.exec("UPDATE alunos SET status='concluido', encerrado_em=NOW() WHERE usuario_id=7");
+    await requisitar('/professor/aluno/7/arquivar', { method: 'POST', user: 103 });
+    assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=7')).rows[0].arquivado, false);
+    await requisitar('/professor/aluno/2/desarquivar', { method: 'POST', user: 103 });
+    assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=2')).rows[0].arquivado, true);
+    await requisitar('/professor/aluno/2/desarquivar', { method: 'POST' });
+    assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=2')).rows[0].arquivado, false);
+    // cadastro na lista de espera ainda sem orientador pode ser arquivado por qualquer professor
+    await db.exec("UPDATE alunos SET status='lista_espera', orientador_id=NULL, supervisor_id=NULL WHERE usuario_id=8");
+    await requisitar('/professor/aluno/8/arquivar', { method: 'POST', user: 103 });
+    assert.equal((await consultar('SELECT arquivado FROM alunos WHERE usuario_id=8')).rows[0].arquivado, true);
+});
+test('dados e fichas do estudante só abrem para responsáveis, banca e gestão; carga horária é validada', async () => {
+    const rotas = ['/professor/aluno/1', '/professor/aluno/1/ficha-acompanhamento', '/professor/aluno/1/banca'];
+    for (const rota of rotas) {
+        const semVinculo = await requisitar(rota, { user: 103 });
+        assert.ok([302, 403].includes(semVinculo.status), `${rota}: ${semVinculo.status}`);
+        for (const user of [101, 102, 104]) {
+            assert.equal((await requisitar(rota, { user, cargo: user === 104 ? 'admin' : undefined })).status, 200, `${rota} para ${user}`);
+        }
+    }
+    assert.equal((await requisitar('/professor/aluno/1/faa/pdf', { user: 103 })).headers.get('location'), '/professor/inicio');
+
+    // avaliador da banca consulta o estudante
+    await db.exec(`UPDATE alunos SET status='concluido' WHERE usuario_id=1;
+        INSERT INTO bancas (aluno_id,orientador_id,avaliador_1_id,avaliador_2_id,data,hora_inicio,hora_fim,sala,situacao,atualizado_por)
+        VALUES (1,102,103,104,'2030-01-10','09:00','10:00','Sala 1','agendada',102)`);
+    assert.equal((await requisitar('/professor/aluno/1', { user: 103 })).status, 200);
+
+    // carga horária: só horas inteiras de 1 a 9999
+    for (const carga of ['0', '-5', 'abc', '10.5', '100000']) {
+        await requisitar('/professor/aluno/2', { user: 102, method: 'POST',
+            body: { empresa: 'Empresa Exemplo', carga_horaria: carga, orientador_id: '102' } });
+        const linha = (await consultar('SELECT carga_horaria, status FROM alunos WHERE usuario_id=2')).rows[0];
+        assert.equal(linha.carga_horaria, 60, `carga ${carga}`);
+        assert.equal(linha.status, 'em_andamento');
+    }
+    await db.exec("UPDATE alunos SET status='lista_espera', orientador_id=NULL WHERE usuario_id=3");
+    await requisitar('/professor/cadastro-aluno/3', { user: 103, method: 'POST',
+        body: { empresa: 'Empresa Exemplo', carga_horaria: '0', orientador_id: '102' } });
+    assert.equal((await consultar('SELECT status FROM alunos WHERE usuario_id=3')).rows[0].status, 'lista_espera');
 });
 test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa usuários', async () => {
     const acessoNegado = await requisitar('/professor/usuarios', { user: 101 });
-    assert.equal(acessoNegado.status, 200);
-    assert.doesNotMatch(await acessoNegado.text(), /Todos os usuários/);
+    assert.equal(acessoNegado.status, 302);
 
     const painel = await requisitar('/professor/usuarios', { user: 104 });
     assert.equal(painel.status, 200);

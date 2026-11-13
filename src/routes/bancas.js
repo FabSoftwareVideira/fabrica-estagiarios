@@ -6,6 +6,8 @@ const { setFlash } = require('../middleware/auth');
 const { dataIsoValida, formatarDataBr } = require('../utils/datas');
 const { agoraBrasilia, lerAgendamento, SITUACOES_BANCA, celulaCsv } = require('../utils/bancas');
 const { notificarBanca, participantesDaBanca } = require('../services/conviteBanca');
+const { podeVerAluno } = require('../utils/acessoAluno');
+const { veTodosOsEstagios } = require('../config/papeis');
 
 // Campos cuja mudança justifica avisar os participantes de novo.
 const CAMPOS_DO_CONVITE = ['data', 'hora_inicio', 'hora_fim', 'sala', 'link_reuniao', 'observacoes', 'orientador_id', 'avaliador_1_id', 'avaliador_2_id', 'convidar_supervisor'];
@@ -27,7 +29,7 @@ router.get('/bancas', async (req, res) => {
     try { filtros = filtrosDaAgenda(req.query); } catch (e) { return res.status(e.status).send(e.message); }
     const participanteId = filtros.minhas ? req.session.user.id : null;
     const [agenda, disponiveis] = await Promise.all([bancas.listar({ ...filtros, participanteId }), bancas.listarAlunosDisponiveis(req.session.user)]);
-    res.render('professor_bancas', { agenda, disponiveis, filtros, situacoes: SITUACOES_BANCA,
+    res.render('professor_bancas', { agenda, disponiveis, filtros, situacoes: SITUACOES_BANCA, gestor: veTodosOsEstagios(req.session.user),
         queryCsv: new URLSearchParams(filtros).toString() });
 });
 router.get('/bancas/nova', (req, res) => {
@@ -51,6 +53,9 @@ async function carregar(req, res, next) {
     if (!/^[1-9]\d*$/.test(req.params.id)) return res.status(404).send('Estudante não encontrado.');
     const aluno = await alunos.buscarPorUsuarioId(req.params.id);
     if (!aluno) return res.status(404).send('Estudante não encontrado.');
+    // a agenda é compartilhada, mas o detalhe da banca é de quem participa dela,
+    // dos responsáveis pelo estudante e da gestão
+    if (!await podeVerAluno(req.session.user, aluno)) return res.status(403).send('Você não tem acesso à banca deste estudante.');
     req.aluno = aluno;
     next();
 }

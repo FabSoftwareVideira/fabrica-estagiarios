@@ -18,6 +18,16 @@
             ? [{ texto: 'Administração', href: '/professor/administracao' }, { texto: 'Acompanhamento' }]
             : [{ texto: 'Acompanhamento' }] }) %>
 
+        <% if (typeof solicitacoesPendentes !== 'undefined' && solicitacoesPendentes > 0) { %>
+            <section class="card pending-requests-banner" aria-label="Solicitações de supervisores externos">
+                <div>
+                    <strong><%- icone('alerta') %> <%= solicitacoesPendentes %> <%= solicitacoesPendentes === 1 ? 'solicitação aguarda' : 'solicitações aguardam' %> aprovação</strong>
+                    <p>Supervisores externos são aprovados pelo administrador ou pelo setor de estágios.</p>
+                </div>
+                <a href="/professor/usuarios" class="btn btn-secondary btn-sm">Revisar solicitações</a>
+            </section>
+        <% } %>
+
         <%
             const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
             // link que mantém filtros e ordenação e troca só o que mudou;

@@ -16,6 +16,7 @@ const { montarContexto, dadosParaPdf } = require('../services/ataDados');
 const { gerarFaaPdf } = require('../services/faaPdf');
 const { gerarFichaAcompanhamentoPdf } = require('../services/fichaAcompanhamentoPdf');
 const { CRITERIOS_BANCA, RESULTADOS, ehNumero, notaDaFaa, calcularAta } = require('../utils/ata');
+const { podeVerAluno } = require('../utils/acessoAluno');
 const { dataLocalIso, dataIsoValida, dataParaInput, nomeParaArquivo, periodoDasAtividades } = require('../utils/datas');
 
 function enviarPdf(res, prefixo, nome, bytes) {
@@ -54,6 +55,13 @@ async function carregarAluno(req, res, next) {
     }
     req.aluno = aluno;
     next();
+}
+
+// fichas para consulta: só quem tem vínculo com o estudante ou papel de gestão
+async function requireVerAluno(req, res, next) {
+    if (await podeVerAluno(req.session.user, req.aluno)) return next();
+    setFlash(req, 'error', 'Você não tem acesso às fichas deste estudante.');
+    return res.redirect('/professor/inicio');
 }
 
 // a ata é feita pelo orientador do aluno, depois das horas cumpridas
@@ -274,8 +282,8 @@ router.post('/aluno/:id/fare/reabrir', carregarAluno, async (req, res) => {
     res.redirect(ehOrientador ? `/professor/aluno/${aluno.usuario_id}/fare` : '/professor/aluno/' + aluno.usuario_id);
 });
 
-// ── Fichas do aluno para impressão (qualquer professor) ───────────────
-router.get('/aluno/:id/ficha-acompanhamento', carregarAluno, async (req, res) => {
+// ── Fichas do aluno para impressão (quem pode ver o estudante) ────────
+router.get('/aluno/:id/ficha-acompanhamento', carregarAluno, requireVerAluno, async (req, res) => {
     const atividades = await atividadesModel.listarPorAluno(req.aluno.usuario_id);
     try {
         const bytes = await gerarFichaAcompanhamentoPdf({ aluno: req.aluno, atividades });
@@ -287,7 +295,7 @@ router.get('/aluno/:id/ficha-acompanhamento', carregarAluno, async (req, res) =>
     }
 });
 
-router.get('/aluno/:id/faa/pdf', carregarAluno, async (req, res) => {
+router.get('/aluno/:id/faa/pdf', carregarAluno, requireVerAluno, async (req, res) => {
     const faa = await faasModel.buscarPorAluno(req.aluno.usuario_id);
     if (!faa) {
         setFlash(req, 'error', 'O estagiário ainda não preencheu a FAA.');
