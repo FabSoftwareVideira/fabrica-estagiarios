@@ -1,9 +1,9 @@
-name: Deploy no Dokploy
+name: Deploy de produção
 
 # Publica a aplicação de produção na VPS com Dokploy.
 #
 # O build, as migrações e a subida dos serviços acontecem no Dokploy, a partir do
-# docker-compose.dokploy.yml. Este workflow só confere o compose e pede o deploy
+# docker-compose.yml. Este workflow só confere o compose e pede o deploy
 # pela API do Dokploy.
 #
 # Secrets do repositório (Settings → Secrets and variables → Actions):
@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-dokploy
+  group: deploy-producao
   cancel-in-progress: false
 
 jobs:
@@ -34,17 +34,17 @@ jobs:
   deploy:
     # Só pede o deploy com os testes aprovados
     needs: testes
-    name: 🚀 Deploy no Dokploy
+    name: 🚀 Deploy de produção
     runs-on: ubuntu-latest
     steps:
       - name: 📂 Checkout do código
         uses: actions/checkout@v4
 
-      - name: 🛠️ Validar o docker-compose.dokploy.yml
+      - name: 🛠️ Validar o docker-compose.yml
         run: |
           # o .env de verdade fica no Dokploy; aqui basta um provisório para o compose resolver as variáveis
           printf 'POSTGRES_USER=ci\nPOSTGRES_PASSWORD=ci\nPOSTGRES_DB=ci\nSESSION_SECRET=ci\n' > .env
-          docker compose -f docker-compose.dokploy.yml config -q
+          docker compose -f docker-compose.yml config -q
           echo "✅ Compose válido"
 
       - name: 🔑 Conferir secrets do Dokploy

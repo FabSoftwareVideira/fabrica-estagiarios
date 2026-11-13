@@ -20,7 +20,7 @@ cp .env.sample .env
 # Edite .env com suas credenciais
 
 # 2. Subir em modo dev (com hot reload)
-docker compose up -d --build
+docker compose -f docker-compose.dev.yml up -d --build
 
 # 3. Acessar
 open http://localhost:3000
@@ -28,7 +28,7 @@ open http://localhost:3000
 
 No modo de desenvolvimento, o Docker Compose inicia o Mailpit. Os e-mails enviados pela aplicação são capturados localmente e podem ser vistos em [http://localhost:8025](http://localhost:8025); o serviço SMTP fica acessível apenas pela rede interna do Compose. Os parâmetros do Mailpit vêm das variáveis `DEV_SMTP_*` no `.env` (com padrão seguro `mailpit:1025`) e sobrescrevem as variáveis `SMTP_*`, então credenciais SMTP reais já existentes no `.env` não serão usadas pelo container de desenvolvimento. Mantenha `DEV_SMTP_HOST=mailpit` para que os e-mails de teste não sejam enviados a destinatários reais.
 
-Para preencher o banco de desenvolvimento com dados fictícios, execute `docker compose exec -T estagiarios-web npm run seed:dev`. O seed idempotente cria 12 estudantes vinculados a três supervisores, um supervisor externo aprovado e três orientadores, além de atividades de exemplo. Na tela de login, abra **Acessos de desenvolvimento** para entrar como estudante (`estudante04@example.test`), supervisor (`supervisora1@example.test`), supervisor externo (`supervisor.externo@example.test`) ou orientador (`orientador1@example.test`). O supervisor externo de teste acompanha os três primeiros estudantes. Essas contas só autenticam em desenvolvimento; os endereços `.test` são fictícios.
+Para preencher o banco de desenvolvimento com dados fictícios, execute `docker compose -f docker-compose.dev.yml exec -T estagiarios-web npm run seed:dev`. O seed idempotente cria 12 estudantes vinculados a três supervisores, um supervisor externo aprovado e três orientadores, além de atividades de exemplo. Na tela de login, abra **Acessos de desenvolvimento** para entrar como estudante (`estudante04@example.test`), supervisor (`supervisora1@example.test`), supervisor externo (`supervisor.externo@example.test`) ou orientador (`orientador1@example.test`). O supervisor externo de teste acompanha os três primeiros estudantes. Essas contas só autenticam em desenvolvimento; os endereços `.test` são fictícios.
 
 Ao aprovar o cadastro do estudante, informe os dias e o horário contínuo planejado para cada dia (até 6 horas). A escala é mostrada no calendário e no formulário de atividades como referência, mas não limita os registros: o estudante pode registrar atividades em qualquer dia, exceto domingo, respeitando o limite de 6 horas por dia.
 
@@ -92,10 +92,10 @@ Para produção, atualize também o secret `ENV_FILE` no GitHub e faça o deploy
 |       └── index.html      # Template HTML
 ├── .github/
 │   └── workflows/
-│       └── deploy-dokploy.yml # Deploy de produção no Dokploy
+│       └── deploy.yml         # Deploy de produção (Dokploy)
 ├── Dockerfile                  # Multi-stage: dev | deps | prod
-├── docker-compose.yml         # Desenvolvimento
-├── docker-compose.dokploy.yml # Produção
+├── docker-compose.dev.yml     # Desenvolvimento
+├── docker-compose.yml         # Produção (Dokploy)
 └── .env.example
 ```
 
@@ -111,16 +111,16 @@ Para produção, atualize também o secret `ENV_FILE` no GitHub e faça o deploy
 
 1. Renomeie o nome do projeto:
    - `name` em `package.json`
-   - `name` em `docker-compose.dokploy.yml`
-2. Atualize o workflow `deploy-dokploy.yml` e configure os secrets do Dokploy no GitHub.
+   - `name` em `docker-compose.yml` e `docker-compose.dev.yml`
+2. Atualize o workflow `deploy.yml` e configure os secrets do Dokploy no GitHub.
 
 ---
 
 ## Deploy no Dokploy
 
-A produção é implantada exclusivamente em uma VPS com [Dokploy](https://dokploy.com), usando `docker-compose.dokploy.yml` e o workflow `deploy-dokploy.yml`.
+A produção é implantada exclusivamente em uma VPS com [Dokploy](https://dokploy.com), usando `docker-compose.yml` e o workflow `deploy.yml`.
 
-Diferenças do `docker-compose.dokploy.yml`:
+Diferenças do `docker-compose.yml`:
 
 - **Sem porta publicada e sem a rede `fabrica-network`.** Só o serviço web entra na rede `dokploy-network`, por onde o Traefik do Dokploy o alcança; o banco fica só na rede interna do projeto.
 - **Migrações dentro do compose**: o serviço `migrar` roda `runMigrations.js` a cada deploy, depois que o banco está saudável; o web só sobe se as migrações terminarem sem erro.
@@ -129,16 +129,16 @@ Diferenças do `docker-compose.dokploy.yml`:
 
 Configuração no Dokploy (uma vez):
 
-1. Crie um recurso **Docker Compose** apontando para este repositório, com **Compose Path** `./docker-compose.dokploy.yml`. Deixe o *Autodeploy* desligado: quem dispara o deploy é o GitHub Actions, nas tags `v*`.
+1. Crie um recurso **Docker Compose** apontando para este repositório, com **Compose Path** `./docker-compose.yml`. Deixe o *Autodeploy* desligado: quem dispara o deploy é o GitHub Actions, nas tags `v*`.
 2. Na aba **Environment**, cole as mesmas variáveis do secret `ENV_FILE`. `POSTGRES_HOST` pode ficar como está: o compose usa sempre o serviço `fabrica-estagiarios-db`. Se o domínio mudar, atualize `APP_URL` e `GOOGLE_CALLBACK_URL` e cadastre o novo endereço de retorno no Google Cloud.
 3. Na aba **Domains**, adicione o domínio para o serviço `fabrica-estagiarios-web`, porta `3000`, com HTTPS.
-4. No GitHub, crie os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` (token em Settings → Profile do Dokploy) e `DOKPLOY_COMPOSE_ID` (o id do recurso, na URL dele no painel). Sem eles, o workflow `deploy-dokploy.yml` só valida o compose.
+4. No GitHub, crie os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` (token em Settings → Profile do Dokploy) e `DOKPLOY_COMPOSE_ID` (o id do recurso, na URL dele no painel). Sem eles, o workflow `deploy.yml` só valida o compose.
 
 Para importar um backup existente, siga "Trazer os dados da VPS antiga" em "Backup e restauração", abaixo.
 
 ## Backup e restauração
 
-No Dokploy, o serviço `backup` do `docker-compose.dokploy.yml` faz um backup do banco por dia numa pasta da VPS: `/srv/fabrica-estagiarios/backups` (configurável por `BACKUP_HOST_DIR`). Os scripts ficam em `deploy/backup/` e vão dentro da imagem do serviço.
+No Dokploy, o serviço `backup` do `docker-compose.yml` faz um backup do banco por dia numa pasta da VPS: `/srv/fabrica-estagiarios/backups` (configurável por `BACKUP_HOST_DIR`). Os scripts ficam em `deploy/backup/` e vão dentro da imagem do serviço.
 
 - **Pasta**: criada automaticamente a cada deploy, se não existir. O serviço `preparar-pasta-backup` passa a pasta para o usuário do container de backup (UID/GID 70, o usuário `postgres` da imagem), que não roda como root.
 - **Quando**: todo dia a partir de `BACKUP_HORA` (Brasília, padrão `03:00`). Se o container estava parado no horário, o backup do dia sai assim que ele volta; uma falha é tentada de novo em 30 minutos.
@@ -302,8 +302,16 @@ Somente o supervisor vinculado pode alterar a FAC, enquanto o estágio estiver a
 
 Aplicar a migração `017_ficha_supervisor.sql`. O modelo PDF deve acompanhar a versão implantada. O agendamento da banca permanece como melhoria futura em [docs/atualizacoes-futuras.md](docs/atualizacoes-futuras.md).
 
+## Privacidade (LGPD)
+
+A página pública `/privacidade` explica quais dados pessoais o sistema trata, para quê, com quem são compartilhados, por quanto tempo ficam guardados e como exercer os direitos da LGPD. Ela é acessível pelo rodapé de todas as telas e por uma linha discreta sob o botão de login.
+
+Não há banner de consentimento de cookies: o sistema usa só o cookie de sessão (`connect.sid`, essencial, criado no login) e guarda a preferência de alto contraste no próprio navegador. Se um dia forem adicionados cookies de análise de audiência ou de terceiros, será preciso pedir consentimento antes de ativá-los e atualizar a página.
+
+Antes de publicar uma mudança no tratamento de dados, atualize a página e a data de "Última atualização" em `src/views/privacidade.ejs`.
+
 ## Testes
 
 Execute `npm ci` e `npm test`. Os testes usam PostgreSQL embarcado (PGlite) isolado em memória para validar migrações, prazo e intervalo dos lembretes, atualização de atividades, permissões HTTP, persistência da FAC, cálculo da ata e geração de PDF. O transporte de e-mail é substituído nos testes; nenhum e-mail real é enviado. Há também testes de preferência de tema e do resumo semanal existente.
 
-No GitHub Actions, o workflow `testes.yml` roda `npm ci` e `npm test` (Node 25, a mesma versão da imagem de produção). O workflow `deploy-dokploy.yml` só solicita o deploy ao Dokploy depois que os testes passam. Em pull requests, os testes rodam sozinhos, para conferir antes de juntar na `main`.
+No GitHub Actions, o workflow `testes.yml` roda `npm ci` e `npm test` (Node 25, a mesma versão da imagem de produção). O workflow `deploy.yml` só solicita o deploy ao Dokploy depois que os testes passam. Em pull requests, os testes rodam sozinhos, para conferir antes de juntar na `main`.

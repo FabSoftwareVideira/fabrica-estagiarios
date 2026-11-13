@@ -7,4 +7,7 @@ router.get('/', (req, res) => {
     res.render('login');
 });
 
+// Aviso de privacidade e cookies (LGPD): público, inclusive para quem ainda não entrou
+router.get('/privacidade', (req, res) => res.render('privacidade'));
+
 module.exports = router;

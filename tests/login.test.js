@@ -38,3 +38,20 @@ for (const ambiente of ['production', 'development']) {
         }
     });
 }
+
+test('aviso de privacidade e cookies: público, com link discreto no rodapé', async () => {
+    const aviso = await fetch(`${url}/privacidade`);
+    assert.equal(aviso.status, 200);
+    const html = await aviso.text();
+    assert.match(html, /<h1>Privacidade e cookies<\/h1>/);
+    assert.match(html, /connect\.sid/);
+    assert.match(html, /LGPD/);
+    // sem banner de consentimento: só o cookie essencial de sessão
+    assert.doesNotMatch(html, /Aceitar cookies/i);
+
+    const entrada = await (await fetch(`${url}/`)).text();
+    assert.doesNotMatch(entrada, /public-privacidade/);
+    assert.match(entrada, /<footer[^]*href="\/privacidade"[^]*<\/footer>/);
+    // a página inicial não cria cookie antes do login
+    assert.equal((await fetch(`${url}/`)).headers.get('set-cookie'), null);
+});

@@ -1043,6 +1043,15 @@ html.alto-contraste .curso-ambar { --curso-cor: #ffd700; }
 .footer-inner a { color: #fff; }
 .footer-sub { opacity: 0.8; }
 
+/* Aviso de privacidade: texto longo e legível, sem chamar atenção no resto do sistema */
+.privacidade { max-width: 820px; line-height: 1.6; }
+.privacidade h1 { margin-bottom: 4px; }
+.privacidade h2 { font-size: 19px; margin: 26px 0 8px; }
+.privacidade p + p, .privacidade ul + p { margin-top: 10px; }
+.privacidade ul { padding-left: 22px; display: grid; gap: 6px; }
+.privacidade .table-wrap { margin: 10px 0 12px; }
+.privacidade code { font-size: 13px; }
+
 /* Botão flutuante (celular) */
 .fab {
   display: none; position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 90;

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacidade e cookies · Controle de Estágio</title>
+    <script src="/js/theme.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <main id="conteudo" class="container">
+        <%- include('partials/breadcrumb', { itens: [
+            locals.raizNav ? locals.raizNav(locals.user || null) : { texto: 'Início', href: '/' },
+            { texto: 'Privacidade e cookies' }
+        ] }) %>
+
+        <article class="card privacidade">
+            <h1>Privacidade e cookies</h1>
+            <p class="text-muted">Última atualização: 13 de novembro de 2026.</p>
+            <p>
+                Este aviso explica, em linguagem simples, como o Sistema de Controle de Estágio do
+                Instituto Federal Catarinense (IFC) – Campus Videira trata dados pessoais, conforme a
+                Lei Geral de Proteção de Dados Pessoais (LGPD, Lei nº 13.709/2018).
+            </p>
+
+            <h2>Quem é responsável pelos dados</h2>
+            <p>
+                O controlador dos dados é o <strong>Instituto Federal Catarinense – Campus Videira</strong>,
+                por meio do setor de Extensão e Estágios. O sistema foi desenvolvido pela Fábrica de
+                Software do campus e é usado apenas para acompanhar os estágios curriculares dos cursos
+                técnicos integrados ao ensino médio.
+            </p>
+
+            <h2>Quais dados tratamos</h2>
+            <ul>
+                <li><strong>De todas as pessoas que acessam:</strong> nome, e-mail e identificador da conta Google usada no login, avatar escolhido e preferências de e-mail.</li>
+                <li><strong>De estudantes:</strong> matrícula, curso, empresa ou entidade do estágio, orientador e supervisor, carga horária, dias e horários de trabalho, atividades registradas (data, horário, descrição e horas), autoavaliação (FAA), avaliações do supervisor (FAC) e do orientador (FAPO), dados da banca e a ata de encerramento.</li>
+                <li><strong>De professores e servidores:</strong> papéis no sistema (orientação, supervisão, setor de estágios, administração) e os registros que fazem nas fichas e validações.</li>
+                <li><strong>De supervisores externos:</strong> empresa e cargo ou função.</li>
+            </ul>
+            <p>Não coletamos documentos de identidade, dados bancários nem dados sensíveis.</p>
+
+            <h2>Para que usamos</h2>
+            <ul>
+                <li>Identificar quem acessa e liberar só o que cada papel pode ver ou fazer.</li>
+                <li>Registrar e validar as atividades e a carga horária do estágio.</li>
+                <li>Preencher e emitir as fichas de avaliação, agendar a banca e encerrar o estágio.</li>
+                <li>Permitir que o setor de estágios acompanhe a situação dos estagiários.</li>
+                <li>Enviar e-mails do próprio sistema, como avisos de banca, lembretes e o resumo semanal. Cada pessoa pode desligar esses e-mails em <strong>Meu perfil</strong>.</li>
+            </ul>
+            <p>
+                O tratamento se apoia no cumprimento das atribuições legais do IFC como instituição pública
+                de ensino e no acompanhamento do estágio previsto na Lei do Estágio (Lei nº 11.788/2008)
+                (LGPD, art. 7º, incisos II e III, e art. 23).
+            </p>
+
+            <h2>Estudantes adolescentes</h2>
+            <p>
+                A maioria dos estudantes tem menos de 18 anos. Os dados deles são tratados no seu melhor
+                interesse (LGPD, art. 14), apenas para as finalidades do estágio acima, e ficam visíveis só
+                para quem participa do estágio: o próprio estudante, o orientador, o supervisor, o setor de
+                estágios e a administração do sistema.
+            </p>
+
+            <h2>Com quem os dados são compartilhados</h2>
+            <ul>
+                <li><strong>Dentro do IFC:</strong> orientador, supervisor, setor de estágios e administração, cada um conforme o seu papel.</li>
+                <li><strong>Supervisor da empresa:</strong> vê apenas os estudantes que supervisiona.</li>
+                <li><strong>Google:</strong> faz a autenticação do login e o envio dos e-mails do sistema.</li>
+                <li><strong>Hospedagem:</strong> o servidor onde o sistema e o banco de dados ficam guardados.</li>
+            </ul>
+            <p>Os dados não são vendidos nem usados para publicidade.</p>
+
+            <h2 id="cookies">Cookies e armazenamento no navegador</h2>
+            <p>O sistema usa apenas o necessário para funcionar. Não há cookies de publicidade, de análise de audiência ou de terceiros.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Nome</th><th>Tipo</th><th>Para que serve</th><th>Duração</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>connect.sid</code></td>
+                            <td>Cookie essencial</td>
+                            <td>Mantém você conectado depois do login e protege o login contra falsificação de requisições.</td>
+                            <td>Até 8 horas ou até você sair</td>
+                        </tr>
+                        <tr>
+                            <td><code>contraste</code></td>
+                            <td>Armazenamento local do navegador</td>
+                            <td>Lembra se você ligou o alto contraste. Fica só no seu navegador e não é enviado ao servidor.</td>
+                            <td>Até você limpar os dados do navegador</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>
+                Como esses itens são indispensáveis ao funcionamento ou guardam uma escolha sua, não pedimos
+                consentimento por meio de um aviso de cookies. Bloquear o cookie de sessão impede o login.
+            </p>
+
+            <h2>Por quanto tempo guardamos</h2>
+            <p>
+                Os dados ficam no sistema enquanto o estágio estiver em andamento e, depois, pelo tempo
+                exigido pelas normas de guarda de documentos acadêmicos do IFC. Cópias de segurança do banco
+                de dados são feitas diariamente e as mais antigas são apagadas automaticamente após alguns dias.
+            </p>
+
+            <h2>Como protegemos</h2>
+            <p>
+                O acesso é feito com conta Google e conexão segura (HTTPS). Cada pessoa vê apenas o que o seu
+                papel permite, e o banco de dados não fica acessível pela internet.
+            </p>
+
+            <h2>Seus direitos</h2>
+            <p>
+                Você pode pedir a confirmação de que tratamos seus dados, o acesso a eles, a correção de dados
+                incompletos ou errados e informações sobre o compartilhamento, entre outros direitos previstos
+                no art. 18 da LGPD. Parte disso você mesmo faz em <strong>Meu perfil</strong> (nome, curso,
+                matrícula, avatar e e-mails que deseja receber).
+            </p>
+            <p>
+                Para os demais pedidos, ou para tirar dúvidas, fale com o setor de Extensão e Estágios do
+                campus pelo e-mail <a href="mailto:estagios.videira@ifc.edu.br">estagios.videira@ifc.edu.br</a>.
+                Você também pode procurar o encarregado pelo tratamento de dados pessoais do IFC, indicado no
+                <a href="https://ifc.edu.br" target="_blank" rel="noopener noreferrer">portal institucional</a>,
+                ou a Autoridade Nacional de Proteção de Dados (ANPD).
+            </p>
+        </article>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>
