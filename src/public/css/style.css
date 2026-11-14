@@ -1019,6 +1019,23 @@ html.alto-contraste .curso-ambar { --curso-cor: #ffd700; }
 .email-fieldset .profile-email-preference { align-items: flex-start; margin-top: 12px; }
 .email-fieldset .profile-email-preference small { display: block; font-weight: 400; font-size: 13px; color: var(--texto-suave); }
 .avatar-fieldset legend { font-weight: 700; margin-bottom: 4px; color: var(--azul-900); }
+
+/* Meu perfil: dados e e-mails à esquerda e avatar à direita em telas largas */
+.perfil-layout { display: grid; gap: 0 20px; align-items: start; }
+.perfil-campo-largo { grid-column: 1 / -1; }
+.perfil-emails { display: grid; gap: 14px; margin-top: 14px; }
+.perfil-emails .profile-email-preference { align-items: flex-start; margin: 0; }
+.perfil-emails .profile-email-preference small { display: block; font-weight: 400; font-size: 13px; color: var(--texto-suave); }
+.perfil-avatar .avatar-fieldset { margin-top: 0; }
+.perfil-avatar .avatar-fieldset legend { font-size: 20px; line-height: 1.25; margin-bottom: 8px; }
+.perfil-acoes { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; padding-top: 4px; }
+@media (min-width: 960px) {
+  .perfil-layout { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  .perfil-acoes { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .perfil-acoes .btn, .perfil-acoes button { flex: 1 1 150px; }
+}
 .avatar-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; margin-top: 12px; }
 .avatar-option { margin: 0; cursor: pointer; position: relative; }
 .avatar-option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
