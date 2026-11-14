@@ -282,20 +282,20 @@ test('cadastro de estudante exige um curso válido e guarda apenas uma opção',
     for (const curso of cursos) assert.ok(html.includes(curso));
 
     const semCurso = await requisitar('/aluno/completar-cadastro', {
-        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: 'NOVO11', avatarEmoji: '🐱' },
+        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: '2025000011', avatarEmoji: '🐱' },
     });
     assert.equal(semCurso.status, 302);
     assert.equal((await consultar('SELECT usuario_id FROM alunos WHERE usuario_id=11')).rows.length, 0);
 
     const cursoInvalido = await requisitar('/aluno/completar-cadastro', {
-        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: 'NOVO11', curso: 'Curso inventado', avatarEmoji: '🐱' },
+        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: '2025000011', curso: 'Curso inventado', avatarEmoji: '🐱' },
     });
     assert.equal(cursoInvalido.status, 302);
     assert.equal((await consultar('SELECT usuario_id FROM alunos WHERE usuario_id=11')).rows.length, 0);
 
     const cursoEscolhido = cursos[1];
     const cadastro = await requisitar('/aluno/completar-cadastro', {
-        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: 'NOVO11', curso: cursoEscolhido, avatarEmoji: '🐱' },
+        user: 11, method: 'POST', body: { nome: 'Novo estudante', matricula: '2025000011', curso: cursoEscolhido, avatarEmoji: '🐱' },
     });
     assert.equal(cadastro.status, 302);
     assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=11')).rows[0].curso, cursoEscolhido);
@@ -308,13 +308,13 @@ test('perfil permite informar ou corrigir o curso para um único curso cadastrad
     for (const curso of cursos) assert.ok(html.includes(curso));
 
     const invalido = await requisitar('/perfil', {
-        user: 1, method: 'POST', body: { nome: 'Estudante 1', matricula: 'TESTE1', curso: 'Curso inválido', avatarEmoji: '🐱' },
+        user: 1, method: 'POST', body: { nome: 'Estudante 1', matricula: '2025000001', curso: 'Curso inválido', avatarEmoji: '🐱' },
     });
     assert.equal(invalido.status, 302);
     assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso, cursos[0]);
 
     const alterado = await requisitar('/perfil', {
-        user: 1, method: 'POST', body: { nome: 'Estudante 1', matricula: 'TESTE1', curso: cursos[2], avatarEmoji: '🐱' },
+        user: 1, method: 'POST', body: { nome: 'Estudante 1', matricula: '2025000001', curso: cursos[2], avatarEmoji: '🐱' },
     });
     assert.equal(alterado.status, 302);
     assert.equal((await consultar('SELECT curso FROM alunos WHERE usuario_id=1')).rows[0].curso, cursos[2]);
@@ -887,7 +887,7 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
     assert.match(paginaFiltradaHtml, new RegExp(`de ${totalFiltrado.rows[0].total} usuários`));
 
     for (const [tipo, suffix, extra] of [
-        ['aluno', 'estudante', { matricula: 'ADM123', curso: 'Curso Técnico em Informática Integrado ao Ensino Médio' }],
+        ['aluno', 'estudante', { matricula: '2025000123', curso: 'Curso Técnico em Informática Integrado ao Ensino Médio' }],
         ['professor', 'professor', {}],
         ['supervisor', 'supervisor', { empresa: 'Empresa Nova', funcao: 'Gestor de Estágio' }],
     ]) {
@@ -902,7 +902,7 @@ test('painel único cadastra tipos de conta, aprova supervisor e ativa/desativa 
         assert.equal(conta.rows.length, 1);
         assert.equal(conta.rows[0].ativo, true);
         if (tipo === 'aluno') {
-            assert.equal(conta.rows[0].matricula, 'ADM123');
+            assert.equal(conta.rows[0].matricula, '2025000123');
             assert.equal(conta.rows[0].curso, extra.curso);
         }
         if (tipo === 'professor') assert.equal(conta.rows[0].cargo, 'comum');
@@ -1183,7 +1183,7 @@ test('perfil guarda as preferências de e-mail e o lembrete respeita a escolha d
     assert.match(await (await requisitar('/perfil', { user: 1 })).text(), /E-mails da plataforma/);
 
     // caixas desmarcadas não chegam no formulário: o estudante deixa de receber os dois
-    const base = { nome: 'Estudante 1', matricula: 'TESTE1', curso: cursos[0] };
+    const base = { nome: 'Estudante 1', matricula: '2025000001', curso: cursos[0] };
     await requisitar('/perfil', { user: 1, method: 'POST', body: base });
     assert.deepEqual(await prefs(1), { bancas: false, lembretes: false });
     await db.exec("UPDATE alunos SET relatorio_atualizado_em = NOW() WHERE usuario_id > 1");
@@ -1378,10 +1378,10 @@ test('administração separada: página própria, cadastro com papéis e ediçã
     assert.deepEqual(await linha('SELECT u.nome, p.cargo FROM usuarios u JOIN professores p ON p.usuario_id=u.id WHERE u.id=104'), { nome: 'Admin Renomeado', cargo: 'admin' });
 
     // estudante: matrícula e curso; matrícula de outro estudante é recusada
-    await editar(1, { nome: 'Estudante Um', email: 'aluno1@example.test', matricula: 'MAT-001', curso: cursos[2] });
-    assert.deepEqual(await linha('SELECT u.nome, a.matricula, a.curso FROM usuarios u JOIN alunos a ON a.usuario_id=u.id WHERE u.id=1'), { nome: 'Estudante Um', matricula: 'MAT-001', curso: cursos[2] });
-    await editar(2, { nome: 'Estudante 2', email: 'aluno2@example.test', matricula: 'MAT-001', curso: cursos[0] });
-    assert.notEqual((await linha('SELECT matricula FROM alunos WHERE usuario_id=2')).matricula, 'MAT-001');
+    await editar(1, { nome: 'Estudante Um', email: 'aluno1@example.test', matricula: '2025009001', curso: cursos[2] });
+    assert.deepEqual(await linha('SELECT u.nome, a.matricula, a.curso FROM usuarios u JOIN alunos a ON a.usuario_id=u.id WHERE u.id=1'), { nome: 'Estudante Um', matricula: '2025009001', curso: cursos[2] });
+    await editar(2, { nome: 'Estudante 2', email: 'aluno2@example.test', matricula: '2025009001', curso: cursos[0] });
+    assert.notEqual((await linha('SELECT matricula FROM alunos WHERE usuario_id=2')).matricula, '2025009001');
 
     // supervisor externo: empresa e função
     await editar(105, { nome: 'Supervisor Externo', email: 'externo@example.test', empresa: 'Nova Empresa', funcao: 'Gerente' });

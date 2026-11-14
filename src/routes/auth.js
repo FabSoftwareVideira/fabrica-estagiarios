@@ -7,6 +7,7 @@ const { requireAuth, setFlash, iniciarSessao } = require('../middleware/auth');
 const { DOMINIO_PROFESSOR, ADMIN_PRINCIPAL_EMAIL } = require('../config/constants');
 const avatares = require('../config/avatares');
 const { CURSOS, ehCurso } = require('../config/cursos');
+const { lerMatricula, MENSAGEM_MATRICULA } = require('../utils/matricula');
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -39,8 +40,7 @@ router.get('/perfil', requireAuth, async (req, res) => {
 
 router.post('/perfil', requireAuth, async (req, res) => {
     const nome = String(req.body.nome ?? '').trim();
-    const matriculaInformada = (req.body.matricula || '').trim();
-    const matricula = matriculaInformada || null;
+    const { valida: matriculaValida, valor: matricula } = lerMatricula(req.body.matricula);
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     const avatarEmoji = (typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '') || null;
 
@@ -51,6 +51,10 @@ router.post('/perfil', requireAuth, async (req, res) => {
 
     if (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji)) {
         setFlash(req, 'error', 'Escolha um avatar da lista ou fique sem avatar.');
+        return res.redirect('/perfil');
+    }
+    if (req.session.user.tipo === 'aluno' && !matriculaValida) {
+        setFlash(req, 'error', MENSAGEM_MATRICULA);
         return res.redirect('/perfil');
     }
     if (req.session.user.tipo === 'aluno' && !ehCurso(curso)) {

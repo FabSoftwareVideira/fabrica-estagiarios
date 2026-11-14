@@ -352,7 +352,7 @@
                             </div>
                             <div class="form-field">
                                 <label for="dados-matricula">Matrícula <span class="text-muted">(opcional)</span></label>
-                                <input id="dados-matricula" name="matricula" type="text" maxlength="30" value="<%= aluno.matricula || '' %>">
+                                <input id="dados-matricula" name="matricula" placeholder="Ex.: 2025008076" type="text" maxlength="20" inputmode="numeric" pattern="[0-9]*" title="Apenas números, por exemplo 2025008076" value="<%= aluno.matricula || '' %>">
                             </div>
                         </div>
                     </section>

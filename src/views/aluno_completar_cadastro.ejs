@@ -24,7 +24,7 @@
                 <label for="nome">Nome completo</label>
                 <input type="text" id="nome" name="nome" maxlength="150" value="<%= nomeAtual %>" required>
                 <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
-                <input type="text" id="matricula" name="matricula" maxlength="30">
+                <input type="text" id="matricula" name="matricula" placeholder="Ex.: 2025008076" maxlength="20" inputmode="numeric" pattern="[0-9]*" title="Apenas números, por exemplo 2025008076">
                 <%- include('partials/curso-picker', { cursos }) %>
                 <%- include('partials/avatar-picker', { avatares, selectedAvatar }) %>
                 <button type="submit" class="btn">Concluir Cadastro</button>

@@ -21,7 +21,7 @@ const supervisorExterno = {
 const estudantes = Array.from({ length: 12 }, (_, indice) => ({
     nome: `Estudante de Teste ${String(indice + 1).padStart(2, '0')}`,
     email: `estudante${String(indice + 1).padStart(2, '0')}@example.test`,
-    matricula: `TESTE${String(indice + 1).padStart(4, '0')}`,
+    matricula: `2025${String(indice + 1).padStart(6, '0')}`,
     supervisor: indice < 3 ? 'externo' : indice % supervisores.length,
     orientador: indice % orientadores.length,
     status: indice < 2 ? 'lista_espera' : 'em_andamento',

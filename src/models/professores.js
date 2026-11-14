@@ -39,17 +39,6 @@ async function solicitarAcessoSupervisor(usuarioId, empresa, funcao) {
     return rows.length > 0;
 }
 
-async function listarSupervisoresPendentes() {
-    const { rows } = await pool.query(
-        `SELECT p.usuario_id AS id, u.nome, u.email, p.empresa_externa, p.funcao_externa
-         FROM professores p
-         JOIN usuarios u ON u.id = p.usuario_id
-         WHERE p.cargo = 'supervisor' AND p.aprovado = false
-         ORDER BY u.nome`
-    );
-    return rows;
-}
-
 async function aprovarSupervisor(usuarioId) {
     const { rowCount } = await pool.query(
         `UPDATE professores SET aprovado = true
@@ -57,20 +46,6 @@ async function aprovarSupervisor(usuarioId) {
         [usuarioId]
     );
     return rowCount > 0;
-}
-
-// lista todos os professores, exceto o usuário logado (pra ninguém se
-// autopromover/despromover ou se autoexcluir sem querer)
-async function listarExceto(usuarioIdAtual) {
-    const { rows } = await pool.query(
-        `SELECT p.usuario_id, p.cargo, u.nome, u.email
-         FROM professores p
-         JOIN usuarios u ON u.id = p.usuario_id
-         WHERE p.usuario_id != $1 AND p.cargo <> 'supervisor'
-         ORDER BY u.nome ASC`,
-        [usuarioIdAtual]
-    );
-    return rows;
 }
 
 // O que ainda depende da pessoa em cada papel. Um papel com vínculos em aberto
@@ -121,22 +96,14 @@ async function definirRecebimentoRelatorio(usuarioId, receber) {
     );
 }
 
-async function excluir(usuarioId) {
-    // apaga o usuário (o registro em "professores" some junto via ON DELETE CASCADE)
-    await pool.query('DELETE FROM usuarios WHERE id = $1', [usuarioId]);
-}
-
 module.exports = {
     buscarPorUsuarioId,
     criar,
     solicitarAcessoSupervisor,
-    listarSupervisoresPendentes,
     aprovarSupervisor,
-    listarExceto,
     definirCargo,
     contarVinculos,
     definirPapeis,
     atualizarDadosExternos,
     definirRecebimentoRelatorio,
-    excluir,
 };

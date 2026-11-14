@@ -17,9 +17,10 @@ const avatares = require('../config/avatares');
 const faresModel = require('../models/fares');
 const { gerarFarePdf } = require('../services/farePdf');
 const { montarContexto, dadosParaPdf } = require('../services/ataDados');
-const { formatarHora } = require('../utils/datas');
+const { formatarHora, dataLocalIso, dataIsoValida, dataParaInput, nomeParaArquivo } = require('../utils/datas');
 const { DIAS_TRABALHO } = require('../utils/horarioTrabalho');
 const { CURSOS, ehCurso } = require('../config/cursos');
+const { lerMatricula, MENSAGEM_MATRICULA } = require('../utils/matricula');
 
 router.use(requireRole('aluno'));
 
@@ -37,14 +38,18 @@ router.get('/completar-cadastro', async (req, res) => {
 });
 
 router.post('/completar-cadastro', async (req, res) => {
-    // matrícula é opcional: vazia vira NULL para não colidir no UNIQUE
-    const matricula = (typeof req.body.matricula === 'string' ? req.body.matricula.trim() : '') || null;
+    // matrícula é opcional (vazia vira NULL para não colidir no UNIQUE), mas só com números
+    const { valida: matriculaValida, valor: matricula } = lerMatricula(req.body.matricula);
+    if (!matriculaValida) {
+        setFlash(req, 'error', MENSAGEM_MATRICULA);
+        return res.redirect('/aluno/completar-cadastro');
+    }
     const nome = String(req.body.nome ?? '').trim();
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     // avatar é opcional: sem escolha fica NULL e o cabeçalho mostra a inicial do nome
     const avatarEmoji = (typeof req.body.avatarEmoji === 'string' ? req.body.avatarEmoji.trim() : '') || null;
-    if ((matricula && matricula.length > 30) || !nome || nome.length > 150 || !ehCurso(curso) || (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji))) {
-        setFlash(req, 'error', 'Informe seu nome completo e escolha um curso. Matrícula (até 30 caracteres) e avatar são opcionais.');
+    if (!nome || nome.length > 150 || !ehCurso(curso) || (avatarEmoji && !avatares.some((avatar) => avatar.emoji === avatarEmoji))) {
+        setFlash(req, 'error', 'Informe seu nome completo e escolha um curso. Matrícula e avatar são opcionais.');
         return res.redirect('/aluno/completar-cadastro');
     }
     try {
@@ -71,49 +76,9 @@ router.post('/completar-cadastro', async (req, res) => {
 
 router.use(requireAlunoCompleto);
 
-function dataLocalIso(data = new Date()) {
-    const ano = data.getFullYear();
-    const mes = String(data.getMonth() + 1).padStart(2, '0');
-    const dia = String(data.getDate()).padStart(2, '0');
-    return `${ano}-${mes}-${dia}`;
-}
-
-function dataIsoValida(valor) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
-
-    const [ano, mes, dia] = valor.split('-').map(Number);
-    const data = new Date(ano, mes - 1, dia);
-
-    return data.getFullYear() === ano
-        && data.getMonth() === mes - 1
-        && data.getDate() === dia;
-}
-
-function dataParaInput(valor) {
-    if (!valor) return '';
-    if (typeof valor === 'string') return valor.slice(0, 10);
-
-    const data = valor instanceof Date ? valor : new Date(valor);
-    return Number.isNaN(data.getTime()) ? '' : dataLocalIso(data);
-}
-
-function nomeBaseArquivo(nome) {
-    return String(nome)
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'aluno';
-}
-
-function enviarPdf(res, alunoNome, pdfBytes) {
-    const nomeBase = String(alunoNome)
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'aluno';
-
+function enviarPdf(res, prefixo, alunoNome, pdfBytes) {
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="FAA-${nomeBase}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${prefixo}-${nomeParaArquivo(alunoNome)}.pdf"`);
     return res.send(Buffer.from(pdfBytes));
 }
 
@@ -298,7 +263,7 @@ router.post('/faa', requireEstagioConcluido, async (req, res) => {
             dataAssinatura,
         });
 
-        return enviarPdf(res, req.aluno.nome, pdfBytes);
+        return enviarPdf(res, 'FAA', req.aluno.nome, pdfBytes);
     } catch (err) {
         console.error('[aluno/faa] erro ao gerar PDF:', err.message);
         setFlash(req, 'error', 'A ficha foi salva, mas não foi possível gerar o PDF. Tente novamente.');
@@ -326,7 +291,7 @@ router.get('/faa/pdf', requireEstagioConcluido, async (req, res) => {
             dataAssinatura: dataParaInput(faa.data_assinatura),
         });
 
-        return enviarPdf(res, req.aluno.nome, pdfBytes);
+        return enviarPdf(res, 'FAA', req.aluno.nome, pdfBytes);
     } catch (err) {
         console.error('[aluno/faa/pdf] erro ao gerar PDF:', err.message);
         setFlash(req, 'error', 'Não foi possível gerar o PDF da FAA. Tente novamente.');
@@ -342,7 +307,7 @@ router.get('/fac/pdf', async (req, res) => {
     }
     const bytes = await gerarFacPdf({ aluno: req.aluno, fac });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="FAC-${nomeBaseArquivo(req.aluno.nome)}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="FAC-${nomeParaArquivo(req.aluno.nome)}.pdf"`);
     res.setHeader('Cache-Control', 'no-store, private');
     res.send(Buffer.from(bytes));
 });
@@ -364,7 +329,7 @@ router.get('/fapo/pdf', requireEstagioConcluido, async (req, res) => {
             dataAssinatura: dataParaInput(fapo.data_assinatura),
         });
 
-        return enviarPdf(res, req.aluno.nome, pdfBytes);
+        return enviarPdf(res, 'FAPO', req.aluno.nome, pdfBytes);
     } catch (err) {
         console.error('[aluno/fapo/pdf] erro ao gerar PDF:', err.message);
         setFlash(req, 'error', 'Não foi possível gerar o PDF da FAPO. Tente novamente.');
@@ -384,7 +349,7 @@ router.get('/fare/pdf', requireEstagioConcluido, async (req, res) => {
         const pdfBytes = await gerarFarePdf(dadosParaPdf({ aluno: req.aluno, ...contexto }));
 
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Ata-Banca-${nomeBaseArquivo(req.aluno.nome)}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Ata-Banca-${nomeParaArquivo(req.aluno.nome)}.pdf"`);
         return res.send(Buffer.from(pdfBytes));
     } catch (err) {
         console.error('[aluno/fare/pdf] erro ao gerar PDF:', err.message);
@@ -410,14 +375,8 @@ router.get('/ficha-acompanhamento', async (req, res) => {
             atividades,
         });
 
-        const nomeBase = String(aluno.nome)
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-zA-Z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '') || 'aluno';
-
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Ficha-Acompanhamento-${nomeBase}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="Ficha-Acompanhamento-${nomeParaArquivo(aluno.nome)}.pdf"`);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         return res.send(Buffer.from(pdfBytes));
     } catch (err) {

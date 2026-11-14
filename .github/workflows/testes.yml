@@ -1,6 +1,6 @@
 name: Testes
 
-# Roda os testes automatizados (npm test). É chamado pelos workflows de deploy
+# Roda os testes automatizados com cobertura (npm run test:coverage). É chamado pelos workflows de deploy
 # antes de publicar no Dokploy e roda sozinho em pull
 # requests, para mostrar o resultado antes de juntar na main.
 # Os testes não precisam de banco instalado: usam um PostgreSQL em memória (PGlite).
@@ -31,5 +31,6 @@ jobs:
       - name: 📦 Instalar dependências
         run: npm ci
 
-      - name: 🧪 Rodar os testes
-        run: npm test
+      # roda os testes e falha se a cobertura cair abaixo dos limites do package.json
+      - name: 🧪 Rodar os testes com cobertura
+        run: npm run test:coverage

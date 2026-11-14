@@ -312,6 +312,13 @@ Antes de publicar uma mudança no tratamento de dados, atualize a página e a da
 
 ## Testes
 
-Execute `npm ci` e `npm test`. Os testes usam PostgreSQL embarcado (PGlite) isolado em memória para validar migrações, prazo e intervalo dos lembretes, atualização de atividades, permissões HTTP, persistência da FAC, cálculo da ata e geração de PDF. O transporte de e-mail é substituído nos testes; nenhum e-mail real é enviado. Há também testes de preferência de tema e do resumo semanal existente.
+Execute `npm ci` e `npm test`. Para ver a cobertura, use `npm run test:coverage`: o comando falha se a cobertura cair abaixo de 90% das linhas e funções ou 80% das ramificações.
 
-No GitHub Actions, o workflow `testes.yml` roda `npm ci` e `npm test` (Node 25, a mesma versão da imagem de produção). O workflow `deploy.yml` só solicita o deploy ao Dokploy depois que os testes passam. Em pull requests, os testes rodam sozinhos, para conferir antes de juntar na `main`.
+Os testes não precisam de banco instalado: usam um PostgreSQL em memória (PGlite) com o schema completo (`db/init.sql` e as migrações). Nenhum e-mail real é enviado e o login com o Google é simulado.
+
+- `tests/unit/`: regras puras (datas, horário de trabalho, cálculo da ata, papéis, FAC, configuração de e-mail) e a geração de cada PDF a partir dos modelos em `docs/`.
+- `tests/*.integration.test.js`: a aplicação de verdade respondendo a requisições HTTP. Há um arquivo para cada área: estagiário (cadastro, atividades e fichas), orientador e supervisor (FAPO, ata da banca, validação de horas), administração (contas, papéis, arquivamento, relatório semanal), conta (Google, perfil, login de desenvolvimento) e bancas.
+- `tests/relatorio-semanal.test.js`: o agendamento do resumo semanal, com o relógio fixado.
+- `tests/helpers/ambiente.js`: monta o banco em memória, as mesmas rotas de `src/app.js`, um elenco fixo de pessoas e estágios e uma sessão por pessoa. Use `criarAmbiente()` em novos testes de integração.
+
+No GitHub Actions, o workflow `testes.yml` roda `npm ci` e `npm run test:coverage` (Node 25, a mesma versão da imagem de produção). O workflow `deploy.yml` só solicita o deploy ao Dokploy depois que os testes passam. Em pull requests, os testes rodam sozinhos, para conferir antes de juntar na `main`.

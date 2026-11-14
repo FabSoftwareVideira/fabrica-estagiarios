@@ -10,6 +10,7 @@ const rascunhosModel = require('../models/estagiosRascunhos');
 const { CURSOS, ehCurso } = require('../config/cursos');
 const { DIAS_TRABALHO, validarHorarioTrabalho } = require('../utils/horarioTrabalho');
 const { validarResponsaveis } = require('../utils/responsaveis');
+const { lerMatricula, MENSAGEM_MATRICULA } = require('../utils/matricula');
 const { veTodosOsEstagios } = require('../config/papeis');
 
 const ETAPAS = ['Estagiário', 'Responsáveis', 'Estágio', 'Horários', 'Revisão'];
@@ -39,7 +40,8 @@ function lerDados(body) {
         aluno_id: idValido(body.aluno_id),
         nome: texto(body.nome, 150),
         email: texto(body.email, 150).toLowerCase(),
-        matricula: texto(body.matricula, 30),
+        // sem espaços; a validação (só números) acontece ao incluir, para o rascunho guardar o que foi digitado
+        matricula: texto(body.matricula, 30).replace(/\s+/g, ''),
         curso: ehCurso(body.curso) ? body.curso : '',
         orientador_id: idValido(body.orientador_id),
         supervisor_id: idValido(body.supervisor_id),
@@ -138,7 +140,8 @@ router.post('/estagios', async (req, res) => {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dados.email)) errar(0, 'Informe um e-mail válido para o estudante.');
         else if (await usuariosModel.buscarPorEmail(dados.email)) errar(0, 'Já existe uma conta com este e-mail. Se o estudante já se cadastrou, escolha-o em "Estudante já cadastrado".');
         if (!dados.curso) errar(0, 'Selecione o curso do estudante.');
-        if (dados.matricula && await alunosModel.buscarPorMatricula(dados.matricula)) errar(0, 'Já existe um estudante com esta matrícula.');
+        if (!lerMatricula(dados.matricula).valida) errar(0, MENSAGEM_MATRICULA);
+        else if (dados.matricula && await alunosModel.buscarPorMatricula(dados.matricula)) errar(0, 'Já existe um estudante com esta matrícula.');
     }
 
     if (!dados.orientador_id) errar(1, 'Selecione o professor orientador.');

@@ -14,66 +14,82 @@
 
     <%- include('partials/header') %>
 
-        <main id="conteudo" class="container">
-            <%- include('partials/flash') %>
-            <%- include('partials/breadcrumb', { itens: [raizNav(user), { texto: 'Meu perfil' }] }) %>
+    <main id="conteudo" class="container">
+        <%- include('partials/flash') %>
+        <%- include('partials/breadcrumb', { itens: [raizNav(user), { texto: 'Meu perfil' }] }) %>
 
-                <div class="login-box">
-                    <h1>Meu Perfil</h1>
-                    <form action="/perfil" method="POST">
-                        <label for="nome">Nome completo</label>
-                        <input type="text" id="nome" name="nome" maxlength="150" value="<%= usuario.nome %>" required>
+        <div class="page-head">
+            <div>
+                <h1>Meu perfil</h1>
+                <p>Seus dados, o avatar que aparece ao lado do seu nome e os e-mails que você quer receber.</p>
+            </div>
+        </div>
 
-                        <label for="email">E-mail</label>
-                        <input type="email" id="email" value="<%= usuario.email %>" readonly>
-                        <p class="text-muted">O e-mail não pode ser alterado porque identifica sua conta Google.</p>
-
-                        <% if (usuario.tipo==='aluno' ) { %>
-                            <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
-                            <input type="text" id="matricula" name="matricula" maxlength="30"
-                                value="<%= aluno ? (aluno.matricula || '') : '' %>">
-                            <label for="curso">Curso</label>
-                            <select id="curso" name="curso" required>
-                                <option value="">Selecione seu curso</option>
-                                <% cursos.forEach((curso) => { %>
-                                    <option value="<%= curso %>" <%= aluno && aluno.curso === curso ? 'selected' : '' %>><%= curso %></option>
-                                <% }) %>
-                            </select>
+        <form action="/perfil" method="POST" class="perfil-layout">
+            <div class="perfil-coluna">
+                <section class="card" aria-labelledby="titulo-dados">
+                    <h2 id="titulo-dados">Dados pessoais</h2>
+                    <div class="form-grid">
+                        <div class="form-field perfil-campo-largo">
+                            <label for="nome">Nome completo</label>
+                            <input type="text" id="nome" name="nome" maxlength="150" value="<%= usuario.nome %>" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="email">E-mail</label>
+                            <input type="email" id="email" value="<%= usuario.email %>" readonly aria-describedby="email-ajuda">
+                            <small id="email-ajuda">Não pode ser alterado: identifica sua conta Google.</small>
+                        </div>
+                        <% if (usuario.tipo === 'aluno') { %>
+                            <div class="form-field">
+                                <label for="matricula">Matrícula <span class="text-muted">(opcional)</span></label>
+                                <input type="text" id="matricula" name="matricula" placeholder="Ex.: 2025008076" maxlength="20" inputmode="numeric" pattern="[0-9]*" title="Apenas números, por exemplo 2025008076"
+                                    value="<%= aluno ? (aluno.matricula || '') : '' %>">
+                                <small>Apenas números.</small>
+                            </div>
                         <% } %>
-                        <%- include('partials/avatar-picker', { avatares, selectedAvatar: usuario.avatar_emoji || '' }) %>
+                    </div>
+                    <% if (usuario.tipo === 'aluno') { %>
+                        <%- include('partials/curso-picker', { cursos, selecionado: aluno ? (aluno.curso || '') : '', legenda: 'Curso', emLinha: true }) %>
+                    <% } %>
+                </section>
 
-                        <fieldset class="email-fieldset">
-                            <legend>E-mails da plataforma</legend>
-                            <p class="text-muted">Escolha o que você quer receber em <%= usuario.email %>. Desmarcar não muda o que aparece no sistema.</p>
+                <section class="card" aria-labelledby="titulo-emails">
+                    <h2 id="titulo-emails">E-mails da plataforma</h2>
+                    <p class="text-muted">Escolha o que você quer receber em <%= usuario.email %>. Desmarcar não muda o que aparece no sistema.</p>
+                    <div class="perfil-emails">
+                        <label class="schedule-toggle profile-email-preference">
+                            <input type="checkbox" name="receber_email_bancas" <%= usuario.receber_email_bancas === false ? '' : 'checked' %>>
+                            <span>Avisos de banca<small>Agendamento, remarcação e cancelamento, com convite para a agenda.</small></span>
+                        </label>
+                        <%# o resumo semanal vai para quem supervisiona estudantes %>
+                        <% if (usuario.tipo === 'professor' && !(professor && professor.cargo !== 'supervisor' && professor.papel_supervisor === false)) { %>
                             <label class="schedule-toggle profile-email-preference">
-                                <input type="checkbox" name="receber_email_bancas" <%= usuario.receber_email_bancas === false ? '' : 'checked' %>>
-                                <span>Avisos de banca<small>Agendamento, remarcação e cancelamento, com convite para a agenda.</small></span>
+                                <input type="checkbox" name="receber_relatorio_semanal"
+                                    <%= professor && professor.receber_relatorio_semanal ? 'checked' : '' %>>
+                                <span>Resumo semanal de estágio<small>Inclui os envios semanais e os envios manuais do administrador.</small></span>
                             </label>
-                            <%# o resumo semanal vai para quem supervisiona estudantes %>
-                            <% if (usuario.tipo === 'professor' && !(professor && professor.cargo !== 'supervisor' && professor.papel_supervisor === false)) { %>
-                                <label class="schedule-toggle profile-email-preference">
-                                    <input type="checkbox" name="receber_relatorio_semanal"
-                                        <%= professor && professor.receber_relatorio_semanal ? 'checked' : '' %>>
-                                    <span>Resumo semanal de estágio<small>Inclui os envios semanais e os envios manuais do administrador.</small></span>
-                                </label>
-                            <% } else if (usuario.tipo === 'aluno') { %>
-                                <label class="schedule-toggle profile-email-preference">
-                                    <input type="checkbox" name="receber_lembretes_atividades" <%= usuario.receber_lembretes_atividades === false ? '' : 'checked' %>>
-                                    <span>Lembretes de atividades<small>Enviados quando você fica mais de 5 dias sem registrar atividades.</small></span>
-                                </label>
-                            <% } %>
-                        </fieldset>
+                        <% } else if (usuario.tipo === 'aluno') { %>
+                            <label class="schedule-toggle profile-email-preference">
+                                <input type="checkbox" name="receber_lembretes_atividades" <%= usuario.receber_lembretes_atividades === false ? '' : 'checked' %>>
+                                <span>Lembretes de atividades<small>Enviados quando você fica mais de 5 dias sem registrar atividades.</small></span>
+                            </label>
+                        <% } %>
+                    </div>
+                </section>
+            </div>
 
-                                <div class="button-group">
-                                    <button type="submit" class="btn-success">Salvar alterações</button>
-                                    <a href="<%= usuario.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard' %>"
-                                        class="btn btn-secondary">Cancelar</a>
-                                </div>
-                    </form>
-                </div>
-        </main>
+            <section class="card perfil-avatar" aria-label="Avatar">
+                <%- include('partials/avatar-picker', { avatares, selectedAvatar: usuario.avatar_emoji || '' }) %>
+            </section>
 
-        <%- include('partials/footer') %>
+            <div class="perfil-acoes">
+                <button type="submit" class="btn-success">Salvar alterações</button>
+                <a href="<%= usuario.tipo === 'professor' ? '/professor/dashboard' : '/aluno/dashboard' %>" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </main>
+
+    <%- include('partials/footer') %>
 </body>
 
 </html>

@@ -19,6 +19,7 @@ const { CURSOS, ehCurso } = require('../config/cursos');
 const bancasModel = require('../models/bancas');
 const acompanhamentoModel = require('../models/acompanhamento');
 const { validarResponsaveis } = require('../utils/responsaveis');
+const { lerMatricula, MENSAGEM_MATRICULA } = require('../utils/matricula');
 const { PAPEIS, CHAVES_PAPEIS, papeisDoPerfil, veTodosOsEstagios, temAlunosProprios, telaInicial } = require('../config/papeis');
 const { podeVerAluno, podeArquivar, lerCargaHoraria } = require('../utils/acessoAluno');
 
@@ -356,10 +357,11 @@ router.post('/aluno/:id/dados', requireVisaoGeral, async (req, res) => {
 
     const nome = String(req.body.nome ?? '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
-    const matricula = (req.body.matricula || '').trim() || null;
+    const { valida: matriculaValida, valor: matricula } = lerMatricula(req.body.matricula);
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     if (!nome || nome.length > 150 || !emailValido(email)) return erro('Informe o nome completo e um e-mail válido.');
-    if ((matricula && matricula.length > 30) || !ehCurso(curso)) return erro('Confira a matrícula (até 30 caracteres) e selecione um curso.');
+    if (!matriculaValida) return erro(MENSAGEM_MATRICULA);
+    if (!ehCurso(curso)) return erro('Selecione um curso.');
     const mesmoEmail = await usuariosModel.buscarPorEmail(email);
     if (mesmoEmail && Number(mesmoEmail.id) !== Number(aluno.usuario_id)) return erro('Já existe um cadastro com este e-mail.');
     const mesmaMatricula = matricula ? await alunosModel.buscarPorMatricula(matricula) : null;
@@ -1041,15 +1043,19 @@ router.post('/usuarios', requireAdmin, async (req, res) => {
     const conta = ['professor', 'servidor', 'interno'].includes(tipoInformado) ? 'interno' : tipoInformado;
     const nome = String(req.body.nome ?? '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
-    const matricula = (req.body.matricula || '').trim() || null;
+    const { valida: matriculaValida, valor: matricula } = lerMatricula(req.body.matricula);
     const curso = typeof req.body.curso === 'string' ? req.body.curso : '';
     const empresa = String(req.body.empresa || '').trim();
     const funcao = String(req.body.funcao || '').trim();
 
+    if (conta === 'aluno' && !matriculaValida) {
+        setFlash(req, 'error', MENSAGEM_MATRICULA);
+        return res.redirect(voltar);
+    }
     if (!nome || nome.length > 150 || !emailValido(email)
         || !['aluno', 'interno', 'supervisor'].includes(conta)
         || (conta === 'supervisor' && (!empresa || empresa.length > 200 || !funcao || funcao.length > 150))
-        || (conta === 'aluno' && (matricula && matricula.length > 30 || !ehCurso(curso)))) {
+        || (conta === 'aluno' && !ehCurso(curso))) {
         setFlash(req, 'error', 'Confira os dados obrigatórios e o tipo de conta selecionado.');
         return res.redirect(voltar);
     }
@@ -1111,9 +1117,11 @@ router.post('/usuarios/:id', requireAdmin, carregarUsuarioEditado, async (req, r
     let matricula = null; let curso = ''; let marcados = null; let empresa = ''; let funcao = '';
 
     if (aluno) {
-        matricula = (req.body.matricula || '').trim() || null;
+        const lida = lerMatricula(req.body.matricula);
+        if (!lida.valida) return erro(MENSAGEM_MATRICULA);
+        matricula = lida.valor;
         curso = typeof req.body.curso === 'string' ? req.body.curso : '';
-        if ((matricula && matricula.length > 30) || !ehCurso(curso)) return erro('Confira a matrícula (até 30 caracteres) e selecione um curso.');
+        if (!ehCurso(curso)) return erro('Selecione um curso.');
         const mesmaMatricula = matricula ? await alunosModel.buscarPorMatricula(matricula) : null;
         if (mesmaMatricula && Number(mesmaMatricula.usuario_id) !== Number(usuario.id)) return erro('Já existe um cadastro com esta matrícula.');
     } else if (externo) {
