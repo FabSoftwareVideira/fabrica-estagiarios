@@ -86,6 +86,7 @@
         %>
 
         <form action="/aluno/faa" method="POST" class="faa-form">
+            <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
             <fieldset <%= somenteLeitura ? 'disabled' : '' %>>
             <section class="card">
                 <h2>Dados do estágio</h2>

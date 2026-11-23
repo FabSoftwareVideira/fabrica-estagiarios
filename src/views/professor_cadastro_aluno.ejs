@@ -18,12 +18,13 @@
 
         <div class="page-head">
             <div>
-                <h1>Aprovar cadastro</h1>
-                <p><%= aluno.nome %> · primeira aprovação do estágio. Depois de aprovado, os dados podem ser alterados na tela do estudante.</p>
+                <h1><%= typeof desligamentos !== 'undefined' && desligamentos.length ? 'Cadastrar novo estágio' : 'Aprovar cadastro' %></h1>
+                <p><%= aluno.nome %> · <%= typeof desligamentos !== 'undefined' && desligamentos.length ? 'O novo estágio deve ocorrer em outro local. As horas anteriores só contam após a confirmação do aproveitamento.' : 'Primeira aprovação do estágio. Depois de aprovado, os dados podem ser alterados na tela do estudante.' %></p>
             </div>
         </div>
 
         <form action="/professor/cadastro-aluno/<%= aluno.usuario_id %>" method="POST" class="card wizard" data-wizard>
+            <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
             <ol class="wizard-etapas" data-wizard-etapas hidden></ol>
             <p class="wizard-erro flash flash-error" data-wizard-erro role="alert" hidden></p>
 
@@ -92,7 +93,7 @@
                     </div>
                     <div class="form-field">
                         <label for="carga">Carga horária total <span class="text-muted">(horas)</span></label>
-                        <input type="number" id="carga" name="carga_horaria" min="1" placeholder="Ex.: 60" value="60" required data-resumo="Carga horária" data-resumo-sufixo=" horas">
+                        <input type="number" id="carga" name="carga_horaria" min="1" placeholder="Ex.: 60" value="<%= aluno.carga_horaria || 60 %>" required data-resumo="Carga horária" data-resumo-sufixo=" horas">
                     </div>
                 </div>
             </section>

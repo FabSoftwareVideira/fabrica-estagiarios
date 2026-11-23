@@ -4,8 +4,8 @@ async function buscarPorUsuarioId(usuarioId) {
     const { rows } = await pool.query(
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome, ori.nome AS orientador_nome,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente'), 0) AS horas_pendentes
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar), 0) AS horas_realizadas,
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente' AND desligamento_id IS NULL), 0) AS horas_pendentes
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
@@ -134,8 +134,8 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
                 sup.nome AS supervisor_nome,
                 ori.nome AS orientador_nome,
                 EXISTS (SELECT 1 FROM facs f WHERE f.aluno_id = a.usuario_id) AS tem_fac,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente'), 0) AS horas_pendentes
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar), 0) AS horas_realizadas,
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente' AND desligamento_id IS NULL), 0) AS horas_pendentes
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
@@ -154,7 +154,7 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
 async function listarPendentesFac(supervisorId) {
     const { rows } = await pool.query(
         `SELECT a.*, u.nome, u.email, ori.nome AS orientador_nome,
-                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas
+                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar), 0) AS horas_realizadas
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios ori ON ori.id = a.orientador_id
@@ -169,7 +169,7 @@ async function listarPendentesFac(supervisorId) {
     return rows;
 }
 
-async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orientadorId, cargaHoraria, horarioTrabalho }) {
+async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orientadorId, cargaHoraria, horarioTrabalho, statusAnterior, versaoAnterior }) {
     // "concluido" nunca é definido manualmente: só quando as horas validadas
     // atingem a carga horária. Qualquer outro status é tratado como em andamento.
     const statusSolicitado = status === 'lista_espera' ? 'lista_espera' : 'em_andamento';
@@ -181,7 +181,7 @@ async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orie
                  WHEN $2 = 'lista_espera' THEN 'lista_espera'
                  WHEN COALESCE((
                      SELECT SUM(horas) FROM atividades
-                     WHERE aluno_id = $1 AND status_validacao = 'validada'
+                     WHERE aluno_id = $1 AND status_validacao = 'validada' AND contabilizar
                  ), 0) >= $5 THEN 'concluido'
                  ELSE 'em_andamento'
              END,
@@ -191,9 +191,19 @@ async function atualizarEstagio(usuarioId, { status, empresa, supervisorId, orie
              carga_horaria = $5,
              horario_trabalho = $7::jsonb
          WHERE usuario_id = $1
+           AND ($8::text IS NULL OR status = $8)
+           AND ($9::integer IS NULL OR versao_estagio = $9)
+           AND NOT EXISTS (
+               SELECT 1 FROM desligamentos d
+               WHERE d.id = (SELECT id FROM desligamentos WHERE aluno_id = $1 AND revertido_em IS NULL ORDER BY id DESC LIMIT 1)
+                 AND LOWER(TRIM(d.empresa)) = LOWER(TRIM($6::text))
+           )
          RETURNING *`,
-        [usuarioId, statusSolicitado, supervisorId || null, orientadorId || null, cargaHoraria, empresaNormalizada, JSON.stringify(horarioTrabalho)]
+        [usuarioId, statusSolicitado, supervisorId || null, orientadorId || null, cargaHoraria, empresaNormalizada, JSON.stringify(horarioTrabalho), statusAnterior || null, versaoAnterior ?? null]
     );
+    if (!rows.length) {
+        throw Object.assign(new Error('O estágio foi alterado ou o novo local é igual ao anterior. Confira os dados e tente novamente.'), { status: 422 });
+    }
     return rows[0];
 }
 

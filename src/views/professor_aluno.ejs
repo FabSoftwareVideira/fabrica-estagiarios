@@ -104,6 +104,35 @@
             </dl>
         </section>
 
+        <% if (ehSupervisor && !emEspera && !encerrado && !aluno.arquivado && !(typeof bancaRealizada !== 'undefined' && bancaRealizada)) { %>
+            <section class="card">
+                <h2>Desligamento do estágio</h2>
+                <p>O supervisor pode registrar o desligamento a qualquer momento e deve comunicar o estudante fora do sistema. Nenhuma ficha é exigida para desligar. Caso o estudante solicite o aproveitamento, deverá imprimir a ficha de acompanhamento e obter a assinatura do supervisor em todas as páginas.</p>
+                <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/desligar">
+                    <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
+                    <button type="submit" class="btn-secondary" data-confirmar="Registrar o desligamento? Comunique o estudante por outro meio. As horas anteriores só contarão se o aproveitamento for confirmado.">Registrar desligamento</button>
+                </form>
+            </section>
+        <% } %>
+        <% if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
+            <section class="card">
+                <h2>Estágios interrompidos</h2>
+                <% desligamentos.forEach((d) => { %>
+                    <div class="ficha-item">
+                        <h3><%= d.empresa || 'Local não informado' %></h3>
+                        <p>Supervisor: <%= d.supervisor_nome || 'Não informado' %> · <%= Number(d.horas_validadas) %>h validadas · desligamento em <%= dataBr(d.desligado_em) %></p>
+                        <p><%= d.confirmado_em ? 'Horas aproveitadas' : (d.solicitado_em ? 'Aguardando confirmação das horas' : 'Aproveitamento não solicitado') %></p>
+                        <% if (d.solicitado_em && !d.confirmado_em && !aluno.arquivado && !encerrado) { %>
+                            <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/desligamentos/<%= d.id %>/confirmar">
+                                <label><input type="checkbox" name="ficha_assinada" value="sim" required> Recebi a ficha de acompanhamento assinada pelo supervisor em todas as páginas.</label>
+                                <button type="submit">Confirmar aproveitamento</button>
+                            </form>
+                        <% } %>
+                    </div>
+                <% }) %>
+            </section>
+        <% } %>
+
         <% if (encerrado && user.cargo !== 'supervisor') { %>
             <div class="aviso aviso-ok" role="status">
                 <%- icone('check') %>
@@ -153,9 +182,9 @@
             <div class="aviso aviso-info" role="status">
                 <%- icone('info') %>
                 <div>
-                    <strong>Cadastro aguardando aprovação</strong>
+                    <strong><%= typeof desligamentos !== 'undefined' && desligamentos.length ? 'Aguardando novo estágio' : 'Cadastro aguardando aprovação' %></strong>
                     Os dados do estágio são definidos na aprovação: orientador, supervisor, empresa, carga horária e horários.
-                    <div style="margin-top: 10px;"><a href="/professor/cadastro-aluno/<%= aluno.usuario_id %>" class="btn btn-success btn-sm"><%- icone('check') %> Aprovar cadastro</a></div>
+                    <div style="margin-top: 10px;"><a href="/professor/cadastro-aluno/<%= aluno.usuario_id %>" class="btn btn-success btn-sm"><%- icone('check') %> <%= typeof desligamentos !== 'undefined' && desligamentos.length ? 'Cadastrar novo estágio' : 'Aprovar cadastro' %></a></div>
                 </div>
             </div>
         <% } %>
@@ -370,6 +399,7 @@
             <!-- Editar estágio -->
             <section class="dashboard-tab-panel" id="panel-estagio" role="tabpanel" aria-labelledby="tab-estagio" tabindex="0" <%= abaSelecionada === 'estagio' ? '' : 'hidden' %>>
                 <form action="/professor/aluno/<%= aluno.usuario_id %>" method="POST" class="card">
+                    <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
 
                     <% if (ehOrientador && !podeDados) { %>
                         <section class="form-secao">

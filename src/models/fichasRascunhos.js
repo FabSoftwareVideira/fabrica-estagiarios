@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { comEstagioAtual } = require('../utils/versaoEstagio');
 
 async function buscar(alunoId, tipo) {
     const { rows } = await pool.query(
@@ -8,8 +9,8 @@ async function buscar(alunoId, tipo) {
     return rows[0] || null;
 }
 
-async function salvar(alunoId, tipo, dados) {
-    const { rows } = await pool.query(
+async function salvar(alunoId, tipo, dados, contexto) {
+    const { rows } = await comEstagioAtual(alunoId, contexto, (banco) => banco.query(
         `INSERT INTO fichas_rascunhos (aluno_id, tipo, dados)
          VALUES ($1, $2, $3::jsonb)
          ON CONFLICT (aluno_id, tipo) DO UPDATE SET
@@ -17,7 +18,7 @@ async function salvar(alunoId, tipo, dados) {
              atualizado_em = NOW()
          RETURNING dados, atualizado_em`,
         [alunoId, tipo, JSON.stringify(dados)]
-    );
+    ));
     return rows[0];
 }
 

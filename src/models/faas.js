@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { comEstagioAtual } = require('../utils/versaoEstagio');
 
 function normalizar(row) {
     if (!row) return null;
@@ -27,8 +28,9 @@ async function salvar({
     respostas,
     comentarios,
     dataAssinatura,
+    contexto,
 }) {
-    const { rows } = await pool.query(
+    const { rows } = await comEstagioAtual(alunoId, contexto, (banco) => banco.query(
         `WITH saved AS (
          INSERT INTO faas (
              aluno_id, empresa, periodo, notas, atividades,
@@ -59,7 +61,7 @@ async function salvar({
             comentarios,
             dataAssinatura,
         ]
-    );
+    ));
 
     return normalizar(rows[0]);
 }

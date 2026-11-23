@@ -157,6 +157,7 @@ async function executar({ forcar = false } = {}) {
                 COALESCE(SUM(atividade.horas) FILTER (
                     WHERE atividade.data >= $1::date - INTERVAL '6 days'
                       AND atividade.data < $1::date + INTERVAL '1 day'
+                      AND atividade.desligamento_id IS NULL
                       AND atividade.status_validacao <> 'invalidada'
                 ), 0) AS horas_semana,
                 COALESCE(SUM(atividade.horas) FILTER (
@@ -171,6 +172,7 @@ async function executar({ forcar = false } = {}) {
                 COUNT(atividade.id) FILTER (
                     WHERE atividade.data >= $1::date - INTERVAL '6 days'
                       AND atividade.data < $1::date + INTERVAL '1 day'
+                      AND atividade.desligamento_id IS NULL
                 )::int AS atividades_semana,
                 COUNT(atividade.id) FILTER (
                     WHERE atividade.status_validacao = 'pendente'
@@ -180,6 +182,7 @@ async function executar({ forcar = false } = {}) {
             JOIN usuarios supervisor ON supervisor.id = aluno.supervisor_id
             JOIN professores perfil_supervisor ON perfil_supervisor.usuario_id = supervisor.id
             LEFT JOIN atividades atividade ON atividade.aluno_id = aluno.usuario_id
+                AND (atividade.desligamento_id IS NULL OR atividade.contabilizar)
             WHERE aluno.arquivado = false
               AND aluno.status = 'em_andamento'
               AND perfil_supervisor.receber_relatorio_semanal = true

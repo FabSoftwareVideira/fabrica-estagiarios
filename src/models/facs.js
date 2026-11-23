@@ -1,14 +1,15 @@
 const { pool } = require('../config/database');
 const { mediaFac } = require('../utils/fac');
+const { comEstagioAtual } = require('../utils/versaoEstagio');
 
 async function buscarPorAluno(alunoId) {
     const { rows } = await pool.query('SELECT * FROM facs WHERE aluno_id = $1', [alunoId]);
     return rows[0] ? { ...rows[0], nota: mediaFac(rows[0].notas) } : null;
 }
 
-async function salvar(alunoId, supervisor, dados) {
+async function salvar(alunoId, supervisor, dados, contexto) {
     // Também protege contra encerramento/troca de supervisor enquanto o formulário está aberto.
-    const { rows } = await pool.query(`WITH saved AS (INSERT INTO facs
+    const { rows } = await comEstagioAtual(alunoId, contexto, (banco) => banco.query(`WITH saved AS (INSERT INTO facs
         (aluno_id, supervisor_id, supervisor_nome, empresa, curso, periodo, notas,
          atividades, comentarios, local_assinatura, data_assinatura)
         SELECT usuario_id, $2, $3, $4, curso, $6, $7::jsonb, $8, $9, $10, $11::date
@@ -27,7 +28,7 @@ async function salvar(alunoId, supervisor, dados) {
     )
     SELECT aluno_id FROM saved`,
     [alunoId, supervisor.id, supervisor.nome, dados.empresa, dados.curso, dados.periodo,
-        JSON.stringify(dados.notas), dados.atividades, dados.comentarios, dados.local_assinatura, dados.data_assinatura]);
+        JSON.stringify(dados.notas), dados.atividades, dados.comentarios, dados.local_assinatura, dados.data_assinatura]));
     return rows.length > 0;
 }
 

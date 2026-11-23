@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { comEstagioAtual } = require('../utils/versaoEstagio');
 
 function normalizar(row) {
     if (!row) return null;
@@ -16,8 +17,8 @@ async function buscarPorAluno(alunoId) {
     return normalizar(rows[0]);
 }
 
-async function salvar({ alunoId, nota, comentarios, dataAssinatura }) {
-    const { rows } = await pool.query(
+async function salvar({ alunoId, nota, comentarios, dataAssinatura, contexto }) {
+    const { rows } = await comEstagioAtual(alunoId, contexto, (banco) => banco.query(
         `WITH saved AS (
          INSERT INTO fapos (aluno_id, nota, comentarios, data_assinatura)
          VALUES ($1, $2, $3, $4)
@@ -32,7 +33,7 @@ async function salvar({ alunoId, nota, comentarios, dataAssinatura }) {
          )
          SELECT * FROM saved`,
         [alunoId, nota, comentarios, dataAssinatura]
-    );
+    ));
     return normalizar(rows[0]);
 }
 

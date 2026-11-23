@@ -8,6 +8,7 @@ const { CRITERIOS_FAC, lerFac } = require('../utils/fac');
 const { dataParaInput, dataLocalIso, periodoDasAtividades, nomeParaArquivo } = require('../utils/datas');
 const { gerarFacPdf } = require('../services/facPdf');
 const { veTodosOsEstagios } = require('../config/papeis');
+const { conferirFormulario } = require('../utils/versaoEstagio');
 
 async function carregar(req, res, next) {
     const aluno = await alunos.buscarPorUsuarioId(req.params.id);
@@ -56,6 +57,8 @@ async function renderizar(req, res, valores, erros = []) {
 router.get('/aluno/:id/fac', carregar, (req, res) => renderizar(req, res));
 router.post('/aluno/:id/fac', carregar, async (req, res) => {
     if (!podeEditar(req.aluno, req.session.user)) return res.status(403).send('A avaliação não pode ser alterada.');
+    if (!conferirFormulario(req, res, `/professor/aluno/${req.aluno.usuario_id}/fac`)) return;
+    const contexto = { versao: req.aluno.versao_estagio, papel: 'supervisor_id', usuarioId: req.session.user.id };
     if (req.body.acao === 'rascunho') {
         const campo = (valor, limite) => typeof valor === 'string' ? valor.slice(0, limite) : '';
         const dados = {
@@ -68,7 +71,7 @@ router.post('/aluno/:id/fac', carregar, async (req, res) => {
             data_assinatura: campo(req.body.data_assinatura, 10),
         };
         try {
-            await fichasRascunhos.salvar(req.aluno.usuario_id, 'FAC', dados);
+            await fichasRascunhos.salvar(req.aluno.usuario_id, 'FAC', dados, contexto);
             setFlash(req, 'success', 'Rascunho da FAC salvo. Você poderá continuar o preenchimento mais tarde.');
             return res.redirect(`/professor/aluno/${req.aluno.usuario_id}/fac`);
         } catch (err) {
@@ -79,8 +82,13 @@ router.post('/aluno/:id/fac', carregar, async (req, res) => {
     }
     const { valores, erros } = lerFac(req.body, req.aluno.curso);
     if (erros.length) return renderizar(req, res.status(422), valores, erros);
-    if (!await facs.salvar(req.aluno.usuario_id, req.session.user, valores)) {
-        return res.status(409).send('O estágio foi alterado. Atualize a página antes de continuar.');
+    try {
+        if (!await facs.salvar(req.aluno.usuario_id, req.session.user, valores, contexto)) {
+            return res.status(409).send('O estágio foi alterado. Atualize a página antes de continuar.');
+        }
+    } catch (e) {
+        if (!e.status) throw e;
+        return res.status(e.status).send(e.message);
     }
     setFlash(req, 'success', 'Avaliação do supervisor salva. A média será utilizada na ata da banca.');
     res.redirect(`/professor/aluno/${req.aluno.usuario_id}/fac`);

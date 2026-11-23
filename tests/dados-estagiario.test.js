@@ -15,6 +15,7 @@ const fares = require('../src/models/fares');
 const facs = require('../src/models/facs');
 const fichasRascunhos = require('../src/models/fichasRascunhos');
 const bancas = require('../src/models/bancas');
+const desligamentos = require('../src/models/desligamentos');
 
 const INFORMATICA = 'Curso Técnico em Informática Integrado ao Ensino Médio';
 const AGRO = 'Curso Técnico de Agropecuária Integrado ao Ensino Médio';
@@ -52,6 +53,7 @@ before(async () => {
     for (const modelo of [faas, fapos, fares, facs]) trocar(modelo, 'buscarPorAluno', async () => null);
     trocar(fichasRascunhos, 'buscar', async () => null);
     trocar(bancas, 'buscarPorAluno', async () => null);
+    trocar(desligamentos, 'listar', async () => []);
 
     const app = express();
     app.set('view engine', 'ejs');
@@ -76,7 +78,7 @@ beforeEach(() => {
     aluno = {
         usuario_id: 1, nome: 'Estudante Teste', email: 'estudante@exemplo.com', matricula: null, curso: null,
         status: 'em_andamento', arquivado: false, encerrado_em: null, orientador_id: ORIENTADOR, supervisor_id: null,
-        empresa: 'Empresa', carga_horaria: 200, horas_realizadas: 0, horas_pendentes: 0, horario_trabalho: {},
+        empresa: 'Empresa', carga_horaria: 200, versao_estagio: 0, horas_realizadas: 0, horas_pendentes: 0, horario_trabalho: {},
     };
 });
 after(async () => {

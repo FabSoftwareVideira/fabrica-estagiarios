@@ -45,6 +45,7 @@
         <% } %>
 
         <form action="/professor/aluno/<%= aluno.usuario_id %>/fapo" method="POST">
+            <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
             <section class="card">
                 <div class="form-grid">
                     <div class="form-field">

@@ -48,10 +48,28 @@ CREATE TABLE IF NOT EXISTS alunos (
     supervisor_id   INTEGER REFERENCES usuarios(id),
     orientador_id   INTEGER REFERENCES usuarios(id),
     carga_horaria   INTEGER NOT NULL DEFAULT 60,
+    versao_estagio  INTEGER NOT NULL DEFAULT 0,
     horario_trabalho JSONB NOT NULL DEFAULT '{}'::jsonb,
     arquivado       BOOLEAN NOT NULL DEFAULT false,
     encerrado_em    TIMESTAMP,
     criado_em       TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS desligamentos (
+    id SERIAL PRIMARY KEY,
+    aluno_id INTEGER NOT NULL REFERENCES alunos(usuario_id) ON DELETE CASCADE,
+    supervisor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    supervisor_nome TEXT NOT NULL,
+    empresa TEXT NOT NULL,
+    desligado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    desligado_em TIMESTAMP NOT NULL DEFAULT NOW(),
+    solicitado_em TIMESTAMP,
+    confirmado_em TIMESTAMP,
+    confirmado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    horario_trabalho_anterior JSONB,
+    revertido_em TIMESTAMP,
+    revertido_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    fichas_anteriores JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE IF NOT EXISTS atividades (
@@ -66,6 +84,8 @@ CREATE TABLE IF NOT EXISTS atividades (
                      CHECK (status_validacao IN ('pendente', 'validada', 'invalidada')),
     avaliado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
     avaliado_em TIMESTAMP,
+    desligamento_id INTEGER REFERENCES desligamentos(id),
+    contabilizar BOOLEAN NOT NULL DEFAULT true,
     criado_em   TIMESTAMP NOT NULL DEFAULT NOW()
 );
 

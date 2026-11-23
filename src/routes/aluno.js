@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { requireRole, requireEmAndamento, requireAlunoCompleto, setFlash } = require('../middleware/auth');
 const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
+const desligamentosModel = require('../models/desligamentos');
 const usuariosModel = require('../models/usuarios');
 const faasModel = require('../models/faas');
 const faposModel = require('../models/fapos');
@@ -21,6 +22,7 @@ const { formatarHora, dataLocalIso, dataIsoValida, dataParaInput, nomeParaArquiv
 const { DIAS_TRABALHO } = require('../utils/horarioTrabalho');
 const { CURSOS, ehCurso } = require('../config/cursos');
 const { lerMatricula, MENSAGEM_MATRICULA } = require('../utils/matricula');
+const { conferirFormulario } = require('../utils/versaoEstagio');
 
 router.use(requireRole('aluno'));
 
@@ -138,8 +140,41 @@ router.get('/dashboard', async (req, res) => {
         calendario: dadosCalendario(atividades),
         horariosTrabalho: aluno.horario_trabalho || {},
         diasTrabalho: DIAS_TRABALHO,
+        desligamentos: await desligamentosModel.listar(req.session.user.id),
         hoje: dataLocalIso(),
     });
+});
+
+router.post('/desligamentos/:id/aproveitar', async (req, res) => {
+    if (!/^[1-9]\d{0,9}$/.test(req.params.id) || Number(req.params.id) > 2147483647) return res.status(404).send('Desligamento não encontrado.');
+    try {
+        await desligamentosModel.solicitar(req.params.id, req.session.user.id);
+        setFlash(req, 'success', 'Solicitação registrada. Imprima a ficha, obtenha a assinatura do supervisor em todas as páginas e entregue à gestão ou ao orientador.');
+    } catch (e) {
+        if (!e.status) throw e;
+        setFlash(req, 'error', e.message);
+    }
+    res.redirect('/aluno/dashboard?aba=fichas');
+});
+
+router.get('/desligamentos/:id/ficha-acompanhamento', async (req, res) => {
+    if (!/^[1-9]\d{0,9}$/.test(req.params.id) || Number(req.params.id) > 2147483647) return res.status(404).send('Desligamento não encontrado.');
+    const desligamento = await desligamentosModel.buscar(req.params.id, req.session.user.id);
+    if (!desligamento) return res.status(404).send('Desligamento não encontrado.');
+    const aluno = await alunosModel.buscarPorUsuarioId(req.session.user.id);
+    const atividades = await desligamentosModel.atividades(desligamento.id, req.session.user.id);
+    try {
+        const bytes = await gerarFichaAcompanhamentoPdf({
+            aluno: { ...aluno, empresa: desligamento.empresa, supervisor_nome: desligamento.supervisor_nome },
+            atividades,
+        });
+        res.setHeader('Cache-Control', 'no-store, private');
+        return enviarPdf(res, 'Ficha-Acompanhamento', aluno.nome, bytes);
+    } catch (e) {
+        console.error('[aluno/desligamento/ficha-acompanhamento] erro:', e.message);
+        setFlash(req, 'error', 'Não foi possível gerar a ficha de acompanhamento. Tente novamente.');
+        return res.redirect('/aluno/dashboard?aba=fichas');
+    }
 });
 
 router.get('/faa', requireEstagioConcluido, async (req, res) => {
@@ -173,6 +208,7 @@ router.get('/faa', requireEstagioConcluido, async (req, res) => {
 });
 
 router.post('/faa', requireEstagioConcluido, async (req, res) => {
+    if (!conferirFormulario(req, res, '/aluno/faa')) return;
     if (req.aluno.encerrado_em) {
         setFlash(req, 'error', 'O estágio foi encerrado e a FAA não pode mais ser alterada. Você pode apenas imprimir as fichas.');
         return res.redirect('/aluno/dashboard?aba=fichas');
@@ -198,7 +234,7 @@ router.post('/faa', requireEstagioConcluido, async (req, res) => {
             respostas: Array.from({ length: 7 }, (_, i) => campo(req.body[`q_${i + 1}`], 20)),
         };
         try {
-            await fichasRascunhosModel.salvar(req.session.user.id, 'FAA', dados);
+            await fichasRascunhosModel.salvar(req.session.user.id, 'FAA', dados, { versao: req.aluno.versao_estagio });
             setFlash(req, 'success', 'Rascunho da FAA salvo. Você poderá continuar o preenchimento mais tarde.');
         } catch (err) {
             console.error('[aluno/faa] erro ao salvar rascunho:', err.message);
@@ -239,6 +275,7 @@ router.post('/faa', requireEstagioConcluido, async (req, res) => {
             respostas,
             comentarios,
             dataAssinatura,
+            contexto: { versao: req.aluno.versao_estagio },
         });
     } catch (err) {
         console.error('[aluno/faa] erro ao salvar ficha:', err.message);
@@ -407,6 +444,7 @@ router.get('/nova-atividade', requireEmAndamento, async (req, res) => {
         hoje: dataLocalIso(),
         modoEdicao: false,
         atividadeId: null,
+        versaoEstagio: req.aluno.versao_estagio,
     });
 });
 
@@ -445,6 +483,7 @@ router.get('/atividade/:id/editar', requireEmAndamento, carregarAtividadeDoEstud
         hoje: dataLocalIso(),
         modoEdicao: true,
         atividadeId: req.atividade.id,
+        versaoEstagio: req.aluno.versao_estagio,
     });
 });
 
@@ -524,20 +563,27 @@ function obterFormData(body) {
 }
 
 router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
+    if (!conferirFormulario(req, res, '/aluno/nova-atividade')) return;
     const formData = obterFormData(req.body);
     const validacao = await validarDadosAtividade(formData, req.session.user.id);
     if (validacao.erro) {
         return redirecionarAtividadeComErro(req, res, validacao.erro, formData);
     }
 
-    await atividadesModel.criar({
+    const criada = await atividadesModel.criar({
         alunoId: req.session.user.id,
         data: formData.data,
         horaInicio: formData.hora_inicio,
         horaFim: formData.hora_fim,
         horas: validacao.horas,
         descricao: validacao.descricao,
+        empresaAtual: req.aluno.empresa,
+        supervisorAtual: req.aluno.supervisor_id,
+        versaoAtual: req.aluno.versao_estagio,
     });
+    if (!criada) {
+        return redirecionarAtividadeComErro(req, res, 'O estágio ou as atividades deste dia foram alterados. Confira os dados e tente novamente.', formData);
+    }
 
     delete req.session.novaAtividadeForm;
     setFlash(req, 'success', 'Atividade registrada com sucesso.');
@@ -545,6 +591,7 @@ router.post('/nova-atividade', requireEmAndamento, async (req, res) => {
 });
 
 router.post('/atividade/:id/editar', requireEmAndamento, carregarAtividadeDoEstudante, async (req, res) => {
+    if (!conferirFormulario(req, res, `/aluno/atividade/${req.atividade.id}/editar`)) return;
     const formData = {
         ...obterFormData(req.body),
         status_validacao: req.atividade.status_validacao,
@@ -562,6 +609,7 @@ router.post('/atividade/:id/editar', requireEmAndamento, carregarAtividadeDoEstu
         horaFim: formData.hora_fim,
         horas: validacao.horas,
         descricao: validacao.descricao,
+        versaoAtual: req.aluno.versao_estagio,
     });
     if (!resultado.atividade) {
         const mensagem = resultado.motivo === 'limite_diario'
@@ -579,9 +627,11 @@ router.post('/atividade/:id/editar', requireEmAndamento, carregarAtividadeDoEstu
 });
 
 router.post('/atividade/:id/excluir', requireEmAndamento, carregarAtividadeDoEstudante, async (req, res) => {
+    if (!conferirFormulario(req, res, '/aluno/dashboard?aba=atividades')) return;
     const resultado = await atividadesModel.excluir({
         atividadeId: req.atividade.id,
         alunoId: req.session.user.id,
+        versaoAtual: req.aluno.versao_estagio,
     });
     if (!resultado.atividade) {
         setFlash(req, 'error', 'A atividade não pode ser excluída porque o estágio foi concluído, arquivado ou a atividade não foi encontrada.');

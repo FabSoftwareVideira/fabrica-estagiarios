@@ -22,9 +22,9 @@ async function listarEstudantes() {
         SELECT a.usuario_id, u.nome, u.email, a.curso, a.status, a.arquivado, a.encerrado_em, a.empresa,
                a.carga_horaria, a.orientador_id, a.supervisor_id,
                ori.nome AS orientador_nome, sup.nome AS supervisor_nome,
-               COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_validadas,
-               COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente'), 0) AS horas_pendentes,
-               (SELECT TO_CHAR(MAX(data), 'YYYY-MM-DD') FROM atividades WHERE aluno_id = a.usuario_id) AS ultima_atividade,
+               COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar), 0) AS horas_validadas,
+               COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente' AND desligamento_id IS NULL), 0) AS horas_pendentes,
+               (SELECT TO_CHAR(MAX(data), 'YYYY-MM-DD') FROM atividades WHERE aluno_id = a.usuario_id AND desligamento_id IS NULL) AS ultima_atividade,
                FLOOR(EXTRACT(EPOCH FROM (NOW() - a.relatorio_atualizado_em)) / 86400)::int AS dias_sem_registro,
                TO_CHAR(b.data, 'YYYY-MM-DD') AS banca_data
         FROM alunos a

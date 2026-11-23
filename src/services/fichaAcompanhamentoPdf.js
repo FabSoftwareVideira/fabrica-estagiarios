@@ -28,11 +28,26 @@ function formatarHora(valor) {
 
 async function gerarFichaAcompanhamentoPdf({ aluno, atividades }) {
     const templateBytes = await fs.readFile(TEMPLATE_PATH);
-    const pdfDoc = await PDFDocument.load(templateBytes);
-    const form = pdfDoc.getForm();
     const atividadesValidadas = (atividades || []).filter((atividade) =>
         atividade.status_validacao === 'validada'
     );
+    if (atividadesValidadas.length <= 16) {
+        return gerarPagina(templateBytes, aluno, atividadesValidadas, atividadesValidadas, false);
+    }
+
+    const resultado = await PDFDocument.create();
+    for (let inicio = 0; inicio < atividadesValidadas.length; inicio += 16) {
+        const bytes = await gerarPagina(templateBytes, aluno, atividadesValidadas.slice(inicio, inicio + 16), atividadesValidadas, true);
+        const pagina = await PDFDocument.load(bytes);
+        const paginas = await resultado.copyPages(pagina, pagina.getPageIndices());
+        paginas.forEach((p) => resultado.addPage(p));
+    }
+    return resultado.save();
+}
+
+async function gerarPagina(templateBytes, aluno, atividadesPagina, atividadesValidadas, achatar) {
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    const form = pdfDoc.getForm();
 
     // Preencher dados do aluno
     const empresaField = form.getTextField('empresa');
@@ -42,7 +57,7 @@ async function gerarFichaAcompanhamentoPdf({ aluno, atividades }) {
     nomeEstagiarioField.setText(aluno.nome || '');
 
     // Preencher atividades (máximo de 16 registros)
-    const atividadesLimitadas = atividadesValidadas.slice(0, 16);
+    const atividadesLimitadas = atividadesPagina;
     
     atividadesLimitadas.forEach((atividade, index) => {
         const num = String(index + 1).padStart(2, '0');
@@ -128,6 +143,7 @@ async function gerarFichaAcompanhamentoPdf({ aluno, atividades }) {
         }
     }
 
+    if (achatar) form.flatten();
     return pdfDoc.save();
 }
 

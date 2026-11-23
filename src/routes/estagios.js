@@ -130,11 +130,15 @@ router.post('/estagios', async (req, res) => {
     };
 
     let alunoId = null;
+    let versaoAnterior = 0;
     if (dados.modo === 'existente') {
         const aluno = dados.aluno_id ? await alunosModel.buscarPorUsuarioId(dados.aluno_id) : null;
         if (!aluno) errar(0, 'Selecione o estudante na lista de espera.');
         else if (aluno.status !== 'lista_espera' || aluno.arquivado) errar(0, `${aluno.nome} já tem o estágio definido ou foi arquivado. Escolha outro estudante.`);
-        else alunoId = aluno.usuario_id;
+        else {
+            alunoId = aluno.usuario_id;
+            versaoAnterior = aluno.versao_estagio;
+        }
     } else {
         if (!dados.nome) errar(0, 'Informe o nome completo do estudante.');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dados.email)) errar(0, 'Informe um e-mail válido para o estudante.');
@@ -171,10 +175,12 @@ router.post('/estagios', async (req, res) => {
             orientadorId: dados.orientador_id,
             cargaHoraria: Number(dados.carga_horaria),
             horarioTrabalho,
+            statusAnterior: 'lista_espera',
+            versaoAnterior,
         });
     } catch (err) {
         console.error('[professor/estagios] erro ao incluir estágio:', err.message);
-        erros.push(err.code === '23505' ? 'O e-mail ou a matrícula já está em uso.' : 'Não foi possível incluir o estágio. Tente novamente.');
+        erros.push(err.status ? err.message : (err.code === '23505' ? 'O e-mail ou a matrícula já está em uso.' : 'Não foi possível incluir o estágio. Tente novamente.'));
         return renderizarFormulario(res, { dados, rascunhoId, erros, status: 422 });
     }
 

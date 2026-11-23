@@ -2,7 +2,7 @@ const { pool } = require('../config/database');
 
 async function listarPorAluno(alunoId) {
     const { rows } = await pool.query(
-        `SELECT * FROM atividades WHERE aluno_id = $1 ORDER BY data DESC, id DESC`,
+        `SELECT * FROM atividades WHERE aluno_id = $1 AND desligamento_id IS NULL ORDER BY data DESC, id DESC`,
         [alunoId]
     );
     return rows;
@@ -10,7 +10,7 @@ async function listarPorAluno(alunoId) {
 
 async function buscarPorIdDoAluno(atividadeId, alunoId) {
     const { rows } = await pool.query(
-        'SELECT * FROM atividades WHERE id = $1 AND aluno_id = $2',
+        'SELECT * FROM atividades WHERE id = $1 AND aluno_id = $2 AND desligamento_id IS NULL',
         [atividadeId, alunoId]
     );
     return rows[0] || null;
@@ -18,18 +18,44 @@ async function buscarPorIdDoAluno(atividadeId, alunoId) {
 
 async function ultimaPorAluno(alunoId) {
     const { rows } = await pool.query(
-        `SELECT * FROM atividades WHERE aluno_id = $1 ORDER BY data DESC, id DESC LIMIT 1`,
+        `SELECT * FROM atividades WHERE aluno_id = $1 AND desligamento_id IS NULL ORDER BY data DESC, id DESC LIMIT 1`,
         [alunoId]
     );
     return rows[0] || null;
 }
 
-async function criar({ alunoId, data, horaInicio, horaFim, horas, descricao }) {
-    const { rows } = await pool.query(
-        `INSERT INTO atividades (aluno_id, data, hora_inicio, hora_fim, horas, descricao) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [alunoId, data, horaInicio, horaFim, horas, descricao]
-    );
-    return rows[0];
+async function criar({ alunoId, data, horaInicio, horaFim, horas, descricao, empresaAtual, supervisorAtual, versaoAtual }) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const { rows: alunos } = await client.query(
+            'SELECT * FROM alunos WHERE usuario_id = $1 FOR UPDATE', [alunoId]);
+        const aluno = alunos[0];
+        if (!aluno || aluno.status !== 'em_andamento' || aluno.arquivado || aluno.encerrado_em
+            || (empresaAtual !== undefined && aluno.empresa !== empresaAtual)
+            || (supervisorAtual !== undefined && aluno.supervisor_id !== supervisorAtual)
+            || (versaoAtual !== undefined && aluno.versao_estagio !== versaoAtual)) {
+            await client.query('ROLLBACK');
+            return null;
+        }
+        const { rows: totais } = await client.query(
+            'SELECT COALESCE(SUM(horas), 0) AS total FROM atividades WHERE aluno_id = $1 AND data = $2',
+            [alunoId, data]);
+        if (Number(totais[0].total) + Number(horas) > 6) {
+            await client.query('ROLLBACK');
+            return null;
+        }
+        const { rows } = await client.query(
+            `INSERT INTO atividades (aluno_id, data, hora_inicio, hora_fim, horas, descricao) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [alunoId, data, horaInicio, horaFim, horas, descricao]);
+        await client.query('COMMIT');
+        return rows[0];
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 }
 
 // total de horas já registradas pelo aluno em um mesmo dia
@@ -43,22 +69,23 @@ async function somarHorasDoDia(alunoId, data, ignorarAtividadeId = null) {
     return Number(rows[0].total);
 }
 
-async function atualizar({ atividadeId, alunoId, data, horaInicio, horaFim, horas, descricao }) {
+async function atualizar({ atividadeId, alunoId, data, horaInicio, horaFim, horas, descricao, versaoAtual }) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const { rows: alunos } = await client.query(
-            'SELECT status, arquivado, encerrado_em FROM alunos WHERE usuario_id = $1 FOR UPDATE',
+            'SELECT status, arquivado, encerrado_em, versao_estagio FROM alunos WHERE usuario_id = $1 FOR UPDATE',
             [alunoId]
         );
         if (!alunos.length || alunos[0].status !== 'em_andamento'
-            || alunos[0].arquivado || alunos[0].encerrado_em) {
+            || alunos[0].arquivado || alunos[0].encerrado_em
+            || (versaoAtual !== undefined && alunos[0].versao_estagio !== versaoAtual)) {
             await client.query('ROLLBACK');
             return { atividade: null, motivo: 'estagio_bloqueado' };
         }
 
         const { rows: atividades } = await client.query(
-            `SELECT id FROM atividades WHERE id = $1 AND aluno_id = $2 FOR UPDATE`,
+            `SELECT id FROM atividades WHERE id = $1 AND aluno_id = $2 AND desligamento_id IS NULL FOR UPDATE`,
             [atividadeId, alunoId]
         );
         if (!atividades.length) {
@@ -95,22 +122,23 @@ async function atualizar({ atividadeId, alunoId, data, horaInicio, horaFim, hora
     }
 }
 
-async function excluir({ atividadeId, alunoId }) {
+async function excluir({ atividadeId, alunoId, versaoAtual }) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const { rows: alunos } = await client.query(
-            'SELECT status, arquivado, encerrado_em FROM alunos WHERE usuario_id = $1 FOR UPDATE',
+            'SELECT status, arquivado, encerrado_em, versao_estagio FROM alunos WHERE usuario_id = $1 FOR UPDATE',
             [alunoId]
         );
         if (!alunos.length || alunos[0].status !== 'em_andamento'
-            || alunos[0].arquivado || alunos[0].encerrado_em) {
+            || alunos[0].arquivado || alunos[0].encerrado_em
+            || (versaoAtual !== undefined && alunos[0].versao_estagio !== versaoAtual)) {
             await client.query('ROLLBACK');
             return { atividade: null, motivo: 'estagio_bloqueado' };
         }
 
         const { rows: atividades } = await client.query(
-            'DELETE FROM atividades WHERE id = $1 AND aluno_id = $2 RETURNING *',
+            'DELETE FROM atividades WHERE id = $1 AND aluno_id = $2 AND desligamento_id IS NULL RETURNING *',
             [atividadeId, alunoId]
         );
         if (!atividades.length) {
@@ -124,7 +152,7 @@ async function excluir({ atividadeId, alunoId }) {
                      WHEN a.status = 'lista_espera' THEN a.status
                      WHEN COALESCE((
                          SELECT SUM(horas) FROM atividades
-                         WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'
+                         WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar
                      ), 0) >= a.carga_horaria THEN 'concluido'
                      ELSE 'em_andamento'
                  END
@@ -155,13 +183,19 @@ async function definirValidacao({ atividadeId, alunoId, status, validadorId }) {
     try {
         await client.query('BEGIN');
 
-        await client.query('SELECT usuario_id FROM alunos WHERE usuario_id = $1 FOR UPDATE', [alunoId]);
+        const { rows: bloqueio } = await client.query(
+            'SELECT * FROM alunos WHERE usuario_id = $1 FOR UPDATE', [alunoId]);
+        if (!bloqueio.length || Number(bloqueio[0].supervisor_id) !== Number(validadorId)
+            || bloqueio[0].status === 'lista_espera' || bloqueio[0].arquivado || bloqueio[0].encerrado_em) {
+            await client.query('ROLLBACK');
+            return null;
+        }
         const { rows: atividades } = await client.query(
             `UPDATE atividades
              SET status_validacao = $3::varchar,
                  avaliado_por = CASE WHEN $3::varchar = 'pendente' THEN NULL ELSE $4::integer END,
                  avaliado_em = CASE WHEN $3::varchar = 'pendente' THEN NULL ELSE NOW() END
-             WHERE id = $1 AND aluno_id = $2
+             WHERE id = $1 AND aluno_id = $2 AND desligamento_id IS NULL
              RETURNING *`,
             [atividadeId, alunoId, status, validadorId]
         );
@@ -177,7 +211,7 @@ async function definirValidacao({ atividadeId, alunoId, status, validadorId }) {
                      WHEN a.status = 'lista_espera' THEN a.status
                      WHEN COALESCE((
                          SELECT SUM(horas) FROM atividades
-                         WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'
+                         WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar
                      ), 0) >= a.carga_horaria THEN 'concluido'
                      ELSE 'em_andamento'
                  END

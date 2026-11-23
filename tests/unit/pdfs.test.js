@@ -2,7 +2,7 @@
 // ter as páginas do modelo e aguentar textos longos e caracteres especiais.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, PDFName, PDFDict, PDFRawStream, decodePDFRawStream } = require('pdf-lib');
 const { gerarFaaPdf, formatarDataBr } = require('../../src/services/faaPdf');
 const { gerarFapoPdf } = require('../../src/services/fapoPdf');
 const { gerarFarePdf } = require('../../src/services/farePdf');
@@ -56,10 +56,10 @@ test('ata da banca (FARE): resultado com ressalva e campos vazios', async () => 
     }
 });
 
-test('ficha de acompanhamento: até 16 atividades, descrição cortada em 140 caracteres', async () => {
-    const atividades = Array.from({ length: 20 }, (_, i) => ({
+test('ficha de acompanhamento: descrição cortada em 140 caracteres', async () => {
+    const atividades = Array.from({ length: 17 }, (_, i) => ({
         data: new Date(2026, 9, i + 1), hora_inicio: '08:00:00', hora_fim: '12:00:00', horas: '4.00',
-        descricao: i === 0 ? 'x'.repeat(200) : `Atividade ${i + 1}`, status_validacao: i === 19 ? 'pendente' : 'validada',
+        descricao: i === 0 ? 'x'.repeat(200) : `Atividade ${i + 1}`, status_validacao: i === 16 ? 'pendente' : 'validada',
     }));
     const pdf = await abrir(await gerarFichaAcompanhamentoPdf({
         aluno: { nome: 'Ana Andrade', empresa: 'Agro Vale', supervisor_nome: 'Saulo Supervisor', orientador_nome: 'Olga Orientadora' },
@@ -70,9 +70,33 @@ test('ficha de acompanhamento: até 16 atividades, descrição cortada em 140 ca
     assert.equal(form.getTextField('atividade_16').getText(), 'Atividade 16');
     assert.equal(form.getTextField('horas_02').getText(), '4,00');
     assert.equal(form.getTextField('entrada_02').getText(), '08:00');
-    // 19 validadas x 4h; a pendente fica de fora mesmo sem caber na tabela
-    assert.equal(form.getTextField('total_horas_estagio').getText(), '76,00');
-    assert.equal(form.getTextField('data_ultimo_dia').getText(), '19/10/2026');
+    assert.equal(form.getTextField('total_horas_estagio').getText(), '64,00');
+    assert.equal(form.getTextField('data_ultimo_dia').getText(), '16/10/2026');
+});
+
+test('ficha de acompanhamento inclui todas as atividades e o supervisor em cada página', async () => {
+    const atividades = Array.from({ length: 33 }, (_, i) => ({
+        data: '2026-10-01', hora_inicio: '08:00', hora_fim: '09:00', horas: '1.00',
+        descricao: `ITEM-${i + 1}`, status_validacao: 'validada',
+    }));
+    atividades.push({ descricao: 'NAO-VALIDADA', status_validacao: 'pendente' });
+    const pdf = await abrir(await gerarFichaAcompanhamentoPdf({
+        aluno: { nome: 'Ana', empresa: 'Agro Vale', supervisor_nome: 'Saulo Supervisor' }, atividades,
+    }));
+    assert.equal(pdf.getPageCount(), 3);
+    const textos = pdf.getPages().map((pagina) => {
+        const objetos = pagina.node.Resources().lookup(PDFName.of('XObject'), PDFDict);
+        return objetos.keys().map((chave) => objetos.lookup(chave))
+            .filter((objeto) => objeto instanceof PDFRawStream)
+            .map((objeto) => Buffer.from(decodePDFRawStream(objeto).decode()).toString('latin1')).join('\n');
+    });
+    const tem = (pagina, texto) => textos[pagina].includes(`<${Buffer.from(texto).toString('hex').toUpperCase()}>`);
+    for (let i = 1; i <= 33; i++) assert.ok(tem(Math.floor((i - 1) / 16), `ITEM-${i}`));
+    for (let i = 0; i < 3; i++) {
+        assert.ok(tem(i, 'Saulo Supervisor'));
+        assert.ok(tem(i, '33,00'));
+        assert.ok(!tem(i, 'NAO-VALIDADA'));
+    }
 });
 
 test('ficha de acompanhamento sem atividades validadas fica com total zero', async () => {

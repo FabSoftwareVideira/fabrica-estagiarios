@@ -34,6 +34,29 @@ async function consultar(sql, params) {
 }
 const logger = { log() {}, error() {} };
 const raiz = path.join(__dirname, '..');
+test('migração de desligamentos preserva atividades anteriores e pode ser reaplicada', async () => {
+    const legado = new PGlite();
+    try {
+        await legado.exec(`
+            CREATE TABLE usuarios (id integer PRIMARY KEY);
+            CREATE TABLE alunos (usuario_id integer PRIMARY KEY REFERENCES usuarios(id));
+            CREATE TABLE atividades (id integer PRIMARY KEY, aluno_id integer NOT NULL REFERENCES alunos(usuario_id));
+            INSERT INTO usuarios VALUES (1);
+            INSERT INTO alunos VALUES (1);
+            INSERT INTO atividades VALUES (1, 1);`);
+        const migracao = fs.readFileSync(path.join(raiz, 'db/migrations/030_desligamentos.sql'), 'utf8');
+        await legado.exec(migracao);
+        await legado.exec(migracao);
+        const reversao = fs.readFileSync(path.join(raiz, 'db/migrations/031_reversao_desligamento.sql'), 'utf8');
+        await legado.exec(reversao);
+        await legado.exec(reversao);
+        const { rows } = await legado.query(`SELECT a.versao_estagio, t.desligamento_id, t.contabilizar
+            FROM alunos a JOIN atividades t ON t.aluno_id = a.usuario_id`);
+        assert.deepEqual(rows, [{ versao_estagio: 0, desligamento_id: null, contabilizar: true }]);
+    } finally {
+        await legado.close();
+    }
+});
 test('status arquivado prevalece sobre o status operacional sem alterar a etapa do estágio', () => {
     const aluno = { status: 'em_andamento', arquivado: true, encerrado_em: null };
     assert.deepEqual(estagioStatus(aluno), {

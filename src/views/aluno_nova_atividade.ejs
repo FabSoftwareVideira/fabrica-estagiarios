@@ -61,6 +61,7 @@
                     <p class="text-muted">A escala de trabalho ainda não foi informada. Você pode registrar em qualquer dia de segunda a sábado, até 6 horas no total por dia.</p>
                 <% } %>
                 <form action="<%= modoEdicao ? `/aluno/atividade/${atividadeId}/editar` : '/aluno/nova-atividade' %>" method="POST">
+                    <input type="hidden" name="versao_estagio" value="<%= versaoEstagio %>">
                     <label for="data">Dia</label>
                     <input type="date" id="data" name="data" required value="<%= formData.data || '' %>">
 

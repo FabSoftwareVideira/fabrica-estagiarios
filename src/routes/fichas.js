@@ -18,6 +18,7 @@ const { gerarFichaAcompanhamentoPdf } = require('../services/fichaAcompanhamento
 const { CRITERIOS_BANCA, RESULTADOS, ehNumero, notaDaFaa, calcularAta } = require('../utils/ata');
 const { podeVerAluno } = require('../utils/acessoAluno');
 const { dataLocalIso, dataIsoValida, dataParaInput, nomeParaArquivo, periodoDasAtividades } = require('../utils/datas');
+const { conferirFormulario } = require('../utils/versaoEstagio');
 
 function enviarPdf(res, prefixo, nome, bytes) {
     res.setHeader('Content-Type', 'application/pdf');
@@ -149,6 +150,7 @@ function lerData(valor, rotulo, erros) {
 router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, res) => {
     const { aluno } = req;
     const voltar = `/professor/aluno/${aluno.usuario_id}/fare`;
+    if (!conferirFormulario(req, res, voltar)) return;
 
     if (aluno.encerrado_em) {
         setFlash(req, 'error', 'Este estágio já foi encerrado. Reabra a ata para alterar.');
@@ -229,10 +231,14 @@ router.post('/aluno/:id/fare', carregarAluno, requireOrientadorAta, async (req, 
             refazerApresentacaoAte: valores.refazer_apresentacao_ate,
             comentarios: valores.comentarios,
             dataAta: valores.data_ata,
+            contexto: { versao: aluno.versao_estagio, papel: 'orientador_id', usuarioId: req.session.user.id },
         });
 
         if (finalizar) {
-            await faresModel.encerrar(aluno.usuario_id);
+            if (!await faresModel.encerrar(aluno.usuario_id, aluno.versao_estagio, req.session.user.id)) {
+                setFlash(req, 'error', 'O estágio foi alterado. Atualize a página antes de concluir.');
+                return res.redirect(voltar);
+            }
             setFlash(req, 'success', 'Estágio concluído. A ata está pronta para impressão e o estagiário agora só pode consultar e imprimir as fichas.');
         } else {
             setFlash(req, 'success', 'Rascunho da ata salvo.');

@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const { dataParaInput } = require('../utils/datas');
+const { comEstagioAtual } = require('../utils/versaoEstagio');
 
 const BANCA_VAZIA = [[null, null, null], [null, null, null], [null, null, null]];
 
@@ -41,8 +42,9 @@ async function salvar({
     refazerApresentacaoAte,
     comentarios,
     dataAta,
+    contexto,
 }) {
-    const { rows } = await pool.query(
+    const { rows } = await comEstagioAtual(alunoId, contexto, (banco) => banco.query(
         `INSERT INTO fares (
              aluno_id, periodo, nota_fac, nota_faa_manual, banca, avaliador_1, avaliador_2,
              resultado, corrigir_relatorio_ate, refazer_apresentacao_ate, comentarios, data_ata
@@ -76,18 +78,20 @@ async function salvar({
             comentarios,
             dataAta || null,
         ]
-    );
+    ));
     return normalizar(rows[0]);
 }
 
 // encerra o estágio: só funciona para quem já cumpriu as horas
-async function encerrar(alunoId) {
+async function encerrar(alunoId, versao = null, orientadorId = null) {
     const { rows } = await pool.query(
         `UPDATE alunos
          SET encerrado_em = NOW()
          WHERE usuario_id = $1 AND status = 'concluido' AND encerrado_em IS NULL
+           AND ($2::integer IS NULL OR versao_estagio = $2)
+           AND ($3::integer IS NULL OR orientador_id = $3)
          RETURNING encerrado_em`,
-        [alunoId]
+        [alunoId, versao, orientadorId]
     );
     return rows[0] || null;
 }
@@ -107,7 +111,7 @@ async function listarPorOrientador(orientadorId) {
         `SELECT a.usuario_id, a.status, a.empresa, a.carga_horaria, a.encerrado_em,
                 u.nome, a.matricula,
                 COALESCE((SELECT SUM(horas) FROM atividades
-                          WHERE aluno_id = a.usuario_id AND status_validacao = 'validada'), 0) AS horas_realizadas,
+                          WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar), 0) AS horas_realizadas,
                 (f.aluno_id IS NOT NULL) AS tem_faa,
                 (p.aluno_id IS NOT NULL) AS tem_fapo,
                 (r.aluno_id IS NOT NULL) AS tem_ata,

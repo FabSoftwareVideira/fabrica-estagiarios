@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { requireRole, requireAdmin, requireNomeConfirmado, setFlash } = require('../middleware/auth');
 const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
+const desligamentosModel = require('../models/desligamentos');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
 const relatorioSemanalModel = require('../models/relatorioSemanal');
@@ -22,6 +23,7 @@ const { validarResponsaveis } = require('../utils/responsaveis');
 const { lerMatricula, MENSAGEM_MATRICULA } = require('../utils/matricula');
 const { PAPEIS, CHAVES_PAPEIS, papeisDoPerfil, veTodosOsEstagios, temAlunosProprios, telaInicial } = require('../config/papeis');
 const { podeVerAluno, podeArquivar, lerCargaHoraria } = require('../utils/acessoAluno');
+const { conferirFormulario } = require('../utils/versaoEstagio');
 
 // Acompanhamento geral: administradores e servidores do setor de estágios.
 // Curso do estudante: o orientador dele, o administrador e o setor de estágios.
@@ -66,6 +68,8 @@ router.use(async (req, res, next) => {
         || (req.method === 'POST' && req.path === '/completar-cadastro')
         || (req.method === 'GET' && /^\/aluno\/\d+$/.test(req.path))
         || (req.method === 'POST' && /^\/aluno\/\d+\/atividade\/\d+\/(validar|invalidar)$/.test(req.path))
+        || (req.method === 'POST' && /^\/aluno\/\d+\/desligar$/.test(req.path))
+        || (req.method === 'POST' && /^\/desligamentos\/\d+\/reverter$/.test(req.path))
         || (/^\/aluno\/\d+\/fac(?:\/pdf)?$/.test(req.path) && ['GET', 'POST'].includes(req.method))
         // o supervisor não acessa FAA, FAPO, banca nem ata (FARE); só a ficha
         // de acompanhamento das atividades dos seus supervisionados
@@ -232,7 +236,22 @@ router.get('/dashboard', async (req, res) => {
         solicitacoesPendentes,
         minhasBancas,
         facPendentes,
+        desligamentosReversiveis: await desligamentosModel.listarReversiveis(req.session.user.id),
     });
+});
+
+router.post('/desligamentos/:id/reverter', async (req, res) => {
+    if (!idNaUrlValido(req.params.id)) return res.status(404).send('Desligamento não encontrado.');
+    try {
+        const resultado = await desligamentosModel.reverter(req.params.id, req.session.user.id);
+        const horario = resultado.horarioRecuperado ? '' : ' A escala anterior não foi salva; peça ao orientador ou à gestão que a informe novamente.';
+        setFlash(req, 'success', 'Desligamento revertido. O estágio anterior foi retomado; eventual banca cancelada permanece cancelada.' + horario);
+        return res.redirect(`/professor/aluno/${resultado.alunoId}`);
+    } catch (e) {
+        if (!e.status) throw e;
+        setFlash(req, 'error', e.message);
+        return res.redirect('/professor/dashboard');
+    }
 });
 
 function dataLocalIso(data = new Date()) {
@@ -338,9 +357,47 @@ router.get('/aluno/:id', async (req, res) => {
         faa,
         fare,
         facRascunho,
+        bancaRealizada: ehOrientador || Number(aluno.supervisor_id) === Number(req.session.user.id)
+            ? (await bancasModel.buscarPorAluno(aluno.usuario_id))?.situacao === 'realizada' : false,
+        desligamentos: (ehOrientador || veTodosOsEstagios(req.session.user))
+            ? await desligamentosModel.listar(aluno.usuario_id) : [],
         cursos: CURSOS,
         aba: typeof req.query.aba === 'string' ? req.query.aba : '',
     });
+});
+
+router.post('/aluno/:id/desligar', async (req, res) => {
+    req.aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
+    if (!req.aluno) return res.status(404).send('Estudante não encontrado.');
+    if (!conferirFormulario(req, res, `/professor/aluno/${req.params.id}`)) return;
+    try {
+        const resultado = await desligamentosModel.desligar(req.params.id, req.session.user.id, req.aluno.versao_estagio);
+        const aviso = resultado.bancaCancelada
+            ? ' A banca agendada foi cancelada; avise os participantes por outro meio.' : '';
+        setFlash(req, 'success', 'Desligamento registrado. Comunique o estudante por outro meio.' + aviso);
+        return res.redirect('/professor/dashboard');
+    } catch (e) {
+        if (!e.status) throw e;
+        setFlash(req, 'error', e.message);
+        return res.redirect(`/professor/aluno/${req.params.id}`);
+    }
+});
+
+router.post('/aluno/:id/desligamentos/:desligamentoId/confirmar', async (req, res) => {
+    if (!idNaUrlValido(req.params.desligamentoId)) return res.status(404).send('Desligamento não encontrado.');
+    if (!req.body || req.body.ficha_assinada !== 'sim') {
+        setFlash(req, 'error', 'Confirme o recebimento da ficha assinada em todas as páginas.');
+        return res.redirect(`/professor/aluno/${req.params.id}`);
+    }
+    try {
+        await desligamentosModel.confirmar(req.params.desligamentoId, req.params.id,
+            req.session.user.id, veTodosOsEstagios(req.session.user));
+        setFlash(req, 'success', 'Horas validadas do estágio anterior aproveitadas.');
+    } catch (e) {
+        if (!e.status) throw e;
+        setFlash(req, 'error', e.message);
+    }
+    return res.redirect(`/professor/aluno/${req.params.id}`);
 });
 
 // Dados cadastrais do estudante (nome, e-mail, matrícula e curso): administrador
@@ -427,6 +484,8 @@ router.get('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
 });
 
 router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
+    if (!conferirFormulario(req, res, `/professor/aluno/${req.params.id}/fapo`)) return;
+    const contexto = { versao: req.aluno.versao_estagio, papel: 'orientador_id', usuarioId: req.session.user.id };
     const acao = ['salvar', 'rascunho'].includes(req.body.acao) ? req.body.acao : 'salvar_pdf';
     if (acao === 'rascunho') {
         const campo = (valor, limite = 1500) => typeof valor === 'string' ? valor.slice(0, limite) : '';
@@ -435,7 +494,7 @@ router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
                 nota: campo(req.body.nota, 10),
                 comentarios: campo(req.body.comentarios),
                 data_assinatura: campo(req.body.data_assinatura, 10),
-            });
+            }, contexto);
             setFlash(req, 'success', 'Rascunho da FAPO salvo. Você poderá continuar o preenchimento mais tarde.');
         } catch (err) {
             console.error('[professor/fapo] erro ao salvar rascunho:', err.message);
@@ -465,6 +524,7 @@ router.post('/aluno/:id/fapo', requireOrientadorFapo, async (req, res) => {
             nota,
             comentarios,
             dataAssinatura,
+            contexto,
         });
     } catch (err) {
         console.error('[professor/fapo] erro ao salvar ficha:', err.message);
@@ -543,6 +603,8 @@ router.post('/aluno/:id', async (req, res) => {
     }
     // erros e sucesso voltam para a aba de edição da tela do estudante
     const voltar = `/professor/aluno/${req.params.id}?aba=estagio`;
+    req.aluno = aluno;
+    if (!conferirFormulario(req, res, voltar)) return;
     if (aluno.arquivado) {
         setFlash(req, 'error', 'Não é possível editar um estágio arquivado. Desarquive primeiro.');
         return res.redirect(voltar);
@@ -615,14 +677,17 @@ router.post('/aluno/:id', async (req, res) => {
         return res.redirect(voltar);
     }
 
-    await alunosModel.atualizarEstagio(req.params.id, {
-        status,
-        empresa,
-        supervisorId: supervisor_id || null,
-        orientadorId: orientador_id || null,
-        cargaHoraria,
-        horarioTrabalho,
-    });
+    try {
+        await alunosModel.atualizarEstagio(req.params.id, {
+            status, empresa, supervisorId: supervisor_id || null, orientadorId: orientador_id || null,
+            cargaHoraria, horarioTrabalho, statusAnterior: aluno.status,
+            versaoAnterior: aluno.versao_estagio,
+        });
+    } catch (e) {
+        if (!e.status) throw e;
+        setFlash(req, 'error', e.message);
+        return res.redirect(voltar);
+    }
     if (mudouCurso) await alunosModel.atualizarCurso(req.params.id, cursoInformado);
 
     setFlash(req, 'success', 'Estágio atualizado com sucesso.');
@@ -689,13 +754,18 @@ router.get('/cadastro-aluno/:id', async (req, res) => {
         setFlash(req, 'error', 'Solicitação não encontrada ou já avaliada.');
         return res.redirect('/professor/dashboard');
     }
+    const desligamentos = await desligamentosModel.listar(aluno.usuario_id);
+    if (desligamentos.length && Number(aluno.orientador_id) !== Number(req.session.user.id) && !veTodosOsEstagios(req.session.user)) {
+        setFlash(req, 'error', 'Apenas o orientador ou a gestão pode cadastrar o novo estágio.');
+        return res.redirect('/professor/dashboard');
+    }
 
     const [professores, supervisores, supervisoresInternos] = await Promise.all([
         usuariosModel.listarProfessores(),
         usuariosModel.listarSupervisores(),
         usuariosModel.listarSupervisoresInternos(),
     ]);
-    res.render('professor_cadastro_aluno', { aluno, professores, supervisores, supervisoresInternos, diasTrabalho: DIAS_TRABALHO });
+    res.render('professor_cadastro_aluno', { aluno, professores, supervisores, supervisoresInternos, desligamentos, diasTrabalho: DIAS_TRABALHO });
 });
 
 router.post('/cadastro-aluno/:id', async (req, res) => {
@@ -704,6 +774,13 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
     const aluno = await alunosModel.buscarPorUsuarioId(req.params.id);
     if (!aluno || aluno.status !== 'lista_espera') {
         setFlash(req, 'error', 'Solicitação não encontrada ou já avaliada.');
+        return res.redirect('/professor/dashboard');
+    }
+    req.aluno = aluno;
+    if (!conferirFormulario(req, res, `/professor/cadastro-aluno/${req.params.id}`)) return;
+    const desligamentos = await desligamentosModel.listar(aluno.usuario_id);
+    if (desligamentos.length && Number(aluno.orientador_id) !== Number(req.session.user.id) && !veTodosOsEstagios(req.session.user)) {
+        setFlash(req, 'error', 'Apenas o orientador ou a gestão pode cadastrar o novo estágio.');
         return res.redirect('/professor/dashboard');
     }
 
@@ -741,14 +818,17 @@ router.post('/cadastro-aluno/:id', async (req, res) => {
         return res.redirect('/professor/cadastro-aluno/' + req.params.id);
     }
 
-    await alunosModel.atualizarEstagio(req.params.id, {
-        status: 'em_andamento',
-        empresa,
-        supervisorId: supervisor_id || null,
-        orientadorId: orientador_id || null,
-        cargaHoraria,
-        horarioTrabalho,
-    });
+    try {
+        await alunosModel.atualizarEstagio(req.params.id, {
+            status: 'em_andamento', empresa, supervisorId: supervisor_id || null,
+            orientadorId: orientador_id || null, cargaHoraria, horarioTrabalho, statusAnterior: 'lista_espera',
+            versaoAnterior: aluno.versao_estagio,
+        });
+    } catch (e) {
+        if (!e.status) throw e;
+        setFlash(req, 'error', e.message);
+        return res.redirect('/professor/cadastro-aluno/' + req.params.id);
+    }
 
     setFlash(req, 'success', 'Cadastro aprovado! O estagiário já pode registrar atividades.');
     res.redirect('/professor/dashboard');

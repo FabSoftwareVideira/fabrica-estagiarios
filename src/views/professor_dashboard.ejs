@@ -28,6 +28,25 @@
                     </section>
                 <% } %>
 
+                <% if (typeof desligamentosReversiveis !== 'undefined' && desligamentosReversiveis.length) { %>
+                    <section class="card" aria-labelledby="titulo-desligamentos-reversiveis">
+                        <h2 id="titulo-desligamentos-reversiveis">Desligamentos reversíveis</h2>
+                        <p>Você pode reverter o desligamento enquanto o estudante não iniciar outro estágio. Uma banca cancelada continuará cancelada.</p>
+                        <% desligamentosReversiveis.forEach((d) => { %>
+                            <article class="ficha-item">
+                                <h3><%= d.nome %></h3>
+                                <p><%= d.empresa || 'Local não informado' %> · desligamento em <%= dataBr(d.desligado_em) %></p>
+                                <% if (d.horario_trabalho_anterior == null) { %>
+                                    <p>A escala anterior não foi salva e precisará ser informada novamente pelo orientador ou pela gestão.</p>
+                                <% } %>
+                                <form method="POST" action="/professor/desligamentos/<%= d.id %>/reverter">
+                                    <button type="submit" class="btn-secondary" data-confirmar="Reverter o desligamento e retomar o estágio anterior? Uma banca cancelada permanecerá cancelada.">Reverter desligamento</button>
+                                </form>
+                            </article>
+                        <% }) %>
+                    </section>
+                <% } %>
+
                 <% if (user.cargo === 'supervisor' && typeof facPendentes !== 'undefined' && facPendentes.length) { %>
                     <section class="card fac-destaque" id="fac-pendentes" aria-labelledby="titulo-fac-pendentes">
                         <div class="fac-destaque-head">

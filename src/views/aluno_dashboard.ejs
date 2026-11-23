@@ -88,8 +88,13 @@
             <section class="card proximo-passo" aria-labelledby="titulo-passo">
                 <div>
                     <% if (aluno.status === 'lista_espera') { %>
-                        <h2 id="titulo-passo">Aguardando aprovação</h2>
-                        <p>Um professor vai aprovar seu cadastro e definir seu supervisor e orientador. Você será liberado para registrar atividades em seguida.</p>
+                        <% if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
+                            <h2 id="titulo-passo">Aguardando novo estágio</h2>
+                            <p>O orientador ou a gestão cadastrará seu novo estágio em outro local. Se desejar, solicite o aproveitamento das horas anteriores na aba Fichas.</p>
+                        <% } else { %>
+                            <h2 id="titulo-passo">Aguardando aprovação</h2>
+                            <p>Um professor vai aprovar seu cadastro e definir seu supervisor e orientador. Você será liberado para registrar atividades em seguida.</p>
+                        <% } %>
                     <% } else if (emAndamento) { %>
                         <h2 id="titulo-passo">Registre a atividade de hoje</h2>
                         <p>Anote o horário de entrada e saída e o que você fez.
@@ -186,6 +191,7 @@
                                                                 <%- icone('caneta') %>
                                                             </a>
                                                             <form action="/aluno/atividade/<%= atividade.id %>/excluir" method="POST">
+                                                                <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
                                                                 <button type="submit" class="activity-action activity-action-danger" title="Excluir atividade" aria-label="Excluir atividade de <%= dataBr(atividade.data) %>" data-confirmar="Excluir esta atividade? A ação não pode ser desfeita e, se as horas estiverem validadas, elas serão removidas do total.">
                                                                     <%- icone('lixeira') %>
                                                                 </button>
@@ -208,6 +214,27 @@
 
             <!-- Fichas -->
             <section class="dashboard-tab-panel" id="panel-fichas" role="tabpanel" aria-labelledby="tab-fichas" tabindex="0" <%= abaSelecionada === 'fichas' ? '' : 'hidden' %>>
+                <% if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
+                    <section class="card">
+                        <h2>Estágios interrompidos</h2>
+                        <p>Para aproveitar horas validadas, solicite o aproveitamento, imprima a ficha e obtenha a assinatura do supervisor em todas as páginas. O orientador ou a gestão confirmará as horas após receber a ficha assinada.</p>
+                        <% desligamentos.forEach((d) => { %>
+                            <div class="ficha-item">
+                                <h3><%= d.empresa || 'Local não informado' %></h3>
+                                <p>Supervisor: <%= d.supervisor_nome || 'Não informado' %> · <%= Number(d.horas_validadas) %>h validadas · desligamento em <%= dataBr(d.desligado_em) %></p>
+                                <p><%= d.confirmado_em ? 'Horas aproveitadas' : (d.solicitado_em ? 'Aguardando confirmação das horas' : 'Horas ainda não solicitadas') %></p>
+                                <div class="button-group">
+                                    <a class="btn btn-secondary" href="/aluno/desligamentos/<%= d.id %>/ficha-acompanhamento">Baixar ficha de acompanhamento</a>
+                                    <% if (!d.solicitado_em && Number(d.horas_validadas) > 0 && !encerrado) { %>
+                                        <form method="POST" action="/aluno/desligamentos/<%= d.id %>/aproveitar">
+                                            <button type="submit">Solicitar aproveitamento</button>
+                                        </form>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </section>
+                <% } %>
                 <div class="card fichas-center">
                     <h2>Fichas do estágio</h2>
                     <p class="text-muted">Fichas geradas com os dados do seu estágio, prontas para imprimir.</p>
