@@ -1,0 +1,15 @@
+<article class="supervisionado-card">
+    <div class="supervisionado-head">
+        <h3><%= d.nome %></h3>
+        <span class="status status-waiting">Desligado</span>
+    </div>
+    <p class="supervisionado-meta"><%= d.empresa || 'Empresa não informada' %></p>
+    <p class="supervisionado-meta">Desligado em <%= dataBr(d.desligado_em) %></p>
+    <p class="supervisionado-orientador text-muted">Você pode desfazer até o estudante iniciar outro estágio. Banca cancelada não é restaurada.<% if (d.horario_trabalho_anterior == null) { %> A escala deverá ser informada novamente pelo orientador ou pela gestão.<% } %></p>
+    <div class="supervisionado-acoes">
+        <form method="POST" action="/professor/desligamentos/<%= d.id %>/reverter">
+            <button type="submit" class="btn btn-secondary btn-sm"
+                data-confirmar="Desfazer o desligamento e retomar o estágio? Uma banca cancelada permanecerá cancelada.">Desfazer desligamento</button>
+        </form>
+    </div>
+</article>

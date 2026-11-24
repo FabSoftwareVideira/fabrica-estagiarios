@@ -125,7 +125,7 @@ const TAMANHO_PAGINA_USUARIOS = 10;
 const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'concluido'];
 const CAMPOS_ORDENACAO = ['nome', 'supervisor', 'horas', 'status'];
 const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado'];
-const SITUACOES_SUPERVISOR = ['andamento', 'concluido'];
+const SITUACOES_SUPERVISOR = ['andamento', 'concluido', 'desligado'];
 const CAMPOS_ORDENACAO_USUARIOS = ['nome', 'email', 'tipo', 'situacao', 'criado_em'];
 
 // Administração: contas, papéis e configurações. Fica separada das telas de
@@ -174,10 +174,9 @@ router.get('/dashboard', async (req, res) => {
 
     let status;
     if (isSupervisor) {
-        const soAndamento = situacoesSupervisor.length === 1 && situacoesSupervisor[0] === 'andamento';
-        const soConcluido = situacoesSupervisor.length === 1 && situacoesSupervisor[0] === 'concluido';
-        if (soAndamento) status = ['lista_espera', 'em_andamento'];
-        else if (soConcluido) status = ['concluido'];
+        const regulares = situacoesSupervisor.filter((s) => s !== 'desligado');
+        if (regulares.length === 1 && regulares[0] === 'andamento') status = ['lista_espera', 'em_andamento'];
+        else if (regulares.length === 1 && regulares[0] === 'concluido') status = ['concluido'];
         else status = [];
     } else {
         status = [...new Set([].concat(req.query.status || []))]
@@ -211,16 +210,28 @@ router.get('/dashboard', async (req, res) => {
         ? await alunosModel.listarPendentesFac(req.session.user.id)
         : [];
 
-    let resultado = await consultar();
+    const semFiltroSituacao = situacoesSupervisor.length === 0;
+    const mostrarRegulares = !isSupervisor || semFiltroSituacao
+        || situacoesSupervisor.some((s) => s !== 'desligado');
+    const mostrarDesligados = !isSupervisor || semFiltroSituacao || situacoesSupervisor.includes('desligado');
+
+    let resultado = mostrarRegulares ? await consultar() : { alunos: [], total: 0 };
     const totalPaginas = Math.max(1, Math.ceil(resultado.total / TAMANHO_PAGINA));
 
-    if (pagina > totalPaginas) {
+    if (mostrarRegulares && pagina > totalPaginas) {
         pagina = totalPaginas;
         resultado = await consultar();
     }
 
+    let desligados = [];
+    if (mostrarDesligados) {
+        const termo = busca.toLowerCase();
+        desligados = (await desligamentosModel.listarReversiveis(req.session.user.id))
+            .filter((d) => !termo || String(d.nome).toLowerCase().includes(termo));
+    }
+
     const filtroPersonalizado = isSupervisor
-        ? Boolean(busca || situacoesSupervisor.length === 1)
+        ? Boolean(busca || (situacoesSupervisor.length > 0 && situacoesSupervisor.length < SITUACOES_SUPERVISOR.length))
         : Boolean(filtroEnviado);
 
     res.render('professor_dashboard', {
@@ -236,7 +247,7 @@ router.get('/dashboard', async (req, res) => {
         solicitacoesPendentes,
         minhasBancas,
         facPendentes,
-        desligamentosReversiveis: await desligamentosModel.listarReversiveis(req.session.user.id),
+        desligados,
     });
 });
 

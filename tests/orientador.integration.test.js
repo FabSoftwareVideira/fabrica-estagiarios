@@ -201,6 +201,9 @@ test('supervisor reverte desligamento e restaura estágio e fichas sem reabrir b
     const [d] = await amb.sql('SELECT id FROM desligamentos WHERE aluno_id = $1', [bruno]);
     const botao = `/professor/desligamentos/${d.id}/reverter`;
     assert.match(await (await amb.pedir('/professor/dashboard', { como: externo })).text(), new RegExp(botao));
+    const filtrar = async (situacao) => (await amb.pedir(`/professor/dashboard?f=1&situacao=${situacao}`, { como: externo })).text();
+    assert.match(await filtrar('desligado'), new RegExp(botao));
+    assert.doesNotMatch(await filtrar('andamento'), new RegExp(botao));
     assert.doesNotMatch(await (await amb.pedir('/professor/dashboard', { como: supervisor })).text(), new RegExp(botao));
     await amb.pedir(botao, { como: supervisor, corpo: {} });
     assert.match(amb.flash(supervisor).message, /não pode reverter/);
@@ -251,6 +254,7 @@ test('reversão de desligamento antigo avisa quando a escala não foi preservada
     const [d] = await amb.sql('UPDATE desligamentos SET horario_trabalho_anterior = NULL WHERE aluno_id = $1 RETURNING id', [ana]);
     const painel = await (await amb.pedir('/professor/dashboard', { como: supervisor })).text();
     assert.match(painel, /escala deverá ser informada novamente/);
+    assert.match(painel, /Desligado<\/span>/);
     await amb.pedir(`/professor/desligamentos/${d.id}/reverter`, { como: supervisor, corpo: {} });
     assert.match(amb.flash(supervisor).message, /escala anterior não foi salva/);
 });

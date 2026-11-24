@@ -35,26 +35,6 @@
                         </section>
                         <% } %>
 
-                            <% if (typeof desligamentosReversiveis !=='undefined' && desligamentosReversiveis.length) {
-                                %>
-                                <% desligamentosReversiveis.forEach((d)=> { %>
-                                    <section class="card pending-requests-banner"
-                                        aria-label="Desligamento de <%= d.nome %>">
-                                        <div>
-                                            <strong><%- icone('alerta') %>
-                                                    <%= d.nome %> foi desligado(a) em <%= dataBr(d.desligado_em) %>
-                                            </strong>
-                                            <p>Você pode desfazer até o estudante iniciar outro estágio.</p>
-                                        </div>
-                                        <form method="POST" action="/professor/desligamentos/<%= d.id %>/reverter">
-                                            <button type="submit" class="btn-secondary btn-sm"
-                                                data-confirmar="Desfazer o desligamento e retomar o estágio? Uma banca cancelada permanecerá cancelada.">Desfazer
-                                                desligamento</button>
-                                        </form>
-                                    </section>
-                                    <% }) %>
-                                        <% } %>
-
                                             <% if (user.cargo==='supervisor' && typeof facPendentes !=='undefined' &&
                                                 facPendentes.length) { %>
                                                 <section class="card fac-destaque" id="fac-pendentes"
@@ -128,22 +108,16 @@
                                                                             <div class="filter-pills">
                                                                                 <% if (user.cargo==='supervisor' ) { %>
                                                                                     <label class="filter-pill">
-                                                                                        <input type="checkbox"
-                                                                                            name="situacao"
-                                                                                            value="andamento"
-                                                                                            <%=filtros.situacao.includes('andamento')
-                                                                                            ? 'checked' : '' %>
-                                                                                        data-auto-submit>
+                                                                                        <input type="checkbox" name="situacao" value="andamento" <%= filtros.situacao.includes('andamento') ? 'checked' : '' %> data-auto-submit>
                                                                                         <span>Em andamento</span>
                                                                                     </label>
                                                                                     <label class="filter-pill">
-                                                                                        <input type="checkbox"
-                                                                                            name="situacao"
-                                                                                            value="concluido"
-                                                                                            <%=filtros.situacao.includes('concluido')
-                                                                                            ? 'checked' : '' %>
-                                                                                        data-auto-submit>
+                                                                                        <input type="checkbox" name="situacao" value="concluido" <%= filtros.situacao.includes('concluido') ? 'checked' : '' %> data-auto-submit>
                                                                                         <span>Concluído</span>
+                                                                                    </label>
+                                                                                    <label class="filter-pill">
+                                                                                        <input type="checkbox" name="situacao" value="desligado" <%= filtros.situacao.includes('desligado') ? 'checked' : '' %> data-auto-submit>
+                                                                                        <span>Desligados</span>
                                                                                     </label>
                                                                                     <% } else { %>
                                                                                         <label class="filter-pill">
@@ -330,14 +304,12 @@
                                                                                 <div class="card">
                                                                                     <% if (user.cargo==='supervisor' ) {
                                                                                         %>
-                                                                                        <% if (alunos.length===0) { %>
-                                                                                            <p class="empty-state">
-                                                                                                Nenhum supervisionado
-                                                                                                encontrado com os
-                                                                                                filtros atuais.</p>
+                                                                                        <% if (alunos.length===0 && desligados.length===0) { %>
+                                                                                            <p class="empty-state">Nenhum supervisionado encontrado com os filtros atuais.</p>
                                                                                             <% } else { %>
                                                                                                 <div
                                                                                                     class="supervisionados-grid">
+                                                                                                    <% desligados.forEach((d)=> { %><%- include('partials/desligado_card', { d }) %><% }) %>
                                                                                                     <%
                                                                                                         alunos.forEach((a)=>
                                                                                                         { %>
@@ -477,6 +449,11 @@
                                                                                                 </div>
                                                                                                 <% } %>
                                                                                                     <% } else { %>
+                                                                                                        <% if (desligados.length) { %>
+                                                                                                            <div class="supervisionados-grid">
+                                                                                                                <% desligados.forEach((d)=> { %><%- include('partials/desligado_card', { d }) %><% }) %>
+                                                                                                            </div>
+                                                                                                        <% } %>
                                                                                                         <div
                                                                                                             class="table-wrap">
                                                                                                             <table>
