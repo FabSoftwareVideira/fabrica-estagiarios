@@ -1,0 +1,39 @@
+<%# Filtros do painel. Parâmetros: user, aba, filtros, ordenacao, filtroPersonalizado %>
+<% const supervisor = user.cargo === 'supervisor'; %>
+<div class="card filters-card">
+    <form action="/professor/dashboard" method="GET" class="filters-form">
+        <input type="hidden" name="f" value="1">
+        <input type="hidden" name="aba" value="<%= aba %>">
+        <% if (ordenacao && ordenacao.campo) { %>
+            <input type="hidden" name="ordenar" value="<%= ordenacao.campo %>">
+            <input type="hidden" name="dir" value="<%= ordenacao.direcao %>">
+        <% } %>
+        <div class="filters-top">
+            <input type="search" name="q" value="<%= filtros.q %>" placeholder="Buscar por nome, matrícula ou e-mail"
+                aria-label="Buscar <%= supervisor ? 'supervisionados' : 'estagiários' %>">
+            <button type="submit"><%- icone('lupa', 18) %> Buscar</button>
+            <% if (filtroPersonalizado) { %>
+                <a href="/professor/dashboard?aba=<%= aba %>" class="btn btn-secondary">Limpar</a>
+            <% } %>
+        </div>
+
+        <div class="filters-bottom">
+            <span class="filters-label">Filtrar por</span>
+            <div class="filter-pills">
+                <% if (supervisor) { %>
+                    <%- include('../filtro_pilula', { nome: 'situacao', valor: 'andamento', label: 'Em andamento', marcado: filtros.situacao.includes('andamento') }) %>
+                    <%- include('../filtro_pilula', { nome: 'situacao', valor: 'concluido', label: 'Concluído', marcado: filtros.situacao.includes('concluido') }) %>
+                    <%- include('../filtro_pilula', { nome: 'situacao', valor: 'desligado', label: 'Desligados', marcado: filtros.situacao.includes('desligado') }) %>
+                <% } else { %>
+                    <% const temStatus = (...chaves) => chaves.some((c) => filtros.status.includes(c)); %>
+                    <%- include('../filtro_pilula', { nome: 'status', valor: 'lista_espera', label: 'Lista de espera', marcado: temStatus('lista_espera') }) %>
+                    <%- include('../filtro_pilula', { nome: 'status', valor: 'em_andamento', label: 'Em andamento', marcado: temStatus('em_andamento') }) %>
+                    <%- include('../filtro_pilula', { nome: 'status', valor: 'aguardando_banca', label: 'Aguardando banca', marcado: temStatus('aguardando_banca', 'concluido') }) %>
+                    <%- include('../filtro_pilula', { nome: 'status', valor: 'encerrado', label: 'Encerrado', marcado: temStatus('encerrado', 'concluido') }) %>
+                    <span class="filter-pills-sep"></span>
+                    <%- include('../filtro_pilula', { nome: 'arquivados', valor: '1', label: 'Arquivados', marcado: filtros.arquivados, classe: 'filter-pill-archived' }) %>
+                <% } %>
+            </div>
+        </div>
+    </form>
+</div>

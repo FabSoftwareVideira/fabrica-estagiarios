@@ -1,0 +1,34 @@
+<%# Card de supervisionado no painel do supervisor. Parâmetro: a %>
+<%
+    const concluido = a.status === 'concluido';
+    const carga = Number(a.carga_horaria) || 0;
+    const realizadas = Number(a.horas_realizadas) || 0;
+    const pendentes = Number(a.horas_pendentes) || 0;
+    const pct = carga > 0 ? Math.min(100, Math.round((realizadas / carga) * 100)) : 0;
+    const facDisponivel = concluido && !a.encerrado_em && !a.arquivado;
+%>
+<article class="supervisionado-card <%= facDisponivel && !a.tem_fac ? 'is-pendente' : '' %>">
+    <div class="supervisionado-head">
+        <h3><a href="/professor/aluno/<%= a.usuario_id %>"><%= a.nome %></a></h3>
+        <%- include('../status', { classe: concluido ? 'status-completed' : 'status-progress', label: concluido ? 'Concluído' : 'Em andamento' }) %>
+    </div>
+    <p class="supervisionado-meta"><%= a.curso || 'Curso não informado' %></p>
+    <p class="supervisionado-meta"><%= a.empresa || 'Empresa não informada' %></p>
+    <div class="summary-progress">
+        <div class="summary-progress-label">
+            <span><strong><%= realizadas %>h</strong> de <strong><%= carga %>h</strong></span>
+            <span><%= pct %>%</span>
+        </div>
+        <%- include('../progresso', { percentual: pct }) %>
+        <% if (pendentes > 0) { %>
+            <p class="progress-caption text-muted"><strong><%= pendentes %>h</strong> aguardando validação</p>
+        <% } %>
+    </div>
+    <p class="supervisionado-orientador text-muted">Orientador: <%= a.orientador_nome || '—' %></p>
+    <div class="supervisionado-acoes">
+        <% if (facDisponivel) { %>
+            <a class="btn <%= a.tem_fac ? 'btn-secondary' : 'btn-success' %> btn-sm" href="/professor/aluno/<%= a.usuario_id %>/fac"><%- icone(a.tem_fac ? 'olho' : 'caneta') %> <%= a.tem_fac ? 'Revisar FAC' : 'Preencher FAC' %></a>
+        <% } %>
+        <a class="btn btn-secondary btn-sm" href="/professor/aluno/<%= a.usuario_id %>"><%- icone('olho') %> Detalhes</a>
+    </div>
+</article>

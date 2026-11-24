@@ -33,7 +33,7 @@
                 <h1>Ata da banca</h1>
                 <p><strong><%= aluno.nome %></strong> · <%= aluno.empresa || 'Empresa não informada' %> · <%= Number(aluno.horas_realizadas) %>h validadas</p>
             </div>
-            <span class="status <%= estagioStatus(aluno).classe %>"><%= estagioStatus(aluno).label %></span>
+            <%- include('partials/status', { classe: estagioStatus(aluno).classe, label: estagioStatus(aluno).label }) %>
         </div>
 
         <% if (encerrado) { %>

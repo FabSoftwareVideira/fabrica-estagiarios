@@ -76,8 +76,8 @@ const USUARIOS_DEV = {
         cargo: 'comum',
     },
     alunoSeed: {
-        nome: 'Estudante de Teste 04',
-        email: 'estudante04@example.test',
+        nome: 'Estudante de Teste 03',
+        email: 'estudante03@example.test',
         googleId: 'dev-google-aluno-seed',
         avatarUrl: null,
         tipo: 'aluno',

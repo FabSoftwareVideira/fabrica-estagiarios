@@ -1,0 +1,21 @@
+<%# Bancas do professor, recolhidas para não competir com a lista. Parâmetros: minhasBancas, user %>
+<% const papelNaBanca = (b) => Number(user.id) === Number(b.orientador_id) ? 'orientador' : (Number(user.id) === Number(b.avaliador_1_id) ? 'avaliador 1' : 'avaliador 2'); %>
+<% const proxima = minhasBancas[0]; %>
+<details class="bancas-resumo">
+    <summary>
+        <%- icone('calendario') %>
+        <span>Próxima banca: <strong><%= dataBr(proxima.data) %>, <%= proxima.hora_inicio %>–<%= proxima.hora_fim %></strong> · <%= proxima.aluno_nome %> · você é <%= papelNaBanca(proxima) %></span>
+        <% if (minhasBancas.length > 1) { %><span class="bancas-resumo-mais">+<%= minhasBancas.length - 1 %></span><% } %>
+    </summary>
+    <ul>
+        <% minhasBancas.forEach((b) => { %>
+            <li>
+                <span><strong><%= dataBr(b.data) %>, <%= b.hora_inicio %>–<%= b.hora_fim %></strong> · <%= b.aluno_nome %> · <%= papelNaBanca(b) %> · <%= b.sala %><% if (b.situacao === 'remarcada') { %> · remarcada<% } %></span>
+                <span class="bancas-resumo-links">
+                    <% if (b.link_reuniao) { %><a href="<%= b.link_reuniao %>" target="_blank" rel="noopener noreferrer">Reunião</a><% } %>
+                    <a href="/professor/aluno/<%= b.aluno_id %>/banca">Detalhes</a>
+                </span>
+            </li>
+        <% }) %>
+    </ul>
+</details>

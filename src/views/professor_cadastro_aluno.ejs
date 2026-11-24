@@ -37,7 +37,7 @@
                         <p class="student-meta"><span><%= aluno.email %></span></p>
                     </div>
                     <div class="student-badges">
-                        <span class="status status-waiting">Lista de espera</span>
+                        <%- include('partials/status', { classe: 'status-waiting', label: "Lista de espera" }) %>
                     </div>
                 </div>
                 <dl class="summary-details">

@@ -1,0 +1,46 @@
+<%# Tabela de estagiários (admin, orientador ou supervisor interno). Parâmetros: alunos, filtros, user, links %>
+<% const admin = user.cargo === 'admin'; %>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <%- include('th_ordenavel', { campo: 'nome', label: 'Nome', links }) %>
+                <% if (admin) { %>
+                    <%- include('th_ordenavel', { campo: 'supervisor', label: 'Supervisor', links }) %>
+                <% } else { %>
+                    <th>Papel</th>
+                    <th>Orientador / Supervisor</th>
+                <% } %>
+                <%- include('th_ordenavel', { campo: 'horas', label: 'Horas', links }) %>
+                <%- include('th_ordenavel', { campo: 'status', label: 'Status', links }) %>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% if (alunos.length === 0) { %>
+                <tr>
+                    <td colspan="<%= admin ? 5 : 6 %>"><%= filtros.arquivados ? 'Nenhum estagiário arquivado encontrado.' : 'Nenhum estagiário encontrado com os filtros atuais.' %></td>
+                </tr>
+            <% } else { alunos.forEach((a) => { %>
+                <tr>
+                    <td><a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a></td>
+                    <% if (admin) { %>
+                        <td><%= a.supervisor_nome || '—' %></td>
+                    <% } else { %>
+                        <td>
+                            <% if (Number(a.orientador_id) === Number(user.id)) { %><%- include('../status', { classe: 'status-progress', label: 'Orientando' }) %><% } %>
+                            <% if (Number(a.supervisor_id) === Number(user.id)) { %><%- include('../status', { classe: 'status-completed', label: 'Supervisionado' }) %><% } %>
+                        </td>
+                        <td>Orientador: <%= a.orientador_nome || '—' %><br>Supervisor: <%= a.supervisor_nome || '—' %></td>
+                    <% } %>
+                    <td>
+                        <%= Number(a.horas_realizadas) %> / <%= a.carga_horaria %>h
+                        <% if (Number(a.horas_pendentes) > 0) { %><br><span class="text-muted hours-pending">+<%= a.horas_pendentes %>h pendentes</span><% } %>
+                    </td>
+                    <td><% const st = estagioStatus(a); %><%- include('../status', { classe: st.classe, label: st.label }) %></td>
+                    <td><%- include('../aluno_acoes', { a, user }) %></td>
+                </tr>
+            <% }) } %>
+        </tbody>
+    </table>
+</div>

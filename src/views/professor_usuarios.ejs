@@ -91,8 +91,6 @@
                 : 'none';
             const inicio = total ? (pagina - 1) * tamanhoPagina + 1 : 0;
             const fim = Math.min(pagina * tamanhoPagina, total);
-            const inicioJanela = Math.max(2, pagina - 2);
-            const fimJanela = Math.min(totalPaginas - 1, pagina + 2);
         %>
             <section class="card users-table-card" aria-labelledby="titulo-lista-usuarios">
                 <div class="section-heading users-list-heading">
@@ -161,16 +159,16 @@
                                         <td>
                                             <% if (interno) { %>
                                                 <% PAPEIS.filter((p) => papeisUsuario[p.chave]).forEach((p) => { %>
-                                                    <span class="status <%= p.chave === 'admin' ? 'status-progress' : (p.chave === 'servidor' ? 'status-banca' : 'status-waiting') %>"><%= p.rotulo %></span>
+                                                    <%- include('partials/status', { classe: p.chave === 'admin' ? 'status-progress' : (p.chave === 'servidor' ? 'status-banca' : 'status-waiting'), label: p.rotulo }) %>
                                                 <% }) %>
                                             <% } else { %>
-                                                <span class="status <%= supervisor ? 'status-banca' : 'status-waiting' %>"><%= tipo %></span>
+                                                <%- include('partials/status', { classe: supervisor ? 'status-banca' : 'status-waiting', label: tipo }) %>
                                             <% } %>
                                         </td>
                                         <td class="user-status-cell">
-                                            <span class="status <%= usuario.ativo ? 'status-completed' : 'status-archived' %>"><%= usuario.ativo ? 'Ativo' : 'Desativado' %></span>
+                                            <%- include('partials/status', { classe: usuario.ativo ? 'status-completed' : 'status-archived', label: usuario.ativo ? 'Ativo' : 'Desativado' }) %>
                                             <% if (supervisor) { %>
-                                                <span class="status <%= usuario.supervisor_aprovado ? 'status-completed' : 'status-waiting' %>"><%= usuario.supervisor_aprovado ? 'Aprovado' : 'Aguardando aprovação' %></span>
+                                                <%- include('partials/status', { classe: usuario.supervisor_aprovado ? 'status-completed' : 'status-waiting', label: usuario.supervisor_aprovado ? 'Aprovado' : 'Aguardando aprovação' }) %>
                                             <% } else if (usuario.tipo === 'aluno' && usuario.status_estagio) { %>
                                                 <span class="status status-waiting">Estágio: <%= usuario.status_estagio.replace('_', ' ') %></span>
                                             <% } %>
@@ -196,24 +194,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="pagination users-pagination">
-                    <span class="pagination-info">Exibindo <%= inicio %>–<%= fim %> de <%= total %> usuários</span>
-                    <% if (totalPaginas > 1) { %>
-                        <nav class="pagination-pages" aria-label="Paginação de usuários">
-                            <% if (pagina > 1) { %><a href="<%= montarUrl({ pagina: pagina - 1 }) %>" class="pagination-link">Anterior</a><% } %>
-                            <a href="<%= montarUrl({ pagina: 1 }) %>" class="pagination-link <%= pagina === 1 ? 'active' : '' %>" <%= pagina === 1 ? 'aria-current="page"' : '' %>>1</a>
-                            <% if (inicioJanela > 2) { %><span class="pagination-gap" aria-hidden="true">…</span><% } %>
-                            <% for (let p = inicioJanela; p <= fimJanela; p++) { %>
-                                <a href="<%= montarUrl({ pagina: p }) %>" class="pagination-link <%= pagina === p ? 'active' : '' %>" <%= pagina === p ? 'aria-current="page"' : '' %>><%= p %></a>
-                            <% } %>
-                            <% if (fimJanela < totalPaginas - 1) { %><span class="pagination-gap" aria-hidden="true">…</span><% } %>
-                            <% if (totalPaginas > 1) { %>
-                                <a href="<%= montarUrl({ pagina: totalPaginas }) %>" class="pagination-link <%= pagina === totalPaginas ? 'active' : '' %>" <%= pagina === totalPaginas ? 'aria-current="page"' : '' %>><%= totalPaginas %></a>
-                            <% } %>
-                            <% if (pagina < totalPaginas) { %><a href="<%= montarUrl({ pagina: pagina + 1 }) %>" class="pagination-link">Próxima</a><% } %>
-                        </nav>
-                    <% } %>
-                </div>
+                <%- include('partials/paginacao', { pagina, totalPaginas, total, inicio, fim, rotulo: 'usuários', ariaLabel: 'Paginação de usuários', classe: 'users-pagination', url: (p) => montarUrl({ pagina: p }) }) %>
             </section>
         <% } else { %>
             <section class="card approval-section">

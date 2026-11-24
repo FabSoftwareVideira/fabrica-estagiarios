@@ -1,0 +1,15 @@
+<%# Paginação. Parâmetros: pagina, totalPaginas, total, inicio, fim, rotulo, url(p), ariaLabel, classe? %>
+<% const janelaInicio = Math.max(1, pagina - 2); const janelaFim = Math.min(totalPaginas, pagina + 2); %>
+<% const pagLink = (p, texto) => `<a href="${escapeFn(url(p))}" class="pagination-link${p === pagina ? ' active' : ''}"${p === pagina ? ' aria-current="page"' : ''}>${texto}</a>`; %>
+<div class="pagination <%= typeof classe !== 'undefined' ? classe : '' %>">
+    <span class="pagination-info">Mostrando <%= inicio %>–<%= fim %> de <%= total %> <%= rotulo %></span>
+    <% if (totalPaginas > 1) { %>
+        <nav class="pagination-pages" aria-label="<%= ariaLabel %>">
+            <% if (pagina > 1) { %><a href="<%= url(pagina - 1) %>" class="pagination-link">Anterior</a><% } %>
+            <% if (janelaInicio > 1) { %><%- pagLink(1, 1) %><% if (janelaInicio > 2) { %><span class="pagination-gap" aria-hidden="true">…</span><% } %><% } %>
+            <% for (let p = janelaInicio; p <= janelaFim; p++) { %><%- pagLink(p, p) %><% } %>
+            <% if (janelaFim < totalPaginas) { %><% if (janelaFim < totalPaginas - 1) { %><span class="pagination-gap" aria-hidden="true">…</span><% } %><%- pagLink(totalPaginas, totalPaginas) %><% } %>
+            <% if (pagina < totalPaginas) { %><a href="<%= url(pagina + 1) %>" class="pagination-link">Próxima</a><% } %>
+        </nav>
+    <% } %>
+</div>

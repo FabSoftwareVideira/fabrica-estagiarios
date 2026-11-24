@@ -1,0 +1,4 @@
+<%# Barra de progresso. Parâmetros: percentual, classe?, rotulo? %>
+<div class="progress<%= typeof classe !== 'undefined' ? ' ' + classe : '' %>"<% if (typeof rotulo !== 'undefined') { %> role="img" aria-label="<%= rotulo %>"<% } %>>
+    <div class="progress-bar" data-percent="<%= percentual %>"></div>
+</div>

@@ -38,12 +38,12 @@
                 <h1>Olá, <%= primeiroNome %></h1>
                 <p>Acompanhe suas horas, registre atividades e emita suas fichas.</p>
             </div>
-            <span class="status <%= st.classe %>"><%= st.label %></span>
+            <%- include('partials/status', { classe: st.classe, label: st.label }) %>
         </div>
 
         <% if (banca) { %>
             <section class="card" aria-labelledby="minha-banca">
-                <div class="card-header"><h2 id="minha-banca">Sua banca de estágio</h2><span class="status <%= banca.situacao === 'cancelada' ? 'status-invalidated' : 'status-progress' %>"><%= situacoesBanca[banca.situacao] %></span></div>
+                <div class="card-header"><h2 id="minha-banca">Sua banca de estágio</h2><%- include('partials/status', { classe: banca.situacao === 'cancelada' ? 'status-invalidated' : 'status-progress', label: situacoesBanca[banca.situacao] }) %></div>
                 <% if (banca.situacao === 'cancelada') { %><p>A banca foi cancelada. Aguarde um novo agendamento do orientador.</p>
                 <% } else { %>
                     <p><strong><%= dataBr(banca.data) %> · <%= banca.hora_inicio %> às <%= banca.hora_fim %></strong> (horário de Brasília)</p>
@@ -222,7 +222,7 @@
                             <div class="ficha-item">
                                 <h3><%= d.empresa || 'Local não informado' %></h3>
                                 <p>Supervisor: <%= d.supervisor_nome || 'Não informado' %> · <%= Number(d.horas_validadas) %>h validadas · desligamento em <%= dataBr(d.desligado_em) %></p>
-                                <p><%= d.confirmado_em ? 'Horas aproveitadas' : (d.solicitado_em ? 'Aguardando confirmação das horas' : 'Horas ainda não solicitadas') %></p>
+                                <p><%= d.confirmado_em ? 'Horas aproveitadas' : (d.solicitado_em ? 'Aproveitamento solicitado: aguardando o orientador conferir a ficha assinada pelo supervisor' : 'Horas ainda não solicitadas') %></p>
                                 <div class="button-group">
                                     <a class="btn btn-secondary" href="/aluno/desligamentos/<%= d.id %>/ficha-acompanhamento">Baixar ficha de acompanhamento</a>
                                     <% if (!d.solicitado_em && Number(d.horas_validadas) > 0 && !encerrado) { %>

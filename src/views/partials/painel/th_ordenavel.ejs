@@ -1,0 +1,4 @@
+<%# Cabeçalho de coluna ordenável. Parâmetros: campo, label, links %>
+<th aria-sort="<%= links.estado(campo) %>">
+    <a href="<%= links.ordenar(campo) %>" class="th-sort"><%= label %> <span class="sort-icon" aria-hidden="true"><%= links.icone(campo) %></span></a>
+</th>

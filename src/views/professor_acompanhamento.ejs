@@ -172,7 +172,7 @@
                                     <a href="<%= a.etapa === 'lista_espera' ? '/professor/cadastro-aluno/' + a.usuario_id : '/professor/aluno/' + a.usuario_id %>"><strong><%= a.nome %></strong></a>
                                     <small class="acomp-sub"><%= a.cursoCurto %></small>
                                 </td>
-                                <td><span class="status <%= a.etapaClasse %>"><%= a.etapaLabel %></span></td>
+                                <td><%- include('partials/status', { classe: a.etapaClasse, label: a.etapaLabel }) %></td>
                                 <td class="acomp-horas">
                                     <% if (a.carga > 0) { %>
                                         <span><%= formatarHoras(a.validadas) %> de <%= formatarHoras(a.carga) %></span>
@@ -192,31 +192,11 @@
             </div>
 
             <% if (paginacao.total > 0) { %>
-                <%
-                    const { pagina, totalPaginas, total, inicio, tamanho } = paginacao;
-                    const janelaInicio = Math.max(1, pagina - 2);
-                    const janelaFim = Math.min(totalPaginas, pagina + 2);
-                %>
-                <nav class="pagination" aria-label="Páginas de estudantes">
-                    <span class="pagination-info">Mostrando <%= inicio + 1 %>–<%= Math.min(inicio + tamanho, total) %> de <%= total %></span>
-                    <% if (totalPaginas > 1) { %>
-                        <div class="pagination-pages">
-                            <% if (pagina > 1) { %><a href="<%= link({ pagina: pagina - 1 }) %>" class="pagination-link">Anterior</a><% } %>
-                            <% if (janelaInicio > 1) { %>
-                                <a href="<%= link({ pagina: 1 }) %>" class="pagination-link">1</a>
-                                <% if (janelaInicio > 2) { %><span class="pagination-gap">…</span><% } %>
-                            <% } %>
-                            <% for (let p = janelaInicio; p <= janelaFim; p++) { %>
-                                <a href="<%= link({ pagina: p }) %>" class="pagination-link <%= p === pagina ? 'active' : '' %>" <%- p === pagina ? 'aria-current="page"' : '' %>><%= p %></a>
-                            <% } %>
-                            <% if (janelaFim < totalPaginas) { %>
-                                <% if (janelaFim < totalPaginas - 1) { %><span class="pagination-gap">…</span><% } %>
-                                <a href="<%= link({ pagina: totalPaginas }) %>" class="pagination-link"><%= totalPaginas %></a>
-                            <% } %>
-                            <% if (pagina < totalPaginas) { %><a href="<%= link({ pagina: pagina + 1 }) %>" class="pagination-link">Próxima</a><% } %>
-                        </div>
-                    <% } %>
-                </nav>
+                <%- include('partials/paginacao', {
+                    pagina: paginacao.pagina, totalPaginas: paginacao.totalPaginas, total: paginacao.total,
+                    inicio: paginacao.inicio + 1, fim: Math.min(paginacao.inicio + paginacao.tamanho, paginacao.total),
+                    rotulo: 'estudantes', ariaLabel: 'Páginas de estudantes', url: (p) => link({ pagina: p }),
+                }) %>
             <% } %>
         </section>
     </main>

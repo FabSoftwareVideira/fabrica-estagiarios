@@ -1,0 +1,5 @@
+<%# Opção de filtro em formato de pílula. Parâmetros: nome, valor, marcado, label, classe? %>
+<label class="filter-pill<%= typeof classe !== 'undefined' ? ' ' + classe : '' %>">
+    <input type="checkbox" name="<%= nome %>" value="<%= valor %>" <%= marcado ? 'checked' : '' %> data-auto-submit>
+    <span><%= label %></span>
+</label>

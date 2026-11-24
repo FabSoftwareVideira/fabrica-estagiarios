@@ -3,6 +3,7 @@ const { requireRole, requireAdmin, requireNomeConfirmado, setFlash } = require('
 const alunosModel = require('../models/alunos');
 const atividadesModel = require('../models/atividades');
 const desligamentosModel = require('../models/desligamentos');
+const { criarLinksDoPainel } = require('../utils/linksDoPainel');
 const usuariosModel = require('../models/usuarios');
 const professoresModel = require('../models/professores');
 const relatorioSemanalModel = require('../models/relatorioSemanal');
@@ -248,6 +249,7 @@ router.get('/dashboard', async (req, res) => {
         minhasBancas,
         facPendentes,
         desligados,
+        links: criarLinksDoPainel({ aba, filtros, ordenacao, supervisor: isSupervisor }),
     });
 });
 
