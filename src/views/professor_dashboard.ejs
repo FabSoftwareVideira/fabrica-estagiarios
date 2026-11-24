@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= user.cargo === 'supervisor' ? 'Supervisionados' : 'Estagiários' %> · Controle de Estágio</title>
+    <title>
+        <%= user.cargo==='supervisor' ? 'Supervisionados' : 'Estagiários' %> · Controle de Estágio
+    </title>
     <script src="/js/theme.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme.css">
@@ -16,365 +18,794 @@
 
         <main id="conteudo" class="container">
             <%- include('partials/flash') %>
-            <%- include('partials/breadcrumb', { itens: [{ texto: user.cargo === 'supervisor' ? 'Supervisionados' : 'Estagiários' }] }) %>
+                <%- include('partials/breadcrumb', { itens: [{ texto: user.cargo==='supervisor' ? 'Supervisionados'
+                    : 'Estagiários' }] }) %>
 
-                <% if (solicitacoesPendentes > 0) { %>
-                    <section class="card pending-requests-banner" aria-label="Solicitações de supervisores externos">
-                        <div>
-                            <strong><%- icone('alerta') %> <%= solicitacoesPendentes %> <%= solicitacoesPendentes === 1 ? 'solicitação aguarda' : 'solicitações aguardam' %> aprovação</strong>
-                            <p>Supervisores externos são aprovados pelo administrador ou pelo setor de estágios.</p>
-                        </div>
-                        <a href="/professor/usuarios" class="btn btn-secondary btn-sm">Revisar solicitações</a>
-                    </section>
-                <% } %>
-
-                <% if (typeof desligamentosReversiveis !== 'undefined' && desligamentosReversiveis.length) { %>
-                    <% desligamentosReversiveis.forEach((d) => { %>
-                        <section class="card pending-requests-banner" aria-label="Desligamento de <%= d.nome %>">
+                    <% if (solicitacoesPendentes> 0) { %>
+                        <section class="card pending-requests-banner"
+                            aria-label="Solicitações de supervisores externos">
                             <div>
-                                <strong><%- icone('alerta') %> <%= d.nome %> foi desligado(a) em <%= dataBr(d.desligado_em) %></strong>
-                                <p>Foi desligado por engano? Você pode desfazer até o estudante iniciar outro estágio. Banca cancelada não é restaurada.<% if (d.horario_trabalho_anterior == null) { %> A escala deverá ser informada novamente pelo orientador ou pela gestão.<% } %></p>
+                                <strong><%- icone('alerta') %>
+                                        <%= solicitacoesPendentes %>
+                                            <%= solicitacoesPendentes===1 ? 'solicitação aguarda'
+                                                : 'solicitações aguardam' %> aprovação</strong>
+                                <p>Supervisores externos são aprovados pelo administrador ou pelo setor de estágios.</p>
                             </div>
-                            <form method="POST" action="/professor/desligamentos/<%= d.id %>/reverter">
-                                <button type="submit" class="btn-secondary btn-sm" data-confirmar="Desfazer o desligamento e retomar o estágio? Uma banca cancelada permanecerá cancelada.">Desfazer desligamento</button>
-                            </form>
+                            <a href="/professor/usuarios" class="btn btn-secondary btn-sm">Revisar solicitações</a>
                         </section>
-                    <% }) %>
-                <% } %>
-
-                <% if (user.cargo === 'supervisor' && typeof facPendentes !== 'undefined' && facPendentes.length) { %>
-                    <section class="card fac-destaque" id="fac-pendentes" aria-labelledby="titulo-fac-pendentes">
-                        <div class="fac-destaque-head">
-                            <div>
-                                <h2 id="titulo-fac-pendentes"><%- icone('caneta') %> FAC pendente</h2>
-                                <p class="text-muted">
-                                    <%= facPendentes.length === 1
-                                        ? '1 supervisionado concluiu a carga horária e aguarda a sua avaliação.'
-                                        : facPendentes.length + ' supervisionados concluíram a carga horária e aguardam a sua avaliação.' %>
-                                </p>
-                            </div>
-                            <span class="status status-banca"><%= facPendentes.length %> pendente<%= facPendentes.length === 1 ? '' : 's' %></span>
-                        </div>
-                        <div class="fac-destaque-grid">
-                            <% facPendentes.forEach((a) => { %>
-                                <article class="fac-destaque-card">
-                                    <div>
-                                        <h3><a href="/professor/aluno/<%= a.usuario_id %>"><%= a.nome %></a></h3>
-                                        <p class="text-muted"><%= a.empresa || 'Empresa não informada' %> · horas cumpridas</p>
-                                    </div>
-                                    <a class="btn btn-success btn-sm" href="/professor/aluno/<%= a.usuario_id %>/fac"><%- icone('caneta') %> Preencher FAC</a>
-                                </article>
-                            <% }) %>
-                        </div>
-                    </section>
-                <% } %>
-
-                <% { %>
-                    <div class="card filters-card">
-                        <form action="/professor/dashboard" method="GET" class="filters-form">
-                            <input type="hidden" name="f" value="1">
-                            <input type="hidden" name="aba" value="<%= aba %>">
-                            <% if (ordenacao && ordenacao.campo) { %>
-                                <input type="hidden" name="ordenar" value="<%= ordenacao.campo %>">
-                                <input type="hidden" name="dir" value="<%= ordenacao.direcao %>">
-                            <% } %>
-                            <div class="filters-top">
-                                <input type="search" name="q" value="<%= filtros.q %>"
-                                    placeholder="Buscar por nome, matrícula ou e-mail" aria-label="Buscar <%= user.cargo === 'supervisor' ? 'supervisionados' : 'estagiários' %>">
-                                <button type="submit"><%- icone('lupa', 18) %> Buscar</button>
-                                <% if (filtroPersonalizado) { %>
-                                    <a href="/professor/dashboard?aba=<%= aba %>" class="btn btn-secondary">Limpar</a>
-                                <% } %>
-                            </div>
-
-                            <div class="filters-bottom">
-                                <span class="filters-label">Filtrar por</span>
-                                <div class="filter-pills">
-                                    <% if (user.cargo === 'supervisor') { %>
-                                        <label class="filter-pill">
-                                            <input type="checkbox" name="situacao" value="andamento"
-                                                <%= filtros.situacao.includes('andamento') ? 'checked' : '' %>
-                                                data-auto-submit>
-                                            <span>Em andamento</span>
-                                        </label>
-                                        <label class="filter-pill">
-                                            <input type="checkbox" name="situacao" value="concluido"
-                                                <%= filtros.situacao.includes('concluido') ? 'checked' : '' %>
-                                                data-auto-submit>
-                                            <span>Concluído</span>
-                                        </label>
-                                    <% } else { %>
-                                        <label class="filter-pill">
-                                            <input type="checkbox" name="status" value="lista_espera"
-                                                <%= filtros.status.includes('lista_espera') ? 'checked' : '' %>
-                                                data-auto-submit>
-                                            <span>Lista de espera</span>
-                                        </label>
-                                        <label class="filter-pill">
-                                            <input type="checkbox" name="status" value="em_andamento"
-                                                <%= filtros.status.includes('em_andamento') ? 'checked' : '' %>
-                                                data-auto-submit>
-                                            <span>Em andamento</span>
-                                        </label>
-                                        <label class="filter-pill">
-                                            <input type="checkbox" name="status" value="aguardando_banca"
-                                                <%= filtros.status.includes('aguardando_banca') || filtros.status.includes('concluido') ? 'checked' : '' %>
-                                                data-auto-submit>
-                                            <span>Aguardando banca</span>
-                                        </label>
-                                        <label class="filter-pill">
-                                            <input type="checkbox" name="status" value="encerrado"
-                                                <%= filtros.status.includes('encerrado') || filtros.status.includes('concluido') ? 'checked' : '' %>
-                                                data-auto-submit>
-                                            <span>Encerrado</span>
-                                        </label>
-
-                                        <span class="filter-pills-sep"></span>
-                                        <label class="filter-pill filter-pill-archived">
-                                            <input type="checkbox" name="arquivados" value="1"
-                                                <%= filtros.arquivados ? 'checked' : '' %>
-                                                data-auto-submit>
-                                            <span>Arquivados</span>
-                                        </label>
-                                    <% } %>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    <%# bancas do professor: informação de apoio, recolhida para não competir com a lista %>
-                    <% if (typeof minhasBancas !== 'undefined' && minhasBancas.length) { %>
-                        <% const papelNaBanca = (b) => Number(user.id) === Number(b.orientador_id) ? 'orientador' : (Number(user.id) === Number(b.avaliador_1_id) ? 'avaliador 1' : 'avaliador 2'); %>
-                        <% const proxima = minhasBancas[0]; %>
-                        <details class="bancas-resumo">
-                            <summary>
-                                <%- icone('calendario') %>
-                                <span>Próxima banca: <strong><%= dataBr(proxima.data) %>, <%= proxima.hora_inicio %>–<%= proxima.hora_fim %></strong> · <%= proxima.aluno_nome %> · você é <%= papelNaBanca(proxima) %></span>
-                                <% if (minhasBancas.length > 1) { %><span class="bancas-resumo-mais">+<%= minhasBancas.length - 1 %></span><% } %>
-                            </summary>
-                            <ul>
-                                <% minhasBancas.forEach((b) => { %>
-                                    <li>
-                                        <span><strong><%= dataBr(b.data) %>, <%= b.hora_inicio %>–<%= b.hora_fim %></strong> · <%= b.aluno_nome %> · <%= papelNaBanca(b) %> · <%= b.sala %><% if (b.situacao === 'remarcada') { %> · remarcada<% } %></span>
-                                        <span class="bancas-resumo-links">
-                                            <% if (b.link_reuniao) { %><a href="<%= b.link_reuniao %>" target="_blank" rel="noopener noreferrer">Reunião</a><% } %>
-                                            <a href="/professor/aluno/<%= b.aluno_id %>/banca">Detalhes</a>
-                                        </span>
-                                    </li>
-                                <% }) %>
-                            </ul>
-                        </details>
-                    <% } %>
-
-                    <%
-                        const ordenacaoAtual = ordenacao || { campo: null, direcao: 'asc' };
-                        const parametrosBase = () => {
-                            const params = new URLSearchParams();
-                            params.set('f', '1');
-                            params.set('aba', aba);
-                            if (filtros.q) params.set('q', filtros.q);
-                            if (user.cargo === 'supervisor') {
-                                (filtros.situacao || []).forEach((s) => params.append('situacao', s));
-                            } else {
-                                filtros.status.forEach((s) => params.append('status', s));
-                                if (filtros.arquivados) params.set('arquivados', '1');
-                            }
-                            if (ordenacaoAtual.campo) {
-                                params.set('ordenar', ordenacaoAtual.campo);
-                                params.set('dir', ordenacaoAtual.direcao);
-                            }
-                            return params;
-                        };
-                        const montarPagina = (p) => {
-                            const params = parametrosBase();
-                            params.set('pagina', p);
-                            return '/professor/dashboard?' + params.toString();
-                        };
-                        const montarOrdenacao = (campo) => {
-                            const params = parametrosBase();
-                            const direcao = ordenacaoAtual.campo === campo && ordenacaoAtual.direcao === 'asc'
-                                ? 'desc'
-                                : 'asc';
-                            params.set('ordenar', campo);
-                            params.set('dir', direcao);
-                            params.set('pagina', '1');
-                            return '/professor/dashboard?' + params.toString();
-                        };
-                        const estadoOrdenacao = (campo) => {
-                            if (ordenacaoAtual.campo !== campo) return 'none';
-                            return ordenacaoAtual.direcao === 'asc' ? 'ascending' : 'descending';
-                        };
-                        const iconeOrdenacao = (campo) => {
-                            if (ordenacaoAtual.campo !== campo) return '↕';
-                            return ordenacaoAtual.direcao === 'asc' ? '↑' : '↓';
-                        };
-                    %>
-
-                    <div class="card">
-                        <% if (user.cargo === 'supervisor') { %>
-                            <% if (alunos.length === 0) { %>
-                                <p class="empty-state">Nenhum supervisionado encontrado com os filtros atuais.</p>
-                            <% } else { %>
-                                <div class="supervisionados-grid">
-                                    <% alunos.forEach((a) => { %>
-                                        <%
-                                            const concluido = a.status === 'concluido';
-                                            const carga = Number(a.carga_horaria) || 0;
-                                            const realizadas = Number(a.horas_realizadas) || 0;
-                                            const pendentes = Number(a.horas_pendentes) || 0;
-                                            const pct = carga > 0 ? Math.min(100, Math.round((realizadas / carga) * 100)) : 0;
-                                            const facDisponivel = concluido && !a.encerrado_em && !a.arquivado;
-                                        %>
-                                        <article class="supervisionado-card <%= facDisponivel && !a.tem_fac ? 'is-pendente' : '' %>">
-                                            <div class="supervisionado-head">
-                                                <h3><a href="/professor/aluno/<%= a.usuario_id %>"><%= a.nome %></a></h3>
-                                                <span class="status <%= concluido ? 'status-completed' : 'status-progress' %>"><%= concluido ? 'Concluído' : 'Em andamento' %></span>
-                                            </div>
-                                            <p class="supervisionado-meta"><%= a.curso || 'Curso não informado' %></p>
-                                            <p class="supervisionado-meta"><%= a.empresa || 'Empresa não informada' %></p>
-                                            <div class="summary-progress">
-                                                <div class="summary-progress-label">
-                                                    <span><strong><%= realizadas %>h</strong> de <strong><%= carga %>h</strong></span>
-                                                    <span><%= pct %>%</span>
-                                                </div>
-                                                <div class="progress"><div class="progress-bar" data-percent="<%= pct %>"></div></div>
-                                                <% if (pendentes > 0) { %>
-                                                    <p class="progress-caption text-muted"><strong><%= pendentes %>h</strong> aguardando validação</p>
-                                                <% } %>
-                                            </div>
-                                            <p class="supervisionado-orientador text-muted">Orientador: <%= a.orientador_nome || '—' %></p>
-                                            <div class="supervisionado-acoes">
-                                                <% if (facDisponivel) { %>
-                                                    <a class="btn <%= a.tem_fac ? 'btn-secondary' : 'btn-success' %> btn-sm" href="/professor/aluno/<%= a.usuario_id %>/fac"><%- icone(a.tem_fac ? 'olho' : 'caneta') %> <%= a.tem_fac ? 'Revisar FAC' : 'Preencher FAC' %></a>
-                                                <% } %>
-                                                <a class="btn btn-secondary btn-sm" href="/professor/aluno/<%= a.usuario_id %>"><%- icone('olho') %> Detalhes</a>
-                                            </div>
-                                        </article>
-                                    <% }) %>
-                                </div>
-                            <% } %>
-                        <% } else { %>
-                        <div class="table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th aria-sort="<%= estadoOrdenacao('nome') %>">
-                                            <a href="<%= montarOrdenacao('nome') %>" class="th-sort">
-                                                Nome <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('nome') %></span>
-                                            </a>
-                                        </th>
-                                        <% if (user.cargo === 'admin') { %>
-                                            <th aria-sort="<%= estadoOrdenacao('supervisor') %>">
-                                                <a href="<%= montarOrdenacao('supervisor') %>" class="th-sort">
-                                                    Supervisor <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('supervisor') %></span>
-                                                </a>
-                                            </th>
-                                        <% } else { %>
-                                            <th>Papel</th>
-                                            <th>Orientador / Supervisor</th>
-                                        <% } %>
-                                        <th aria-sort="<%= estadoOrdenacao('horas') %>">
-                                            <a href="<%= montarOrdenacao('horas') %>" class="th-sort">
-                                                Horas <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('horas') %></span>
-                                            </a>
-                                        </th>
-                                        <th aria-sort="<%= estadoOrdenacao('status') %>">
-                                            <a href="<%= montarOrdenacao('status') %>" class="th-sort">
-                                                Status <span class="sort-icon" aria-hidden="true"><%= iconeOrdenacao('status') %></span>
-                                            </a>
-                                        </th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% if (alunos.length === 0) { %>
-                                        <tr>
-                                            <td colspan="<%= user.cargo === 'admin' ? 5 : 6 %>">
-                                                <%= filtros.arquivados
-                                                    ? 'Nenhum estagiário arquivado encontrado.'
-                                                    : 'Nenhum estagiário encontrado com os filtros atuais.' %>
-                                            </td>
-                                        </tr>
-                                    <% } else { %>
-                                        <% alunos.forEach((a) => { %>
-                                            <tr>
-                                                <td><a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a></td>
-                                                <% if (user.cargo === 'admin') { %>
-                                                    <td><%= a.supervisor_nome || '—' %></td>
-                                                <% } else { %>
-                                                    <td>
-                                                        <% if (Number(a.orientador_id) === Number(user.id)) { %>
-                                                            <span class="status status-progress">Orientando</span>
-                                                        <% } %>
-                                                        <% if (Number(a.supervisor_id) === Number(user.id)) { %>
-                                                            <span class="status status-completed">Supervisionado</span>
-                                                        <% } %>
-                                                    </td>
-                                                    <td>Orientador: <%= a.orientador_nome || '—' %><br>Supervisor: <%= a.supervisor_nome || '—' %></td>
-                                                <% } %>
-                                                <td>
-                                                    <%= Number(a.horas_realizadas) %> / <%= a.carga_horaria %>h
-                                                    <% if (Number(a.horas_pendentes) > 0) { %>
-                                                        <br><span class="text-muted hours-pending">+<%= a.horas_pendentes %>h pendentes</span>
-                                                    <% } %>
-                                                </td>
-                                                <td>
-                                                    <% const st = estagioStatus(a); %>
-                                                    <span class="status <%= st.classe %>"><%= st.label %></span>
-                                                </td>
-                                                <td>
-                                                    <%- include('partials/aluno_acoes', { a, user }) %>
-                                                </td>
-                                            </tr>
-                                        <% }) %>
-                                    <% } %>
-                                </tbody>
-                            </table>
-                        </div>
                         <% } %>
 
-                        <%
-                            const inicioExibido = total === 0 ? 0 : (pagina - 1) * tamanhoPagina + 1;
-                            const fimExibido = Math.min(total, pagina * tamanhoPagina);
-                            const inicioJanela = Math.max(1, pagina - 2);
-                            const fimJanela = Math.min(totalPaginas, pagina + 2);
-                        %>
+                            <% if (typeof desligamentosReversiveis !=='undefined' && desligamentosReversiveis.length) {
+                                %>
+                                <% desligamentosReversiveis.forEach((d)=> { %>
+                                    <section class="card pending-requests-banner"
+                                        aria-label="Desligamento de <%= d.nome %>">
+                                        <div>
+                                            <strong><%- icone('alerta') %>
+                                                    <%= d.nome %> foi desligado(a) em <%= dataBr(d.desligado_em) %>
+                                            </strong>
+                                            <p>Você pode desfazer até o estudante iniciar outro estágio.</p>
+                                        </div>
+                                        <form method="POST" action="/professor/desligamentos/<%= d.id %>/reverter">
+                                            <button type="submit" class="btn-secondary btn-sm"
+                                                data-confirmar="Desfazer o desligamento e retomar o estágio? Uma banca cancelada permanecerá cancelada.">Desfazer
+                                                desligamento</button>
+                                        </form>
+                                    </section>
+                                    <% }) %>
+                                        <% } %>
 
-                        <div class="pagination">
-                            <span class="pagination-info">
-                                Mostrando <%= inicioExibido %>–<%= fimExibido %> de <%= total %> <%= user.cargo === 'supervisor' ? 'supervisionado(s)' : 'estagiário(s)' %>
-                            </span>
+                                            <% if (user.cargo==='supervisor' && typeof facPendentes !=='undefined' &&
+                                                facPendentes.length) { %>
+                                                <section class="card fac-destaque" id="fac-pendentes"
+                                                    aria-labelledby="titulo-fac-pendentes">
+                                                    <div class="fac-destaque-head">
+                                                        <div>
+                                                            <h2 id="titulo-fac-pendentes"><%- icone('caneta') %> FAC
+                                                                    pendente</h2>
+                                                            <p class="text-muted">
+                                                                <%= facPendentes.length===1
+                                                                    ? '1 supervisionado concluiu a carga horária e aguarda a sua avaliação.'
+                                                                    : facPendentes.length
+                                                                    + ' supervisionados concluíram a carga horária e aguardam a sua avaliação.'
+                                                                    %>
+                                                            </p>
+                                                        </div>
+                                                        <span class="status status-banca">
+                                                            <%= facPendentes.length %> pendente<%=
+                                                                    facPendentes.length===1 ? '' : 's' %>
+                                                        </span>
+                                                    </div>
+                                                    <div class="fac-destaque-grid">
+                                                        <% facPendentes.forEach((a)=> { %>
+                                                            <article class="fac-destaque-card">
+                                                                <div>
+                                                                    <h3><a href="/professor/aluno/<%= a.usuario_id %>">
+                                                                            <%= a.nome %>
+                                                                        </a></h3>
+                                                                    <p class="text-muted">
+                                                                        <%= a.empresa || 'Empresa não informada' %> ·
+                                                                            horas cumpridas
+                                                                    </p>
+                                                                </div>
+                                                                <a class="btn btn-success btn-sm"
+                                                                    href="/professor/aluno/<%= a.usuario_id %>/fac"><%-
+                                                                        icone('caneta') %> Preencher FAC</a>
+                                                            </article>
+                                                            <% }) %>
+                                                    </div>
+                                                </section>
+                                                <% } %>
 
-                            <% if (totalPaginas > 1) { %>
-                                <div class="pagination-pages">
-                                    <% if (pagina > 1) { %>
-                                        <a href="<%= montarPagina(pagina - 1) %>" class="pagination-link">Anterior</a>
-                                    <% } %>
+                                                    <% { %>
+                                                        <div class="card filters-card">
+                                                            <form action="/professor/dashboard" method="GET"
+                                                                class="filters-form">
+                                                                <input type="hidden" name="f" value="1">
+                                                                <input type="hidden" name="aba" value="<%= aba %>">
+                                                                <% if (ordenacao && ordenacao.campo) { %>
+                                                                    <input type="hidden" name="ordenar"
+                                                                        value="<%= ordenacao.campo %>">
+                                                                    <input type="hidden" name="dir"
+                                                                        value="<%= ordenacao.direcao %>">
+                                                                    <% } %>
+                                                                        <div class="filters-top">
+                                                                            <input type="search" name="q"
+                                                                                value="<%= filtros.q %>"
+                                                                                placeholder="Buscar por nome, matrícula ou e-mail"
+                                                                                aria-label="Buscar <%= user.cargo === 'supervisor' ? 'supervisionados' : 'estagiários' %>">
+                                                                            <button type="submit"><%- icone('lupa', 18)
+                                                                                    %> Buscar</button>
+                                                                            <% if (filtroPersonalizado) { %>
+                                                                                <a href="/professor/dashboard?aba=<%= aba %>"
+                                                                                    class="btn btn-secondary">Limpar</a>
+                                                                                <% } %>
+                                                                        </div>
 
-                                    <% if (inicioJanela > 1) { %>
-                                        <a href="<%= montarPagina(1) %>" class="pagination-link">1</a>
-                                        <% if (inicioJanela > 2) { %><span class="pagination-gap">…</span><% } %>
-                                    <% } %>
+                                                                        <div class="filters-bottom">
+                                                                            <span class="filters-label">Filtrar
+                                                                                por</span>
+                                                                            <div class="filter-pills">
+                                                                                <% if (user.cargo==='supervisor' ) { %>
+                                                                                    <label class="filter-pill">
+                                                                                        <input type="checkbox"
+                                                                                            name="situacao"
+                                                                                            value="andamento"
+                                                                                            <%=filtros.situacao.includes('andamento')
+                                                                                            ? 'checked' : '' %>
+                                                                                        data-auto-submit>
+                                                                                        <span>Em andamento</span>
+                                                                                    </label>
+                                                                                    <label class="filter-pill">
+                                                                                        <input type="checkbox"
+                                                                                            name="situacao"
+                                                                                            value="concluido"
+                                                                                            <%=filtros.situacao.includes('concluido')
+                                                                                            ? 'checked' : '' %>
+                                                                                        data-auto-submit>
+                                                                                        <span>Concluído</span>
+                                                                                    </label>
+                                                                                    <% } else { %>
+                                                                                        <label class="filter-pill">
+                                                                                            <input type="checkbox"
+                                                                                                name="status"
+                                                                                                value="lista_espera"
+                                                                                                <%=filtros.status.includes('lista_espera')
+                                                                                                ? 'checked' : '' %>
+                                                                                            data-auto-submit>
+                                                                                            <span>Lista de espera</span>
+                                                                                        </label>
+                                                                                        <label class="filter-pill">
+                                                                                            <input type="checkbox"
+                                                                                                name="status"
+                                                                                                value="em_andamento"
+                                                                                                <%=filtros.status.includes('em_andamento')
+                                                                                                ? 'checked' : '' %>
+                                                                                            data-auto-submit>
+                                                                                            <span>Em andamento</span>
+                                                                                        </label>
+                                                                                        <label class="filter-pill">
+                                                                                            <input type="checkbox"
+                                                                                                name="status"
+                                                                                                value="aguardando_banca"
+                                                                                                <%=filtros.status.includes('aguardando_banca')
+                                                                                                ||
+                                                                                                filtros.status.includes('concluido')
+                                                                                                ? 'checked' : '' %>
+                                                                                            data-auto-submit>
+                                                                                            <span>Aguardando
+                                                                                                banca</span>
+                                                                                        </label>
+                                                                                        <label class="filter-pill">
+                                                                                            <input type="checkbox"
+                                                                                                name="status"
+                                                                                                value="encerrado"
+                                                                                                <%=filtros.status.includes('encerrado')
+                                                                                                ||
+                                                                                                filtros.status.includes('concluido')
+                                                                                                ? 'checked' : '' %>
+                                                                                            data-auto-submit>
+                                                                                            <span>Encerrado</span>
+                                                                                        </label>
 
-                                    <% for (let p = inicioJanela; p <= fimJanela; p++) { %>
-                                        <a href="<%= montarPagina(p) %>"
-                                            class="pagination-link <%= p === pagina ? 'active' : '' %>"><%= p %></a>
-                                    <% } %>
+                                                                                        <span
+                                                                                            class="filter-pills-sep"></span>
+                                                                                        <label
+                                                                                            class="filter-pill filter-pill-archived">
+                                                                                            <input type="checkbox"
+                                                                                                name="arquivados"
+                                                                                                value="1"
+                                                                                                <%=filtros.arquivados
+                                                                                                ? 'checked' : '' %>
+                                                                                            data-auto-submit>
+                                                                                            <span>Arquivados</span>
+                                                                                        </label>
+                                                                                        <% } %>
+                                                                            </div>
+                                                                        </div>
+                                                            </form>
+                                                        </div>
 
-                                    <% if (fimJanela < totalPaginas) { %>
-                                        <% if (fimJanela < totalPaginas - 1) { %><span class="pagination-gap">…</span><% } %>
-                                        <a href="<%= montarPagina(totalPaginas) %>" class="pagination-link"><%=
-                                            totalPaginas %></a>
-                                    <% } %>
+                                                        <%# bancas do professor: informação de apoio, recolhida para não
+                                                            competir com a lista %>
+                                                            <% if (typeof minhasBancas !=='undefined' &&
+                                                                minhasBancas.length) { %>
+                                                                <% const papelNaBanca=(b)=> Number(user.id) ===
+                                                                    Number(b.orientador_id) ? 'orientador' :
+                                                                    (Number(user.id) === Number(b.avaliador_1_id) ?
+                                                                    'avaliador 1' : 'avaliador 2'); %>
+                                                                    <% const proxima=minhasBancas[0]; %>
+                                                                        <details class="bancas-resumo">
+                                                                            <summary>
+                                                                                <%- icone('calendario') %>
+                                                                                    <span>Próxima banca: <strong>
+                                                                                            <%= dataBr(proxima.data) %>,
+                                                                                                <%= proxima.hora_inicio
+                                                                                                    %>–<%=
+                                                                                                        proxima.hora_fim
+                                                                                                        %>
+                                                                                        </strong> · <%=
+                                                                                            proxima.aluno_nome %> · você
+                                                                                            é <%= papelNaBanca(proxima)
+                                                                                                %></span>
+                                                                                    <% if (minhasBancas.length> 1) {
+                                                                                        %><span
+                                                                                            class="bancas-resumo-mais">+
+                                                                                            <%= minhasBancas.length - 1
+                                                                                                %>
+                                                                                        </span>
+                                                                                        <% } %>
+                                                                            </summary>
+                                                                            <ul>
+                                                                                <% minhasBancas.forEach((b)=> { %>
+                                                                                    <li>
+                                                                                        <span><strong>
+                                                                                                <%= dataBr(b.data) %>,
+                                                                                                    <%= b.hora_inicio %>
+                                                                                                        –<%= b.hora_fim
+                                                                                                            %>
+                                                                                            </strong> · <%= b.aluno_nome
+                                                                                                %> · <%= papelNaBanca(b)
+                                                                                                    %> · <%= b.sala %>
+                                                                                                        <% if
+                                                                                                            (b.situacao==='remarcada'
+                                                                                                            ) { %> ·
+                                                                                                            remarcada<%
+                                                                                                                } %>
+                                                                                        </span>
+                                                                                        <span
+                                                                                            class="bancas-resumo-links">
+                                                                                            <% if (b.link_reuniao) { %>
+                                                                                                <a href="<%= b.link_reuniao %>"
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer">Reunião</a>
+                                                                                                <% } %>
+                                                                                                    <a
+                                                                                                        href="/professor/aluno/<%= b.aluno_id %>/banca">Detalhes</a>
+                                                                                        </span>
+                                                                                    </li>
+                                                                                    <% }) %>
+                                                                            </ul>
+                                                                        </details>
+                                                                        <% } %>
 
-                                    <% if (pagina < totalPaginas) { %>
-                                        <a href="<%= montarPagina(pagina + 1) %>" class="pagination-link">Próxima</a>
-                                    <% } %>
-                                </div>
-                            <% } %>
-                        </div>
-                    </div>
-                <% } %>
+                                                                            <% const ordenacaoAtual=ordenacao || {
+                                                                                campo: null, direcao: 'asc' }; const
+                                                                                parametrosBase=()=> {
+                                                                                const params = new URLSearchParams();
+                                                                                params.set('f', '1');
+                                                                                params.set('aba', aba);
+                                                                                if (filtros.q) params.set('q',
+                                                                                filtros.q);
+                                                                                if (user.cargo === 'supervisor') {
+                                                                                (filtros.situacao || []).forEach((s) =>
+                                                                                params.append('situacao', s));
+                                                                                } else {
+                                                                                filtros.status.forEach((s) =>
+                                                                                params.append('status', s));
+                                                                                if (filtros.arquivados)
+                                                                                params.set('arquivados', '1');
+                                                                                }
+                                                                                if (ordenacaoAtual.campo) {
+                                                                                params.set('ordenar',
+                                                                                ordenacaoAtual.campo);
+                                                                                params.set('dir',
+                                                                                ordenacaoAtual.direcao);
+                                                                                }
+                                                                                return params;
+                                                                                };
+                                                                                const montarPagina = (p) => {
+                                                                                const params = parametrosBase();
+                                                                                params.set('pagina', p);
+                                                                                return '/professor/dashboard?' +
+                                                                                params.toString();
+                                                                                };
+                                                                                const montarOrdenacao = (campo) => {
+                                                                                const params = parametrosBase();
+                                                                                const direcao = ordenacaoAtual.campo ===
+                                                                                campo && ordenacaoAtual.direcao ===
+                                                                                'asc'
+                                                                                ? 'desc'
+                                                                                : 'asc';
+                                                                                params.set('ordenar', campo);
+                                                                                params.set('dir', direcao);
+                                                                                params.set('pagina', '1');
+                                                                                return '/professor/dashboard?' +
+                                                                                params.toString();
+                                                                                };
+                                                                                const estadoOrdenacao = (campo) => {
+                                                                                if (ordenacaoAtual.campo !== campo)
+                                                                                return 'none';
+                                                                                return ordenacaoAtual.direcao === 'asc'
+                                                                                ? 'ascending' : 'descending';
+                                                                                };
+                                                                                const iconeOrdenacao = (campo) => {
+                                                                                if (ordenacaoAtual.campo !== campo)
+                                                                                return '↕';
+                                                                                return ordenacaoAtual.direcao === 'asc'
+                                                                                ? '↑' : '↓';
+                                                                                };
+                                                                                %>
+
+                                                                                <div class="card">
+                                                                                    <% if (user.cargo==='supervisor' ) {
+                                                                                        %>
+                                                                                        <% if (alunos.length===0) { %>
+                                                                                            <p class="empty-state">
+                                                                                                Nenhum supervisionado
+                                                                                                encontrado com os
+                                                                                                filtros atuais.</p>
+                                                                                            <% } else { %>
+                                                                                                <div
+                                                                                                    class="supervisionados-grid">
+                                                                                                    <%
+                                                                                                        alunos.forEach((a)=>
+                                                                                                        { %>
+                                                                                                        <% const
+                                                                                                            concluido=a.status==='concluido'
+                                                                                                            ; const
+                                                                                                            carga=Number(a.carga_horaria)
+                                                                                                            || 0; const
+                                                                                                            realizadas=Number(a.horas_realizadas)
+                                                                                                            || 0; const
+                                                                                                            pendentes=Number(a.horas_pendentes)
+                                                                                                            || 0; const
+                                                                                                            pct=carga> 0
+                                                                                                            ?
+                                                                                                            Math.min(100,
+                                                                                                            Math.round((realizadas
+                                                                                                            / carga) *
+                                                                                                            100)) : 0;
+                                                                                                            const
+                                                                                                            facDisponivel
+                                                                                                            = concluido
+                                                                                                            &&
+                                                                                                            !a.encerrado_em
+                                                                                                            &&
+                                                                                                            !a.arquivado;
+                                                                                                            %>
+                                                                                                            <article
+                                                                                                                class="supervisionado-card <%= facDisponivel && !a.tem_fac ? 'is-pendente' : '' %>">
+                                                                                                                <div
+                                                                                                                    class="supervisionado-head">
+                                                                                                                    <h3><a
+                                                                                                                            href="/professor/aluno/<%= a.usuario_id %>">
+                                                                                                                            <%= a.nome
+                                                                                                                                %>
+                                                                                                                        </a>
+                                                                                                                    </h3>
+                                                                                                                    <span
+                                                                                                                        class="status <%= concluido ? 'status-completed' : 'status-progress' %>">
+                                                                                                                        <%= concluido
+                                                                                                                            ? 'Concluído'
+                                                                                                                            : 'Em andamento'
+                                                                                                                            %>
+                                                                                                                    </span>
+                                                                                                                </div>
+                                                                                                                <p
+                                                                                                                    class="supervisionado-meta">
+                                                                                                                    <%= a.curso
+                                                                                                                        || 'Curso não informado'
+                                                                                                                        %>
+                                                                                                                </p>
+                                                                                                                <p
+                                                                                                                    class="supervisionado-meta">
+                                                                                                                    <%= a.empresa
+                                                                                                                        || 'Empresa não informada'
+                                                                                                                        %>
+                                                                                                                </p>
+                                                                                                                <div
+                                                                                                                    class="summary-progress">
+                                                                                                                    <div
+                                                                                                                        class="summary-progress-label">
+                                                                                                                        <span><strong>
+                                                                                                                                <%= realizadas
+                                                                                                                                    %>
+                                                                                                                                    h
+                                                                                                                            </strong>
+                                                                                                                            de
+                                                                                                                            <strong>
+                                                                                                                                <%= carga
+                                                                                                                                    %>
+                                                                                                                                    h
+                                                                                                                            </strong></span>
+                                                                                                                        <span>
+                                                                                                                            <%= pct
+                                                                                                                                %>
+                                                                                                                                %
+                                                                                                                        </span>
+                                                                                                                    </div>
+                                                                                                                    <div
+                                                                                                                        class="progress">
+                                                                                                                        <div class="progress-bar"
+                                                                                                                            data-percent="<%= pct %>">
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                    <% if
+                                                                                                                        (pendentes>
+                                                                                                                        0)
+                                                                                                                        {
+                                                                                                                        %>
+                                                                                                                        <p
+                                                                                                                            class="progress-caption text-muted">
+                                                                                                                            <strong>
+                                                                                                                                <%= pendentes
+                                                                                                                                    %>
+                                                                                                                                    h
+                                                                                                                            </strong>
+                                                                                                                            aguardando
+                                                                                                                            validação
+                                                                                                                        </p>
+                                                                                                                        <% }
+                                                                                                                            %>
+                                                                                                                </div>
+                                                                                                                <p
+                                                                                                                    class="supervisionado-orientador text-muted">
+                                                                                                                    Orientador:
+                                                                                                                    <%= a.orientador_nome
+                                                                                                                        || '—'
+                                                                                                                        %>
+                                                                                                                </p>
+                                                                                                                <div
+                                                                                                                    class="supervisionado-acoes">
+                                                                                                                    <% if
+                                                                                                                        (facDisponivel)
+                                                                                                                        {
+                                                                                                                        %>
+                                                                                                                        <a class="btn <%= a.tem_fac ? 'btn-secondary' : 'btn-success' %> btn-sm"
+                                                                                                                            href="/professor/aluno/<%= a.usuario_id %>/fac"><%-
+                                                                                                                                icone(a.tem_fac
+                                                                                                                                ? 'olho'
+                                                                                                                                : 'caneta'
+                                                                                                                                )
+                                                                                                                                %>
+                                                                                                                                <%= a.tem_fac
+                                                                                                                                    ? 'Revisar FAC'
+                                                                                                                                    : 'Preencher FAC'
+                                                                                                                                    %>
+                                                                                                                        </a>
+                                                                                                                        <% }
+                                                                                                                            %>
+                                                                                                                            <a class="btn btn-secondary btn-sm"
+                                                                                                                                href="/professor/aluno/<%= a.usuario_id %>"><%-
+                                                                                                                                    icone('olho')
+                                                                                                                                    %>
+                                                                                                                                    Detalhes</a>
+                                                                                                                </div>
+                                                                                                            </article>
+                                                                                                            <% }) %>
+                                                                                                </div>
+                                                                                                <% } %>
+                                                                                                    <% } else { %>
+                                                                                                        <div
+                                                                                                            class="table-wrap">
+                                                                                                            <table>
+                                                                                                                <thead>
+                                                                                                                    <tr>
+                                                                                                                        <th
+                                                                                                                            aria-sort="<%= estadoOrdenacao('nome') %>">
+                                                                                                                            <a href="<%= montarOrdenacao('nome') %>"
+                                                                                                                                class="th-sort">
+                                                                                                                                Nome
+                                                                                                                                <span
+                                                                                                                                    class="sort-icon"
+                                                                                                                                    aria-hidden="true">
+                                                                                                                                    <%= iconeOrdenacao('nome')
+                                                                                                                                        %>
+                                                                                                                                </span>
+                                                                                                                            </a>
+                                                                                                                        </th>
+                                                                                                                        <% if
+                                                                                                                            (user.cargo==='admin'
+                                                                                                                            )
+                                                                                                                            {
+                                                                                                                            %>
+                                                                                                                            <th
+                                                                                                                                aria-sort="<%= estadoOrdenacao('supervisor') %>">
+                                                                                                                                <a href="<%= montarOrdenacao('supervisor') %>"
+                                                                                                                                    class="th-sort">
+                                                                                                                                    Supervisor
+                                                                                                                                    <span
+                                                                                                                                        class="sort-icon"
+                                                                                                                                        aria-hidden="true">
+                                                                                                                                        <%= iconeOrdenacao('supervisor')
+                                                                                                                                            %>
+                                                                                                                                    </span>
+                                                                                                                                </a>
+                                                                                                                            </th>
+                                                                                                                            <% } else
+                                                                                                                                {
+                                                                                                                                %>
+                                                                                                                                <th>Papel
+                                                                                                                                </th>
+                                                                                                                                <th>Orientador
+                                                                                                                                    /
+                                                                                                                                    Supervisor
+                                                                                                                                </th>
+                                                                                                                                <% }
+                                                                                                                                    %>
+                                                                                                                                    <th
+                                                                                                                                        aria-sort="<%= estadoOrdenacao('horas') %>">
+                                                                                                                                        <a href="<%= montarOrdenacao('horas') %>"
+                                                                                                                                            class="th-sort">
+                                                                                                                                            Horas
+                                                                                                                                            <span
+                                                                                                                                                class="sort-icon"
+                                                                                                                                                aria-hidden="true">
+                                                                                                                                                <%= iconeOrdenacao('horas')
+                                                                                                                                                    %>
+                                                                                                                                            </span>
+                                                                                                                                        </a>
+                                                                                                                                    </th>
+                                                                                                                                    <th
+                                                                                                                                        aria-sort="<%= estadoOrdenacao('status') %>">
+                                                                                                                                        <a href="<%= montarOrdenacao('status') %>"
+                                                                                                                                            class="th-sort">
+                                                                                                                                            Status
+                                                                                                                                            <span
+                                                                                                                                                class="sort-icon"
+                                                                                                                                                aria-hidden="true">
+                                                                                                                                                <%= iconeOrdenacao('status')
+                                                                                                                                                    %>
+                                                                                                                                            </span>
+                                                                                                                                        </a>
+                                                                                                                                    </th>
+                                                                                                                                    <th>Ações
+                                                                                                                                    </th>
+                                                                                                                    </tr>
+                                                                                                                </thead>
+                                                                                                                <tbody>
+                                                                                                                    <% if
+                                                                                                                        (alunos.length===0)
+                                                                                                                        {
+                                                                                                                        %>
+                                                                                                                        <tr>
+                                                                                                                            <td
+                                                                                                                                colspan="<%= user.cargo === 'admin' ? 5 : 6 %>">
+                                                                                                                                <%= filtros.arquivados
+                                                                                                                                    ? 'Nenhum estagiário arquivado encontrado.'
+                                                                                                                                    : 'Nenhum estagiário encontrado com os filtros atuais.'
+                                                                                                                                    %>
+                                                                                                                            </td>
+                                                                                                                        </tr>
+                                                                                                                        <% } else
+                                                                                                                            {
+                                                                                                                            %>
+                                                                                                                            <%
+                                                                                                                                alunos.forEach((a)=>
+                                                                                                                                {
+                                                                                                                                %>
+                                                                                                                                <tr>
+                                                                                                                                    <td><a
+                                                                                                                                            href="/professor/aluno/<%= a.usuario_id %>"><strong>
+                                                                                                                                                <%= a.nome
+                                                                                                                                                    %>
+                                                                                                                                            </strong></a>
+                                                                                                                                    </td>
+                                                                                                                                    <% if
+                                                                                                                                        (user.cargo==='admin'
+                                                                                                                                        )
+                                                                                                                                        {
+                                                                                                                                        %>
+                                                                                                                                        <td>
+                                                                                                                                            <%= a.supervisor_nome
+                                                                                                                                                || '—'
+                                                                                                                                                %>
+                                                                                                                                        </td>
+                                                                                                                                        <% } else
+                                                                                                                                            {
+                                                                                                                                            %>
+                                                                                                                                            <td>
+                                                                                                                                                <% if
+                                                                                                                                                    (Number(a.orientador_id)===Number(user.id))
+                                                                                                                                                    {
+                                                                                                                                                    %>
+                                                                                                                                                    <span
+                                                                                                                                                        class="status status-progress">Orientando</span>
+                                                                                                                                                    <% }
+                                                                                                                                                        %>
+                                                                                                                                                        <% if
+                                                                                                                                                            (Number(a.supervisor_id)===Number(user.id))
+                                                                                                                                                            {
+                                                                                                                                                            %>
+                                                                                                                                                            <span
+                                                                                                                                                                class="status status-completed">Supervisionado</span>
+                                                                                                                                                            <% }
+                                                                                                                                                                %>
+                                                                                                                                            </td>
+                                                                                                                                            <td>Orientador:
+                                                                                                                                                <%= a.orientador_nome
+                                                                                                                                                    || '—'
+                                                                                                                                                    %>
+                                                                                                                                                    <br>Supervisor:
+                                                                                                                                                    <%= a.supervisor_nome
+                                                                                                                                                        || '—'
+                                                                                                                                                        %>
+                                                                                                                                            </td>
+                                                                                                                                            <% }
+                                                                                                                                                %>
+                                                                                                                                                <td>
+                                                                                                                                                    <%= Number(a.horas_realizadas)
+                                                                                                                                                        %>
+                                                                                                                                                        /
+                                                                                                                                                        <%= a.carga_horaria
+                                                                                                                                                            %>
+                                                                                                                                                            h
+                                                                                                                                                            <% if
+                                                                                                                                                                (Number(a.horas_pendentes)>
+                                                                                                                                                                0)
+                                                                                                                                                                {
+                                                                                                                                                                %>
+                                                                                                                                                                <br><span
+                                                                                                                                                                    class="text-muted hours-pending">+
+                                                                                                                                                                    <%= a.horas_pendentes
+                                                                                                                                                                        %>
+                                                                                                                                                                        h
+                                                                                                                                                                        pendentes
+                                                                                                                                                                </span>
+                                                                                                                                                                <% }
+                                                                                                                                                                    %>
+                                                                                                                                                </td>
+                                                                                                                                                <td>
+                                                                                                                                                    <% const
+                                                                                                                                                        st=estagioStatus(a);
+                                                                                                                                                        %>
+                                                                                                                                                        <span
+                                                                                                                                                            class="status <%= st.classe %>">
+                                                                                                                                                            <%= st.label
+                                                                                                                                                                %>
+                                                                                                                                                        </span>
+                                                                                                                                                </td>
+                                                                                                                                                <td>
+                                                                                                                                                    <%- include('partials/aluno_acoes',
+                                                                                                                                                        {
+                                                                                                                                                        a,
+                                                                                                                                                        user
+                                                                                                                                                        })
+                                                                                                                                                        %>
+                                                                                                                                                </td>
+                                                                                                                                </tr>
+                                                                                                                                <% })
+                                                                                                                                    %>
+                                                                                                                                    <% }
+                                                                                                                                        %>
+                                                                                                                </tbody>
+                                                                                                            </table>
+                                                                                                        </div>
+                                                                                                        <% } %>
+
+                                                                                                            <% const
+                                                                                                                inicioExibido=total===0
+                                                                                                                ? 0 :
+                                                                                                                (pagina
+                                                                                                                - 1) *
+                                                                                                                tamanhoPagina
+                                                                                                                + 1;
+                                                                                                                const
+                                                                                                                fimExibido=Math.min(total,
+                                                                                                                pagina *
+                                                                                                                tamanhoPagina);
+                                                                                                                const
+                                                                                                                inicioJanela=Math.max(1,
+                                                                                                                pagina -
+                                                                                                                2);
+                                                                                                                const
+                                                                                                                fimJanela=Math.min(totalPaginas,
+                                                                                                                pagina +
+                                                                                                                2); %>
+
+                                                                                                                <div
+                                                                                                                    class="pagination">
+                                                                                                                    <span
+                                                                                                                        class="pagination-info">
+                                                                                                                        Mostrando
+                                                                                                                        <%= inicioExibido
+                                                                                                                            %>
+                                                                                                                            –
+                                                                                                                            <%= fimExibido
+                                                                                                                                %>
+                                                                                                                                de
+                                                                                                                                <%= total
+                                                                                                                                    %>
+                                                                                                                                    <%= user.cargo==='supervisor'
+                                                                                                                                        ? 'supervisionado(s)'
+                                                                                                                                        : 'estagiário(s)'
+                                                                                                                                        %>
+                                                                                                                    </span>
+
+                                                                                                                    <% if
+                                                                                                                        (totalPaginas>
+                                                                                                                        1)
+                                                                                                                        {
+                                                                                                                        %>
+                                                                                                                        <div
+                                                                                                                            class="pagination-pages">
+                                                                                                                            <% if
+                                                                                                                                (pagina>
+                                                                                                                                1)
+                                                                                                                                {
+                                                                                                                                %>
+                                                                                                                                <a href="<%= montarPagina(pagina - 1) %>"
+                                                                                                                                    class="pagination-link">Anterior</a>
+                                                                                                                                <% }
+                                                                                                                                    %>
+
+                                                                                                                                    <% if
+                                                                                                                                        (inicioJanela>
+                                                                                                                                        1)
+                                                                                                                                        {
+                                                                                                                                        %>
+                                                                                                                                        <a href="<%= montarPagina(1) %>"
+                                                                                                                                            class="pagination-link">1</a>
+                                                                                                                                        <% if
+                                                                                                                                            (inicioJanela>
+                                                                                                                                            2)
+                                                                                                                                            {
+                                                                                                                                            %><span
+                                                                                                                                                class="pagination-gap">…</span>
+                                                                                                                                            <% }
+                                                                                                                                                %>
+                                                                                                                                                <% }
+                                                                                                                                                    %>
+
+                                                                                                                                                    <% for
+                                                                                                                                                        (let
+                                                                                                                                                        p=inicioJanela;
+                                                                                                                                                        p
+                                                                                                                                                        <=fimJanela;
+                                                                                                                                                        p++)
+                                                                                                                                                        {
+                                                                                                                                                        %>
+                                                                                                                                                        <a href="<%= montarPagina(p) %>"
+                                                                                                                                                            class="pagination-link <%= p === pagina ? 'active' : '' %>">
+                                                                                                                                                            <%= p
+                                                                                                                                                                %>
+                                                                                                                                                        </a>
+                                                                                                                                                        <% }
+                                                                                                                                                            %>
+
+                                                                                                                                                            <% if
+                                                                                                                                                                (fimJanela
+                                                                                                                                                                <
+                                                                                                                                                                totalPaginas)
+                                                                                                                                                                {
+                                                                                                                                                                %>
+                                                                                                                                                                <% if
+                                                                                                                                                                    (fimJanela
+                                                                                                                                                                    <
+                                                                                                                                                                    totalPaginas
+                                                                                                                                                                    -
+                                                                                                                                                                    1)
+                                                                                                                                                                    {
+                                                                                                                                                                    %>
+                                                                                                                                                                    <span
+                                                                                                                                                                        class="pagination-gap">…</span>
+                                                                                                                                                                    <% }
+                                                                                                                                                                        %>
+                                                                                                                                                                        <a href="<%= montarPagina(totalPaginas) %>"
+                                                                                                                                                                            class="pagination-link">
+                                                                                                                                                                            <%= totalPaginas
+                                                                                                                                                                                %>
+                                                                                                                                                                        </a>
+                                                                                                                                                                        <% }
+                                                                                                                                                                            %>
+
+                                                                                                                                                                            <% if
+                                                                                                                                                                                (pagina
+                                                                                                                                                                                <
+                                                                                                                                                                                totalPaginas)
+                                                                                                                                                                                {
+                                                                                                                                                                                %>
+                                                                                                                                                                                <a href="<%= montarPagina(pagina + 1) %>"
+                                                                                                                                                                                    class="pagination-link">Próxima</a>
+                                                                                                                                                                                <% }
+                                                                                                                                                                                    %>
+                                                                                                                        </div>
+                                                                                                                        <% }
+                                                                                                                            %>
+                                                                                                                </div>
+                                                                                </div>
+                                                                                <% } %>
         </main>
 
         <%- include('partials/footer') %>
