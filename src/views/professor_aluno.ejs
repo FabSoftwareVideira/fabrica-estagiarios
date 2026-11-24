@@ -106,8 +106,8 @@
 
         <% if (ehSupervisor && !emEspera && !encerrado && !aluno.arquivado && !(typeof bancaRealizada !== 'undefined' && bancaRealizada)) { %>
             <section class="card">
-                <h2>Desligamento do estágio</h2>
-                <p>O supervisor pode registrar o desligamento a qualquer momento e deve comunicar o estudante fora do sistema. Nenhuma ficha é exigida para desligar. Caso o estudante solicite o aproveitamento, deverá imprimir a ficha de acompanhamento e obter a assinatura do supervisor em todas as páginas.</p>
+                <h2>Desligar estudante</h2>
+                <p>Não exige documentos. Avise o estudante por outro meio; você poderá desfazer enquanto ele não iniciar outro estágio.</p>
                 <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/desligar">
                     <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
                     <button type="submit" class="btn-secondary" data-confirmar="Registrar o desligamento? Comunique o estudante por outro meio. As horas anteriores só contarão se o aproveitamento for confirmado.">Registrar desligamento</button>

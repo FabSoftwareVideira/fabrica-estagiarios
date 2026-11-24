@@ -250,7 +250,7 @@ test('reversão de desligamento antigo avisa quando a escala não foi preservada
     await amb.pedir(`/professor/aluno/${ana}/desligar`, { como: supervisor, corpo: {} });
     const [d] = await amb.sql('UPDATE desligamentos SET horario_trabalho_anterior = NULL WHERE aluno_id = $1 RETURNING id', [ana]);
     const painel = await (await amb.pedir('/professor/dashboard', { como: supervisor })).text();
-    assert.match(painel, /escala anterior não foi salva/);
+    assert.match(painel, /escala deverá ser informada novamente/);
     await amb.pedir(`/professor/desligamentos/${d.id}/reverter`, { como: supervisor, corpo: {} });
     assert.match(amb.flash(supervisor).message, /escala anterior não foi salva/);
 });
