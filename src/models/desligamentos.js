@@ -33,7 +33,7 @@ async function listarReversiveis(supervisorId) {
         FROM desligamentos d
         JOIN alunos a ON a.usuario_id = d.aluno_id
         JOIN usuarios u ON u.id = a.usuario_id
-        WHERE d.supervisor_id = $1 AND d.revertido_em IS NULL
+        WHERE ($1::int IS NULL OR d.supervisor_id = $1) AND d.revertido_em IS NULL
           AND d.id = (SELECT id FROM desligamentos
                       WHERE aluno_id = d.aluno_id AND revertido_em IS NULL ORDER BY id DESC LIMIT 1)
           AND a.status = 'lista_espera' AND a.supervisor_id IS NULL
@@ -42,7 +42,7 @@ async function listarReversiveis(supervisorId) {
     return rows;
 }
 
-async function desligar(alunoId, supervisorId, versao) {
+async function desligar(alunoId, userId, versao, gestor = false) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -52,8 +52,8 @@ async function desligar(alunoId, supervisorId, versao) {
             LEFT JOIN usuarios u ON u.id = a.supervisor_id
             WHERE a.usuario_id = $1 FOR UPDATE OF a`, [alunoId]);
         const aluno = rows[0];
-        if (!aluno || Number(aluno.supervisor_id) !== Number(supervisorId)) {
-            throw erro('Somente o supervisor atual pode registrar o desligamento.', 403);
+        if (!aluno || (!gestor && Number(aluno.supervisor_id) !== Number(userId))) {
+            throw erro('Somente o supervisor atual ou o setor de estágios pode registrar o desligamento.', 403);
         }
         if (aluno.status === 'lista_espera' || aluno.arquivado || aluno.encerrado_em
             || Number(aluno.versao_estagio) !== Number(versao)) {
@@ -71,8 +71,8 @@ async function desligar(alunoId, supervisorId, versao) {
                    COALESCE((SELECT jsonb_agg(to_jsonb(r)) FROM fichas_rascunhos r WHERE r.aluno_id = $1), '[]'::jsonb) AS rascunhos`, [alunoId]);
         const { rows: criados } = await client.query(`
             INSERT INTO desligamentos (aluno_id, supervisor_id, supervisor_nome, empresa, desligado_por, fichas_anteriores, horario_trabalho_anterior)
-            VALUES ($1, $2, $3, $4, $2, $5::jsonb, $6::jsonb) RETURNING id`,
-        [alunoId, supervisorId, aluno.supervisor_nome || '', aluno.empresa || '', JSON.stringify(fichas[0]), JSON.stringify(aluno.horario_trabalho)]);
+            VALUES ($1, $2, $3, $4, $7, $5::jsonb, $6::jsonb) RETURNING id`,
+        [alunoId, aluno.supervisor_id, aluno.supervisor_nome || '', aluno.empresa || '', JSON.stringify(fichas[0]), JSON.stringify(aluno.horario_trabalho), userId]);
         const id = criados[0].id;
         await client.query(`UPDATE atividades SET desligamento_id = $2, contabilizar = false
                             WHERE aluno_id = $1 AND desligamento_id IS NULL`, [alunoId, id]);
@@ -81,7 +81,7 @@ async function desligar(alunoId, supervisorId, versao) {
         }
         await client.query(`UPDATE bancas SET situacao = 'cancelada', atualizado_por = $2,
             atualizado_em = NOW(), versao = versao + 1
-            WHERE aluno_id = $1 AND situacao IN ('agendada', 'remarcada')`, [alunoId, supervisorId]);
+            WHERE aluno_id = $1 AND situacao IN ('agendada', 'remarcada')`, [alunoId, userId]);
         await client.query(`UPDATE alunos SET status = 'lista_espera', empresa = NULL,
             supervisor_id = NULL, horario_trabalho = '{}'::jsonb,
             versao_estagio = versao_estagio + 1 WHERE usuario_id = $1`, [alunoId]);
@@ -95,12 +95,12 @@ async function desligar(alunoId, supervisorId, versao) {
     }
 }
 
-async function reverter(id, supervisorId) {
+async function reverter(id, userId, gestor = false) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const { rows: vinculos } = await client.query(
-            'SELECT aluno_id FROM desligamentos WHERE id = $1 AND supervisor_id = $2', [id, supervisorId]);
+            'SELECT aluno_id FROM desligamentos WHERE id = $1 AND ($3 OR supervisor_id = $2)', [id, userId, gestor]);
         if (!vinculos.length) throw erro('Você não pode reverter este desligamento.', 403);
         const alunoId = vinculos[0].aluno_id;
         const { rows: alunos } = await client.query('SELECT * FROM alunos WHERE usuario_id = $1 FOR UPDATE', [alunoId]);
@@ -138,13 +138,13 @@ async function reverter(id, supervisorId) {
         }
         await client.query(`UPDATE atividades SET desligamento_id = NULL, contabilizar = true
             WHERE aluno_id = $1 AND desligamento_id = $2`, [alunoId, id]);
-        await client.query(`UPDATE desligamentos SET revertido_em = NOW(), revertido_por = $2 WHERE id = $1`, [id, supervisorId]);
+        await client.query(`UPDATE desligamentos SET revertido_em = NOW(), revertido_por = $2 WHERE id = $1`, [id, userId]);
         await client.query(`UPDATE alunos SET empresa = NULLIF($2, ''), supervisor_id = $3,
             horario_trabalho = COALESCE($4::jsonb, horario_trabalho), versao_estagio = versao_estagio + 1,
             status = CASE WHEN COALESCE((SELECT SUM(horas) FROM atividades
                 WHERE aluno_id = $1 AND status_validacao = 'validada' AND contabilizar), 0) >= carga_horaria
                 THEN 'concluido' ELSE 'em_andamento' END
-            WHERE usuario_id = $1`, [alunoId, registro.empresa, supervisorId,
+            WHERE usuario_id = $1`, [alunoId, registro.empresa, registro.supervisor_id,
             registro.horario_trabalho_anterior == null ? null : JSON.stringify(registro.horario_trabalho_anterior)]);
         await client.query('COMMIT');
         return { alunoId, horarioRecuperado: registro.horario_trabalho_anterior != null };

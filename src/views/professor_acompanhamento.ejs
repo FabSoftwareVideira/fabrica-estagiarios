@@ -169,8 +169,13 @@
                         <% estudantes.forEach((a) => { %>
                             <tr>
                                 <td>
-                                    <a href="<%= a.etapa === 'lista_espera' ? '/professor/cadastro-aluno/' + a.usuario_id : '/professor/aluno/' + a.usuario_id %>"><strong><%= a.nome %></strong></a>
+                                    <a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a>
                                     <small class="acomp-sub"><%= a.cursoCurto %></small>
+                                    <% if (reversiveis.has(Number(a.usuario_id))) { %>
+                                        <form method="POST" action="/professor/desligamentos/<%= reversiveis.get(Number(a.usuario_id)) %>/reverter">
+                                            <button type="submit" class="btn btn-secondary btn-sm" data-confirmar="Desfazer o desligamento e retomar o estágio? Uma banca cancelada permanecerá cancelada.">Desfazer desligamento</button>
+                                        </form>
+                                    <% } %>
                                 </td>
                                 <td><%- include('partials/status', { classe: a.etapaClasse, label: a.etapaLabel }) %></td>
                                 <td class="acomp-horas">

@@ -249,6 +249,22 @@ test('desligamento não pode ser revertido depois do cadastro de novo estágio',
     assert.deepEqual(aluno, { status: 'em_andamento', empresa: 'Outro local', supervisor_id: outroProfessor });
 });
 
+test('setor de estágios desliga e desfaz o desligamento em nome do supervisor', async () => {
+    await amb.pedir(`/professor/aluno/${ana}/desligar`, { como: servidora, corpo: {} });
+    assert.match(amb.flash(servidora).message, /Comunique o estudante/);
+    const [d] = await amb.sql('SELECT id, supervisor_id, desligado_por FROM desligamentos WHERE aluno_id = $1', [ana]);
+    assert.deepEqual({ supervisor_id: d.supervisor_id, desligado_por: d.desligado_por }, { supervisor_id: supervisor, desligado_por: servidora });
+    const pagina = await (await amb.pedir(`/professor/aluno/${ana}`, { como: servidora })).text();
+    assert.match(pagina, new RegExp(`/professor/desligamentos/${d.id}/reverter`));
+    const acompanhamento = await (await amb.pedir('/professor/acompanhamento', { como: servidora })).text();
+    assert.match(acompanhamento, new RegExp(`/professor/desligamentos/${d.id}/reverter`));
+    await amb.pedir(`/professor/desligamentos/${d.id}/reverter`, { como: servidora, corpo: {} });
+    assert.match(amb.flash(servidora).message, /Desligamento revertido/);
+    const [aluno] = await amb.sql('SELECT supervisor_id, status FROM alunos WHERE usuario_id = $1', [ana]);
+    assert.equal(aluno.supervisor_id, supervisor);
+    assert.notEqual(aluno.status, 'lista_espera');
+});
+
 test('reversão de desligamento antigo avisa quando a escala não foi preservada', async () => {
     await amb.pedir(`/professor/aluno/${ana}/desligar`, { como: supervisor, corpo: {} });
     const [d] = await amb.sql('UPDATE desligamentos SET horario_trabalho_anterior = NULL WHERE aluno_id = $1 RETURNING id', [ana]);

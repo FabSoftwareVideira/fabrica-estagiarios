@@ -256,7 +256,7 @@ router.get('/dashboard', async (req, res) => {
 router.post('/desligamentos/:id/reverter', async (req, res) => {
     if (!idNaUrlValido(req.params.id)) return res.status(404).send('Desligamento não encontrado.');
     try {
-        const resultado = await desligamentosModel.reverter(req.params.id, req.session.user.id);
+        const resultado = await desligamentosModel.reverter(req.params.id, req.session.user.id, veTodosOsEstagios(req.session.user));
         const horario = resultado.horarioRecuperado ? '' : ' A escala anterior não foi salva; peça ao orientador ou à gestão que a informe novamente.';
         setFlash(req, 'success', 'Desligamento revertido. O estágio anterior foi retomado; eventual banca cancelada permanece cancelada.' + horario);
         return res.redirect(`/professor/aluno/${resultado.alunoId}`);
@@ -384,11 +384,12 @@ router.post('/aluno/:id/desligar', async (req, res) => {
     if (!req.aluno) return res.status(404).send('Estudante não encontrado.');
     if (!conferirFormulario(req, res, `/professor/aluno/${req.params.id}`)) return;
     try {
-        const resultado = await desligamentosModel.desligar(req.params.id, req.session.user.id, req.aluno.versao_estagio);
+        const resultado = await desligamentosModel.desligar(req.params.id, req.session.user.id,
+            req.aluno.versao_estagio, veTodosOsEstagios(req.session.user));
         const aviso = resultado.bancaCancelada
             ? ' A banca agendada foi cancelada; avise os participantes por outro meio.' : '';
         setFlash(req, 'success', 'Desligamento registrado. Comunique o estudante por outro meio.' + aviso);
-        return res.redirect('/professor/dashboard');
+        return res.redirect(veTodosOsEstagios(req.session.user) ? `/professor/aluno/${req.params.id}` : '/professor/dashboard');
     } catch (e) {
         if (!e.status) throw e;
         setFlash(req, 'error', e.message);
@@ -1046,6 +1047,7 @@ router.get('/acompanhamento', requireVisaoGeral, async (req, res) => {
 
     res.render('professor_acompanhamento', {
         resumo: acompanhamentoModel.resumir(todos),
+        reversiveis: new Map((await desligamentosModel.listarReversiveis(null)).map((d) => [Number(d.aluno_id), d.id])),
         solicitacoesPendentes: await usuariosModel.contarSupervisoresPendentes(),
         estudantes: filtrados.slice(inicio, inicio + TAMANHO_PAGINA_ACOMPANHAMENTO),
         paginacao: { pagina, totalPaginas, total: filtrados.length, inicio, tamanho: TAMANHO_PAGINA_ACOMPANHAMENTO },
