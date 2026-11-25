@@ -1,10 +1,15 @@
 <div class="table-actions">
+    <% if (typeof podeCancelarDesligamento === 'function' && podeCancelarDesligamento(user, a)) { %>
+        <%- include('cancelar_desligamento', { id: a.desligamento_id, nome: a.nome, semEscala: a.desligamento_sem_escala }) %>
+    <% } %>
+    <% if (typeof podeAbrirEstudante !== 'function' || podeAbrirEstudante(user, a)) { %>
     <a href="/professor/aluno/<%= a.usuario_id %>" class="btn btn-icon" title="Visualizar" aria-label="Visualizar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
             <circle cx="12" cy="12" r="3"></circle>
         </svg>
     </a>
+    <% } %>
 
     <% if (user.cargo === 'supervisor' && a.status === 'concluido' && !a.encerrado_em && !a.arquivado) { %>
         <a href="/professor/aluno/<%= a.usuario_id %>/fac" class="btn btn-success btn-sm" title="Preencher FAC" aria-label="Preencher FAC"><%- icone('caneta') %> Preencher FAC</a>
@@ -37,7 +42,8 @@
             </form>
         <% } %>
     <% } else if (user.cargo !== 'supervisor') { %>
-        <% if (a.status === 'lista_espera') { %>
+        <%# desligado: cadastrar outro estágio é exceção, feita pela ficha do estudante %>
+        <% if (a.status === 'lista_espera' && !a.desligamento_id) { %>
             <a href="/professor/cadastro-aluno/<%= a.usuario_id %>" class="btn btn-success btn-icon" title="Aprovar" aria-label="Aprovar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12"></polyline>

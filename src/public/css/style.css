@@ -284,6 +284,12 @@ html.alto-contraste .card h2, html.alto-contraste .card h3 { color: #ffd700; }
 .aviso strong { display: block; }
 .aviso-info { background: var(--azul-50); color: var(--azul-800); border-color: var(--azul-200); }
 .aviso-ok { background: var(--verde-100); color: var(--verde-700); border-color: #a7d6a1; }
+.aviso-desligado { background: #fff4ec; color: #7c2d12; border-color: #f5c5a3; }
+.aviso-acoes { margin-top: 10px; }
+/* ação pouco usada e com efeito grande: recolhida no fim da página */
+.acao-rara > summary { cursor: pointer; font-weight: 600; color: var(--texto-suave); }
+.acao-rara[open] > summary { margin-bottom: 10px; color: var(--azul-900); }
+.acao-rara p { margin-bottom: 12px; color: var(--texto-suave); }
 
 /* ===========================
    Botões
@@ -507,6 +513,7 @@ html.alto-contraste .wizard-etapa.feito .wizard-etapa-numero { color: #000; }
 .status-completed { background: var(--verde-100); color: var(--verde-700); border-color: #a7d6a1; }
 .status-invalidated { background: var(--vermelho-100); color: var(--vermelho-600); border-color: #f4b1a8; }
 .status-archived { background: #fff; color: #4b5563; border-color: #9ca3af; border-style: dashed; }
+.status-desligado { background: #fff4ec; color: #9a3412; border-color: #f5c5a3; }
 
 /* ===========================
    Tabelas
@@ -780,6 +787,11 @@ html.alto-contraste .secao-titulo { color: #ffd700; }
   border-radius: var(--raio-cartao); box-shadow: var(--sombra);
 }
 .supervisionado-card.is-pendente { border-left-color: var(--verde-600); }
+/* desligado: aparece na lista como os demais, com o aviso e o botão de cancelar */
+.supervisionado-card.is-desligado { border-left-color: #f5c5a3; }
+.supervisionado-aviso { font-size: 13px; color: var(--texto-suave); margin-top: 6px; }
+.form-cancelar-desligamento { display: inline-flex; margin: 0; }
+.acomp-cancelar { margin-top: 6px; }
 .supervisionado-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .supervisionado-head h3 { margin: 0; font-size: 17px; }
 .supervisionado-head h3 a { color: var(--azul-900); text-decoration: none; }
@@ -1305,9 +1317,10 @@ html.alto-contraste .public-flow-number { background: #1a1a1a; }
 
 /* Acompanhamento (administrador). As cores das etapas foram conferidas para
    daltonismo; a tabela ao lado da barra traz sempre os números. */
-:root { --etapa-espera: #8792b0; --etapa-andamento: #1351b4; --etapa-banca: #e8a400; --etapa-encerrado: #136f20; }
-html.alto-contraste { --etapa-espera: #8f9ac0; --etapa-andamento: #2f7df0; --etapa-banca: #e0a400; --etapa-encerrado: #178f33; }
+:root { --etapa-desligado: #c2410c; --etapa-espera: #8792b0; --etapa-andamento: #1351b4; --etapa-banca: #e8a400; --etapa-encerrado: #136f20; }
+html.alto-contraste { --etapa-desligado: #f97316; --etapa-espera: #8f9ac0; --etapa-andamento: #2f7df0; --etapa-banca: #e0a400; --etapa-encerrado: #178f33; }
 .acomp-lista_espera { background: var(--etapa-espera); }
+.acomp-desligado { background: var(--etapa-desligado); }
 .acomp-em_andamento { background: var(--etapa-andamento); }
 .acomp-aguardando_banca { background: var(--etapa-banca); }
 .acomp-encerrado { background: var(--etapa-encerrado); }
@@ -1339,6 +1352,7 @@ a.acomp-curso:hover { border-color: var(--azul-700); }
 .acomp-fatia { stroke-linecap: butt; }
 .acomp-fatia:hover { stroke-width: 7; }
 .acomp-fatia-lista_espera { stroke: var(--etapa-espera); }
+.acomp-fatia-desligado { stroke: var(--etapa-desligado); }
 .acomp-fatia-em_andamento { stroke: var(--etapa-andamento); }
 .acomp-fatia-aguardando_banca { stroke: var(--etapa-banca); }
 .acomp-fatia-encerrado { stroke: var(--etapa-encerrado); }

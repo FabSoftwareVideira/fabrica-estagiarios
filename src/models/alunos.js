@@ -1,15 +1,33 @@
 const { pool } = require('../config/database');
 
+// Desligamento que ainda pode ser cancelado: o último, não revertido, com o
+// estudante de volta à lista de espera e sem ter começado outro estágio.
+// Enquanto existir, o estudante aparece como "Desligado" nas listas.
+const JOIN_DESLIGAMENTO = `
+    LEFT JOIN LATERAL (
+        SELECT d.id, d.supervisor_id, d.supervisor_nome, d.empresa, d.desligado_em,
+               d.horario_trabalho_anterior IS NULL AS sem_escala
+        FROM desligamentos d
+        WHERE d.aluno_id = a.usuario_id AND d.revertido_em IS NULL
+        ORDER BY d.id DESC LIMIT 1
+    ) dl ON a.status = 'lista_espera' AND a.supervisor_id IS NULL
+        AND NOT a.arquivado AND a.encerrado_em IS NULL`;
+const CAMPOS_DESLIGAMENTO = `dl.id AS desligamento_id, dl.supervisor_id AS desligamento_supervisor_id,
+                dl.supervisor_nome AS desligamento_supervisor_nome, dl.empresa AS desligamento_empresa,
+                dl.desligado_em, dl.sem_escala AS desligamento_sem_escala`;
+
 async function buscarPorUsuarioId(usuarioId) {
     const { rows } = await pool.query(
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome, ori.nome AS orientador_nome,
+                ${CAMPOS_DESLIGAMENTO},
                 COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar), 0) AS horas_realizadas,
                 COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente' AND desligamento_id IS NULL), 0) AS horas_pendentes
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
          LEFT JOIN usuarios ori ON ori.id = a.orientador_id
+         ${JOIN_DESLIGAMENTO}
          WHERE a.usuario_id = $1`,
         [usuarioId]
     );
@@ -62,7 +80,8 @@ const ORDENACOES = {
 // fases do status "concluido" (horas cumpridas); o valor antigo "concluido"
 // continua valendo e pega as duas.
 const CONDICOES_STATUS = {
-    lista_espera: "a.status = 'lista_espera'",
+    lista_espera: "(a.status = 'lista_espera' AND dl.id IS NULL)",
+    desligado: 'dl.id IS NOT NULL',
     em_andamento: "a.status = 'em_andamento'",
     aguardando_banca: "(a.status = 'concluido' AND a.encerrado_em IS NULL)",
     encerrado: "(a.status = 'concluido' AND a.encerrado_em IS NOT NULL)",
@@ -76,8 +95,10 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
     if (professorId != null) {
         valores.push(professorId);
         // além dos próprios estudantes, o professor vê quem está na lista de
-        // espera ainda sem orientador: qualquer professor pode aprovar o cadastro
+        // espera ainda sem orientador (qualquer professor pode aprovar o cadastro)
+        // e quem ele desligou, enquanto o desligamento puder ser cancelado
         filtros.push(`(a.orientador_id = $${valores.length} OR a.supervisor_id = $${valores.length}
+            OR dl.supervisor_id = $${valores.length}
             OR (a.status = 'lista_espera' AND a.orientador_id IS NULL))`);
     } else if (orientadorId != null) {
         valores.push(orientadorId);
@@ -85,7 +106,7 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
     }
     if (supervisorId != null) {
         valores.push(supervisorId);
-        filtros.push(`a.supervisor_id = $${valores.length}`);
+        filtros.push(`(a.supervisor_id = $${valores.length} OR dl.supervisor_id = $${valores.length})`);
     }
 
     const statusSelecionados = Array.isArray(status) ? status : (status ? [status] : []);
@@ -108,6 +129,7 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
         `SELECT COUNT(*)::int AS total
          FROM alunos a
          JOIN usuarios u ON u.id = a.usuario_id
+         ${JOIN_DESLIGAMENTO}
          ${where}`,
         valores
     );
@@ -133,6 +155,7 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
         `SELECT a.*, u.nome, u.email,
                 sup.nome AS supervisor_nome,
                 ori.nome AS orientador_nome,
+                ${CAMPOS_DESLIGAMENTO},
                 EXISTS (SELECT 1 FROM facs f WHERE f.aluno_id = a.usuario_id) AS tem_fac,
                 COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'validada' AND contabilizar), 0) AS horas_realizadas,
                 COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente' AND desligamento_id IS NULL), 0) AS horas_pendentes
@@ -140,6 +163,7 @@ async function listar({ status, busca, arquivados, limite, offset, ordenarPor, d
          JOIN usuarios u ON u.id = a.usuario_id
          LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
          LEFT JOIN usuarios ori ON ori.id = a.orientador_id
+         ${JOIN_DESLIGAMENTO}
          ${where}
          ORDER BY ${orderBy}
          LIMIT $${valoresPagina.length - 1} OFFSET $${valoresPagina.length}`,
@@ -227,6 +251,8 @@ async function desarquivar(usuarioId) {
 }
 
 module.exports = {
+    JOIN_DESLIGAMENTO,
+    CAMPOS_DESLIGAMENTO,
     buscarPorUsuarioId,
     criar,
     buscarPorMatricula,

@@ -23,15 +23,16 @@
                 </tr>
             <% } else { alunos.forEach((a) => { %>
                 <tr>
-                    <td><a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a></td>
+                    <td><% if (podeAbrirEstudante(user, a)) { %><a href="/professor/aluno/<%= a.usuario_id %>"><strong><%= a.nome %></strong></a><% } else { %><strong><%= a.nome %></strong><% } %></td>
                     <% if (admin) { %>
-                        <td><%= a.supervisor_nome || '—' %></td>
+                        <td><%= a.supervisor_nome || '—' %><% if (a.desligamento_id) { %><br><small class="text-muted">Desligado por <%= a.desligamento_supervisor_nome || '—' %></small><% } %></td>
                     <% } else { %>
                         <td>
                             <% if (Number(a.orientador_id) === Number(user.id)) { %><%- include('../status', { classe: 'status-progress', label: 'Orientando' }) %><% } %>
                             <% if (Number(a.supervisor_id) === Number(user.id)) { %><%- include('../status', { classe: 'status-completed', label: 'Supervisionado' }) %><% } %>
+                            <% if (a.desligamento_id && Number(a.desligamento_supervisor_id) === Number(user.id)) { %><%- include('../status', { classe: 'status-waiting', label: 'Ex-supervisionado' }) %><% } %>
                         </td>
-                        <td>Orientador: <%= a.orientador_nome || '—' %><br>Supervisor: <%= a.supervisor_nome || '—' %></td>
+                        <td>Orientador: <%= a.orientador_nome || '—' %><br>Supervisor: <% if (a.desligamento_id) { %><span class="text-muted">desligado por <%= a.desligamento_supervisor_nome || '—' %> em <%= dataBr(a.desligado_em) %></span><% } else { %><%= a.supervisor_nome || '—' %><% } %></td>
                     <% } %>
                     <td>
                         <%= Number(a.horas_realizadas) %> / <%= a.carga_horaria %>h

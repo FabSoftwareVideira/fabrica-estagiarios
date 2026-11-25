@@ -275,6 +275,65 @@ test('reversão de desligamento antigo avisa quando a escala não foi preservada
     assert.match(amb.flash(supervisor).message, /escala anterior não foi salva/);
 });
 
+test('desligado aparece na lista como os demais, com a situação "Desligado" e o cancelamento para quem pode', async () => {
+    await amb.pedir(`/professor/aluno/${ana}/desligar`, { como: supervisor, corpo: {} });
+    const [d] = await amb.sql('SELECT id FROM desligamentos WHERE aluno_id = $1', [ana]);
+    const botao = new RegExp(`/professor/desligamentos/${d.id}/reverter`);
+    const linhaDaAna = (html) => /<tr>\s*<td>(?:(?!<\/tr>)[\s\S])*Ana Andrade(?:(?!<\/tr>)[\s\S])*<\/tr>/.exec(html)?.[0] || '';
+
+    // quem desligou: mesma tabela, contada na paginação, sem link para a ficha que ele não vê mais
+    const doSupervisor = await (await amb.pedir('/professor/dashboard', { como: supervisor })).text();
+    assert.match(linhaDaAna(doSupervisor), /Desligado<\/span>/);
+    assert.match(linhaDaAna(doSupervisor), botao);
+    assert.match(linhaDaAna(doSupervisor), /Ex-supervisionado/);
+    assert.doesNotMatch(linhaDaAna(doSupervisor), new RegExp(`href="/professor/aluno/${ana}"`));
+    assert.doesNotMatch(doSupervisor, /supervisionados-grid/);
+    assert.match(doSupervisor, /Mostrando 1–3 de 3 estagiário/);
+
+    // orientador: vê a situação, mas o cancelamento é de quem desligou ou da gestão
+    const doOrientador = await (await amb.pedir('/professor/dashboard', { como: orientadora })).text();
+    assert.match(linhaDaAna(doOrientador), /Desligado<\/span>/);
+    assert.match(linhaDaAna(doOrientador), /desligado por Saulo Supervisor/);
+    assert.doesNotMatch(linhaDaAna(doOrientador), botao);
+    assert.doesNotMatch(linhaDaAna(doOrientador), /title="Aprovar"/);
+
+    // filtros: "Desligados" separa da lista de espera comum
+    const filtrar = async (status) => (await amb.pedir(`/professor/dashboard?f=1&status=${status}`, { como: orientadora })).text();
+    assert.match(await filtrar('desligado'), /Ana Andrade/);
+    assert.doesNotMatch(await filtrar('lista_espera'), /Ana Andrade/);
+
+    // ficha: aviso com o cancelamento como ação principal e o novo estágio como alternativa
+    const fichaOrientador = await (await amb.pedir(`/professor/aluno/${ana}`, { como: orientadora })).text();
+    assert.match(fichaOrientador, /Desligado em/);
+    assert.match(fichaOrientador, /O cancelamento é feito por quem registrou o desligamento/);
+    assert.match(fichaOrientador, /Cadastrar estágio em outro local/);
+    assert.doesNotMatch(fichaOrientador, /Registrar desligamento/);
+    assert.match(await (await amb.pedir(`/professor/aluno/${ana}`, { como: servidora })).text(), botao);
+
+    // acompanhamento: etapa própria, com pendência explicativa
+    const acompanhamento = await (await amb.pedir('/professor/acompanhamento?etapa=desligado', { como: servidora })).text();
+    assert.match(acompanhamento, /Desligado de Agro Vale em/);
+    assert.doesNotMatch(acompanhamento, /Bruno Brito/);
+
+    // estudante: sabe que o desligamento ainda pode ser cancelado
+    const doEstudante = await (await amb.pedir('/aluno/dashboard', { como: ana })).text();
+    assert.match(doEstudante, /Você foi desligado do estágio/);
+    assert.match(doEstudante, /Desligado<\/span>/);
+
+    // cancelado: volta a ser um supervisionado comum
+    await amb.pedir(`/professor/desligamentos/${d.id}/reverter`, { como: supervisor, corpo: {} });
+    const depois = await (await amb.pedir('/professor/dashboard', { como: supervisor })).text();
+    assert.match(linhaDaAna(depois), /Supervisionado/);
+    assert.doesNotMatch(linhaDaAna(depois), /Desligado<\/span>/);
+});
+
+test('registrar desligamento fica recolhido no fim da ficha', async () => {
+    const ficha = await (await amb.pedir(`/professor/aluno/${ana}`, { como: supervisor })).text();
+    assert.match(ficha, /<details class="card acao-rara">\s*<summary>O estudante deixou o estágio\? Registrar desligamento<\/summary>/);
+    assert.ok(ficha.indexOf('acao-rara') > ficha.indexOf('student-dashboard-tabs'));
+    assert.doesNotMatch(await (await amb.pedir(`/professor/aluno/${ana}`, { como: orientadora })).text(), /acao-rara/);
+});
+
 test('reversão não sobrescreve fichas criadas depois do desligamento', async () => {
     await amb.pedir(`/professor/aluno/${bruno}/desligar`, { como: externo, corpo: {} });
     const [d] = await amb.sql('SELECT id FROM desligamentos WHERE aluno_id = $1', [bruno]);

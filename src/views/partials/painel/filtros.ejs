@@ -30,6 +30,7 @@
                     <%- include('../filtro_pilula', { nome: 'status', valor: 'em_andamento', label: 'Em andamento', marcado: temStatus('em_andamento') }) %>
                     <%- include('../filtro_pilula', { nome: 'status', valor: 'aguardando_banca', label: 'Aguardando banca', marcado: temStatus('aguardando_banca', 'concluido') }) %>
                     <%- include('../filtro_pilula', { nome: 'status', valor: 'encerrado', label: 'Encerrado', marcado: temStatus('encerrado', 'concluido') }) %>
+                    <%- include('../filtro_pilula', { nome: 'status', valor: 'desligado', label: 'Desligados', marcado: temStatus('desligado') }) %>
                     <span class="filter-pills-sep"></span>
                     <%- include('../filtro_pilula', { nome: 'arquivados', valor: '1', label: 'Arquivados', marcado: filtros.arquivados, classe: 'filter-pill-archived' }) %>
                 <% } %>

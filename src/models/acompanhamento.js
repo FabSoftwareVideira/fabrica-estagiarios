@@ -2,6 +2,8 @@
 const { pool } = require('../config/database');
 const { CURSOS } = require('../config/cursos');
 const { estagioStatus } = require('../config/status');
+const { formatarDataBr } = require('../utils/datas');
+const { JOIN_DESLIGAMENTO, CAMPOS_DESLIGAMENTO } = require('./alunos');
 
 // Etapas na ordem em que o estágio acontece.
 const ETAPAS_ACOMPANHAMENTO = [
@@ -9,6 +11,8 @@ const ETAPAS_ACOMPANHAMENTO = [
     { chave: 'em_andamento', label: 'Em andamento', classe: 'status-progress' },
     { chave: 'aguardando_banca', label: 'Aguardando banca', classe: 'status-banca' },
     { chave: 'encerrado', label: 'Encerrado', classe: 'status-completed' },
+    // exceção, fora do fluxo normal: voltou à lista de espera e o desligamento ainda pode ser cancelado
+    { chave: 'desligado', label: 'Desligado', classe: 'status-desligado' },
 ];
 const SEM_CURSO = 'Curso não informado';
 const DIAS_SEM_REGISTRO = 5; // mesmo limite do lembrete de atividades
@@ -26,12 +30,14 @@ async function listarEstudantes() {
                COALESCE((SELECT SUM(horas) FROM atividades WHERE aluno_id = a.usuario_id AND status_validacao = 'pendente' AND desligamento_id IS NULL), 0) AS horas_pendentes,
                (SELECT TO_CHAR(MAX(data), 'YYYY-MM-DD') FROM atividades WHERE aluno_id = a.usuario_id AND desligamento_id IS NULL) AS ultima_atividade,
                FLOOR(EXTRACT(EPOCH FROM (NOW() - a.relatorio_atualizado_em)) / 86400)::int AS dias_sem_registro,
-               TO_CHAR(b.data, 'YYYY-MM-DD') AS banca_data
+               TO_CHAR(b.data, 'YYYY-MM-DD') AS banca_data,
+               ${CAMPOS_DESLIGAMENTO}
         FROM alunos a
         JOIN usuarios u ON u.id = a.usuario_id
         LEFT JOIN usuarios ori ON ori.id = a.orientador_id
         LEFT JOIN usuarios sup ON sup.id = a.supervisor_id
         LEFT JOIN bancas b ON b.aluno_id = a.usuario_id AND b.situacao IN ('agendada', 'remarcada')
+        ${JOIN_DESLIGAMENTO}
         WHERE a.arquivado = false AND u.ativo = true
         ORDER BY u.nome`);
     return rows.map(detalhar);
@@ -47,8 +53,9 @@ function detalhar(linha) {
     const pendencias = [];
 
     if (etapa.chave === 'lista_espera') pendencias.push('Aguardando aprovação do cadastro');
+    if (etapa.chave === 'desligado') pendencias.push(`Desligado de ${linha.desligamento_empresa || 'empresa não informada'} em ${formatarDataBr(linha.desligado_em)}: aguarda novo estágio`);
     if (!linha.curso) pendencias.push('Curso não informado');
-    if (etapa.chave !== 'lista_espera' && !linha.orientador_id) pendencias.push('Sem orientador');
+    if (!['lista_espera', 'desligado'].includes(etapa.chave) && !linha.orientador_id) pendencias.push('Sem orientador');
     if (etapa.chave === 'em_andamento') {
         if (!linha.supervisor_id) pendencias.push('Sem supervisor');
         if (dias > DIAS_SEM_REGISTRO) pendencias.push(`Sem registrar há ${dias} dias`);

@@ -1,0 +1,11 @@
+<%# Botão para cancelar um desligamento (vale até o estudante começar outro estágio).
+    Parâmetros: id (do desligamento), nome (do estudante), semEscala (opcional:
+    desligamento antigo, sem a escala de trabalho guardada), classe (opcional) %>
+<% const avisoEscala = typeof semEscala !== 'undefined' && semEscala
+    ? ' A escala deverá ser informada novamente pelo orientador ou pelo setor de estágios, porque não foi guardada nesse desligamento.' : ''; %>
+<form method="POST" action="/professor/desligamentos/<%= id %>/reverter" class="form-cancelar-desligamento">
+    <button type="submit" class="btn btn-secondary btn-sm <%= typeof classe !== 'undefined' ? classe : '' %>"
+        data-confirmar="Cancelar o desligamento de <%= nome %>? O estágio anterior volta a valer, com o mesmo supervisor, empresa, horas e fichas. Uma banca que tenha sido cancelada continua cancelada.<%= avisoEscala %>">
+        <%- icone('refazer') %> Cancelar desligamento
+    </button>
+</form>

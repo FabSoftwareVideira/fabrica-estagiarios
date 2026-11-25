@@ -1243,7 +1243,7 @@ test('acompanhamento: só o administrador vê; totais por curso, etapas, pendên
     const todos = await modelo.listarEstudantes();
     const { geral, cursos } = modelo.resumir(todos);
     assert.equal(geral.total, 9); // o arquivado fica de fora
-    assert.deepEqual(geral.etapas, { lista_espera: 1, em_andamento: 6, aguardando_banca: 1, encerrado: 1 });
+    assert.deepEqual(geral.etapas, { lista_espera: 1, em_andamento: 6, aguardando_banca: 1, encerrado: 1, desligado: 0 });
     const porNome = Object.fromEntries(cursos.map((c) => [c.nome, c]));
     assert.equal(porNome['Informática'].total, 2);
     assert.equal(porNome['Informática'].progressoMedio, 25); // 50% e 0%

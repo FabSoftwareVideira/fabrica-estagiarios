@@ -31,7 +31,8 @@ html.alto-contraste .lg-fim { background: repeating-linear-gradient(135deg, #111
 html.alto-contraste .cal-semana.fim { opacity: 1; }
 
 html.alto-contraste .status-waiting,
-html.alto-contraste .status-archived { background: #111; color: #fff; border-color: #aaa; }
+html.alto-contraste .status-archived,
+html.alto-contraste .status-desligado { background: #111; color: #fff; border-color: #aaa; }
 html.alto-contraste input::placeholder,
 html.alto-contraste textarea::placeholder { color: #ccc; opacity: 1; }
 html.alto-contraste input[type="checkbox"],
@@ -39,3 +40,5 @@ html.alto-contraste input[type="radio"] { accent-color: #ffd700; }
 html.alto-contraste button:disabled,
 html.alto-contraste .btn[aria-disabled="true"] { opacity: 1; border-style: dashed; }
 html.alto-contraste :focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+html.alto-contraste .aviso-desligado { background: #111; color: #fff; border-color: #ffd700; }

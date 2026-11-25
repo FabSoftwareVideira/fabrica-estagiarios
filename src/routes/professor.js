@@ -123,9 +123,9 @@ router.use(require('./estagios'));
 
 const TAMANHO_PAGINA = 10;
 const TAMANHO_PAGINA_USUARIOS = 10;
-const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'concluido'];
+const STATUS_VALIDOS = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'concluido', 'desligado'];
 const CAMPOS_ORDENACAO = ['nome', 'supervisor', 'horas', 'status'];
-const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado'];
+const STATUS_FILTRO = ['lista_espera', 'em_andamento', 'aguardando_banca', 'encerrado', 'desligado'];
 const SITUACOES_SUPERVISOR = ['andamento', 'concluido', 'desligado'];
 const CAMPOS_ORDENACAO_USUARIOS = ['nome', 'email', 'tipo', 'situacao', 'criado_em'];
 
@@ -175,10 +175,9 @@ router.get('/dashboard', async (req, res) => {
 
     let status;
     if (isSupervisor) {
-        const regulares = situacoesSupervisor.filter((s) => s !== 'desligado');
-        if (regulares.length === 1 && regulares[0] === 'andamento') status = ['lista_espera', 'em_andamento'];
-        else if (regulares.length === 1 && regulares[0] === 'concluido') status = ['concluido'];
-        else status = [];
+        // sem situação marcada: todos, inclusive os desligados que ainda podem ser cancelados
+        const porSituacao = { andamento: ['lista_espera', 'em_andamento'], concluido: ['concluido'], desligado: ['desligado'] };
+        status = situacoesSupervisor.flatMap((s) => porSituacao[s]);
     } else {
         status = [...new Set([].concat(req.query.status || []))]
             .filter((s) => STATUS_VALIDOS.includes(s));
@@ -211,24 +210,12 @@ router.get('/dashboard', async (req, res) => {
         ? await alunosModel.listarPendentesFac(req.session.user.id)
         : [];
 
-    const semFiltroSituacao = situacoesSupervisor.length === 0;
-    const mostrarRegulares = !isSupervisor || semFiltroSituacao
-        || situacoesSupervisor.some((s) => s !== 'desligado');
-    const mostrarDesligados = !isSupervisor || semFiltroSituacao || situacoesSupervisor.includes('desligado');
-
-    let resultado = mostrarRegulares ? await consultar() : { alunos: [], total: 0 };
+    let resultado = await consultar();
     const totalPaginas = Math.max(1, Math.ceil(resultado.total / TAMANHO_PAGINA));
 
-    if (mostrarRegulares && pagina > totalPaginas) {
+    if (pagina > totalPaginas) {
         pagina = totalPaginas;
         resultado = await consultar();
-    }
-
-    let desligados = [];
-    if (mostrarDesligados) {
-        const termo = busca.toLowerCase();
-        desligados = (await desligamentosModel.listarReversiveis(req.session.user.id))
-            .filter((d) => !termo || String(d.nome).toLowerCase().includes(termo));
     }
 
     const filtroPersonalizado = isSupervisor
@@ -248,7 +235,6 @@ router.get('/dashboard', async (req, res) => {
         solicitacoesPendentes,
         minhasBancas,
         facPendentes,
-        desligados,
         links: criarLinksDoPainel({ aba, filtros, ordenacao, supervisor: isSupervisor }),
     });
 });
@@ -1047,7 +1033,6 @@ router.get('/acompanhamento', requireVisaoGeral, async (req, res) => {
 
     res.render('professor_acompanhamento', {
         resumo: acompanhamentoModel.resumir(todos),
-        reversiveis: new Map((await desligamentosModel.listarReversiveis(null)).map((d) => [Number(d.aluno_id), d.id])),
         solicitacoesPendentes: await usuariosModel.contarSupervisoresPendentes(),
         estudantes: filtrados.slice(inicio, inicio + TAMANHO_PAGINA_ACOMPANHAMENTO),
         paginacao: { pagina, totalPaginas, total: filtrados.length, inicio, tamanho: TAMANHO_PAGINA_ACOMPANHAMENTO },

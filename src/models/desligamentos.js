@@ -27,21 +27,6 @@ async function atividades(id, alunoId) {
     return rows;
 }
 
-async function listarReversiveis(supervisorId) {
-    const { rows } = await pool.query(`
-        SELECT d.id, d.aluno_id, d.empresa, d.desligado_em, d.horario_trabalho_anterior, u.nome
-        FROM desligamentos d
-        JOIN alunos a ON a.usuario_id = d.aluno_id
-        JOIN usuarios u ON u.id = a.usuario_id
-        WHERE ($1::int IS NULL OR d.supervisor_id = $1) AND d.revertido_em IS NULL
-          AND d.id = (SELECT id FROM desligamentos
-                      WHERE aluno_id = d.aluno_id AND revertido_em IS NULL ORDER BY id DESC LIMIT 1)
-          AND a.status = 'lista_espera' AND a.supervisor_id IS NULL
-          AND NOT a.arquivado AND a.encerrado_em IS NULL AND u.ativo
-        ORDER BY d.desligado_em DESC, d.id DESC`, [supervisorId]);
-    return rows;
-}
-
 async function desligar(alunoId, userId, versao, gestor = false) {
     const client = await pool.connect();
     try {
@@ -197,4 +182,4 @@ async function confirmar(id, alunoId, userId, gestor) {
     }
 }
 
-module.exports = { listar, buscar, atividades, listarReversiveis, desligar, reverter, solicitar, confirmar };
+module.exports = { listar, buscar, atividades, desligar, reverter, solicitar, confirmar };

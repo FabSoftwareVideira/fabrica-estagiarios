@@ -5,7 +5,7 @@
 const alunosModel = require('../models/alunos');
 const usuariosModel = require('../models/usuarios');
 const { estagioStatus } = require('../config/status');
-const { papeisDoPerfil, temAlunosProprios } = require('../config/papeis');
+const { papeisDoPerfil, temAlunosProprios, veTodosOsEstagios } = require('../config/papeis');
 
 async function attachUser(req, res, next) {
     if (req.session.user) {
@@ -50,6 +50,12 @@ async function attachUser(req, res, next) {
         return { texto: 'Acompanhamento', href: '/professor/acompanhamento' };
     };
     res.locals.estagioStatus = estagioStatus;
+    // Desligamento ainda pendente: cancela quem desligou, o administrador ou o setor de estágios.
+    // Quem só supervisionava deixa de ver a ficha do estudante depois do desligamento.
+    res.locals.podeCancelarDesligamento = (usuario, aluno) => Boolean(usuario && aluno && aluno.desligamento_id)
+        && (veTodosOsEstagios(usuario) || Number(aluno.desligamento_supervisor_id) === Number(usuario.id));
+    res.locals.podeAbrirEstudante = (usuario, aluno) => !aluno.desligamento_id || veTodosOsEstagios(usuario)
+        || Number(aluno.orientador_id) === Number(usuario.id);
     res.locals.alunoEncerrado = false;
     delete req.session.flash;
 

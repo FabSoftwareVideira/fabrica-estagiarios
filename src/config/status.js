@@ -8,6 +8,10 @@ function estagioStatus(aluno) {
     if (aluno.arquivado) {
         return { chave: 'arquivado', label: 'Arquivado', classe: 'status-archived' };
     }
+    // desligado: voltou à lista de espera, mas o desligamento ainda pode ser cancelado
+    if (aluno.desligamento_id) {
+        return { chave: 'desligado', label: 'Desligado', classe: 'status-desligado' };
+    }
     if (aluno.status === 'lista_espera') {
         return { chave: 'lista_espera', label: 'Lista de espera', classe: 'status-waiting' };
     }

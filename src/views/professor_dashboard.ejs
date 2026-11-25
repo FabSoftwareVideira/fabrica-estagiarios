@@ -40,20 +40,14 @@
 
         <div class="card">
             <% if (supervisor) { %>
-                <% if (alunos.length === 0 && desligados.length === 0) { %>
+                <% if (alunos.length === 0) { %>
                     <p class="empty-state">Nenhum supervisionado encontrado com os filtros atuais.</p>
                 <% } else { %>
                     <div class="supervisionados-grid">
-                        <% desligados.forEach((d) => { %><%- include('partials/desligado_card', { d }) %><% }) %>
                         <% alunos.forEach((a) => { %><%- include('partials/painel/supervisionado_card', { a }) %><% }) %>
                     </div>
                 <% } %>
             <% } else { %>
-                <% if (desligados.length) { %>
-                    <div class="supervisionados-grid">
-                        <% desligados.forEach((d) => { %><%- include('partials/desligado_card', { d }) %><% }) %>
-                    </div>
-                <% } %>
                 <%- include('partials/painel/tabela_estagiarios') %>
             <% } %>
 

@@ -29,6 +29,10 @@
                 ? Math.min(100, Math.round((horasRealizadas / cargaHoraria) * 100))
                 : 0;
             const totalAtividades = atividades.length;
+            const desligado = st.chave === 'desligado';
+            // desligar é exceção: fica recolhido no fim da página
+            const podeDesligar = (ehSupervisor || gestor) && aluno.status !== 'lista_espera' && !encerrado && !aluno.arquivado
+                && !(typeof bancaRealizada !== 'undefined' && bancaRealizada);
 
             // abas: cada assunto da tela fica no seu painel
             const temFichas = aluno.status !== 'lista_espera';
@@ -91,7 +95,7 @@
                 </div>
                 <div>
                     <dt>Empresa</dt>
-                    <dd><%= aluno.empresa || '—' %></dd>
+                    <dd><%= aluno.empresa || '—' %><% if (desligado) { %> <small class="text-muted">(antes: <%= aluno.desligamento_empresa || 'não informada' %>)</small><% } %></dd>
                 </div>
                 <div>
                     <dt>Orientador</dt>
@@ -99,44 +103,10 @@
                 </div>
                 <div>
                     <dt>Supervisor</dt>
-                    <dd><%= aluno.supervisor_nome || '—' %></dd>
+                    <dd><%= aluno.supervisor_nome || '—' %><% if (desligado) { %> <small class="text-muted">(antes: <%= aluno.desligamento_supervisor_nome || 'não informado' %>)</small><% } %></dd>
                 </div>
             </dl>
         </section>
-
-        <% if ((ehSupervisor || gestor) && !emEspera && !encerrado && !aluno.arquivado && !(typeof bancaRealizada !== 'undefined' && bancaRealizada)) { %>
-            <section class="card">
-                <h2>Desligar estudante</h2>
-                <p>Não exige documentos. Avise o estudante por outro meio; você poderá desfazer enquanto ele não iniciar outro estágio.</p>
-                <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/desligar">
-                    <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
-                    <button type="submit" class="btn-secondary" data-confirmar="Registrar o desligamento? Comunique o estudante por outro meio. As horas anteriores só contarão se o aproveitamento for confirmado.">Registrar desligamento</button>
-                </form>
-            </section>
-        <% } %>
-        <% if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
-            <section class="card">
-                <h2>Estágios interrompidos</h2>
-                <% desligamentos.forEach((d, i) => { %>
-                    <div class="ficha-item">
-                        <h3><%= d.empresa || 'Local não informado' %></h3>
-                        <p>Supervisor: <%= d.supervisor_nome || 'Não informado' %> · <%= Number(d.horas_validadas) %>h validadas · desligamento em <%= dataBr(d.desligado_em) %></p>
-                        <p><%= d.confirmado_em ? 'Horas aproveitadas' : (d.solicitado_em ? 'Aproveitamento solicitado: aguardando conferência da ficha assinada pelo supervisor' : 'Aproveitamento não solicitado') %></p>
-                        <% if (d.solicitado_em && !d.confirmado_em && !aluno.arquivado && !encerrado) { %>
-                            <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/desligamentos/<%= d.id %>/confirmar">
-                                <label><input type="checkbox" name="ficha_assinada" value="sim" required> Recebi a ficha de acompanhamento assinada pelo supervisor em todas as páginas.</label>
-                                <button type="submit">Confirmar aproveitamento</button>
-                            </form>
-                        <% } %>
-                        <% if (gestor && i === 0 && emEspera && !aluno.arquivado && !encerrado) { %>
-                            <form method="POST" action="/professor/desligamentos/<%= d.id %>/reverter">
-                                <button type="submit" class="btn btn-secondary btn-sm" data-confirmar="Desfazer o desligamento e retomar o estágio? Uma banca cancelada permanecerá cancelada.">Desfazer desligamento</button>
-                            </form>
-                        <% } %>
-                    </div>
-                <% }) %>
-            </section>
-        <% } %>
 
         <% if (encerrado && user.cargo !== 'supervisor') { %>
             <div class="aviso aviso-ok" role="status">
@@ -183,7 +153,26 @@
             </div>
         <% } %>
 
-        <% if (emEspera && user.cargo !== 'supervisor' && !aluno.arquivado) { %>
+        <% if (desligado) { %>
+            <div class="aviso aviso-desligado" role="status">
+                <%- icone('alerta') %>
+                <div>
+                    <strong>Desligado em <%= dataBr(aluno.desligado_em) %></strong>
+                    <%= aluno.desligamento_supervisor_nome || 'O supervisor' %> registrou o desligamento do estágio em <%= aluno.desligamento_empresa || 'empresa não informada' %>.
+                    Enquanto o estudante não começar outro estágio, o desligamento pode ser cancelado: o estágio volta como estava, com o mesmo supervisor, empresa, horas e fichas.
+                    <% if (!podeCancelarDesligamento(user, aluno)) { %>O cancelamento é feito por quem registrou o desligamento ou pelo setor de estágios.<% } %>
+                    <% if (aluno.desligamento_sem_escala) { %>Se ele for cancelado, a escala deverá ser informada novamente, porque não foi guardada.<% } %>
+                    <div class="button-group aviso-acoes">
+                        <% if (podeCancelarDesligamento(user, aluno)) { %>
+                            <%- include('partials/cancelar_desligamento', { id: aluno.desligamento_id, nome: aluno.nome, semEscala: aluno.desligamento_sem_escala }) %>
+                        <% } %>
+                        <% if (user.cargo !== 'supervisor' && !aluno.arquivado) { %>
+                            <a href="/professor/cadastro-aluno/<%= aluno.usuario_id %>" class="btn btn-secondary btn-sm">Cadastrar estágio em outro local</a>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        <% } else if (emEspera && user.cargo !== 'supervisor' && !aluno.arquivado) { %>
             <div class="aviso aviso-info" role="status">
                 <%- icone('info') %>
                 <div>
@@ -193,6 +182,27 @@
                 </div>
             </div>
         <% } %>
+
+        <% if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
+            <section class="card">
+                <h2>Estágios anteriores</h2>
+                <p class="text-muted">Estágios em que o estudante foi desligado. As horas só contam no estágio atual se o aproveitamento for confirmado.</p>
+                <% desligamentos.forEach((d, i) => { %>
+                    <div class="ficha-item">
+                        <h3><%= d.empresa || 'Local não informado' %></h3>
+                        <p>Supervisor: <%= d.supervisor_nome || 'Não informado' %> · <%= Number(d.horas_validadas) %>h validadas · desligamento em <%= dataBr(d.desligado_em) %></p>
+                        <p><%= d.confirmado_em ? 'Horas aproveitadas' : (d.solicitado_em ? 'Aproveitamento solicitado: aguardando conferência da ficha assinada pelo supervisor' : 'Aproveitamento não solicitado') %></p>
+                        <% if (d.solicitado_em && !d.confirmado_em && !aluno.arquivado && !encerrado) { %>
+                            <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/desligamentos/<%= d.id %>/confirmar">
+                                <label><input type="checkbox" name="ficha_assinada" value="sim" required> Recebi a ficha de acompanhamento assinada pelo supervisor em todas as páginas.</label>
+                                <button type="submit">Confirmar aproveitamento</button>
+                            </form>
+                        <% } %>
+                    </div>
+                <% }) %>
+            </section>
+        <% } %>
+
 
         <section class="student-dashboard-tabs" data-dashboard-tabs>
             <div class="dashboard-tab-list" role="tablist" aria-label="Seções do estudante">
@@ -475,6 +485,18 @@
             </section>
             <% } %>
         </section>
+
+        <% if (podeDesligar) { %>
+            <details class="card acao-rara">
+                <summary>O estudante deixou o estágio? Registrar desligamento</summary>
+                <p>Use só quando o estudante não vai continuar neste local. O estudante volta para a lista de espera, sem supervisor nem empresa, e as horas deixam de contar até o aproveitamento ser confirmado.
+                    Avise o estudante por outro meio. Você pode cancelar o desligamento enquanto ele não começar outro estágio.</p>
+                <form method="POST" action="/professor/aluno/<%= aluno.usuario_id %>/desligar">
+                    <input type="hidden" name="versao_estagio" value="<%= aluno.versao_estagio %>">
+                    <button type="submit" class="btn-danger btn-sm" data-confirmar="Registrar o desligamento de <%= aluno.nome %>? O estudante volta para a lista de espera e as horas deixam de contar até o aproveitamento ser confirmado.">Registrar desligamento</button>
+                </form>
+            </details>
+        <% } %>
     </main>
 
     <%- include('partials/footer') %>

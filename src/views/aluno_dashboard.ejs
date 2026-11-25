@@ -88,7 +88,12 @@
             <section class="card proximo-passo" aria-labelledby="titulo-passo">
                 <div>
                     <% if (aluno.status === 'lista_espera') { %>
-                        <% if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
+                        <% if (aluno.desligamento_id) { %>
+                            <h2 id="titulo-passo">Você foi desligado do estágio</h2>
+                            <p>O desligamento do estágio em <strong><%= aluno.desligamento_empresa || 'empresa não informada' %></strong> foi registrado em <%= dataBr(aluno.desligado_em) %>.
+                                Se foi um engano, fale com seu supervisor ou orientador: enquanto você não começar outro estágio, o desligamento pode ser cancelado e tudo volta como estava.
+                                Se for para outro local, o orientador ou o setor de estágios cadastrará o novo estágio, e você pode pedir o aproveitamento das horas na aba Fichas.</p>
+                        <% } else if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
                             <h2 id="titulo-passo">Aguardando novo estágio</h2>
                             <p>O orientador ou a gestão cadastrará seu novo estágio em outro local. Se desejar, solicite o aproveitamento das horas anteriores na aba Fichas.</p>
                         <% } else { %>
@@ -216,7 +221,7 @@
             <section class="dashboard-tab-panel" id="panel-fichas" role="tabpanel" aria-labelledby="tab-fichas" tabindex="0" <%= abaSelecionada === 'fichas' ? '' : 'hidden' %>>
                 <% if (typeof desligamentos !== 'undefined' && desligamentos.length) { %>
                     <section class="card">
-                        <h2>Estágios interrompidos</h2>
+                        <h2>Estágios anteriores</h2>
                         <p>Para aproveitar horas validadas, solicite o aproveitamento, imprima a ficha e obtenha a assinatura do supervisor em todas as páginas. O orientador ou a gestão confirmará as horas após receber a ficha assinada.</p>
                         <% desligamentos.forEach((d) => { %>
                             <div class="ficha-item">
